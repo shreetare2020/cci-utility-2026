@@ -49,7 +49,7 @@ def init_db():
         try:
             # Jo tune Secrets mein save kiya hai wo yahan use hoga
             sc_json = st.secrets["firebase"]["service_account_json"]
-            info = json.loads(sc_json)
+            info = json.loads(sc_json, strict=False)
             cred = credentials.Certificate(info)
             firebase_admin.initialize_app(cred)
         except Exception as e:
