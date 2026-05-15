@@ -2,3 +2,5 @@ streamlit
 pandas
 fpdf
 openpyxl
+firebase-admin
+google-cloud-firestore
