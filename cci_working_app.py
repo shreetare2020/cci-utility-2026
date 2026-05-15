@@ -47,22 +47,21 @@ st.markdown("""
 def init_db():
     if not firebase_admin._apps:
         try:
-            # Firebase details seedha code mein (Safe format)
-            firebase_dict = {
+            # Manual dictionary taaki formatting error ki gunjayish na rahe
+            firebase_info = {
                 "type": "service_account",
                 "project_id": "softview-cci-utility",
                 "private_key_id": "2de8f75490ad61288e60176a897a0d2552d9f6a2",
-                "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDJFOsTRzYI9UHY\nsQELAiIQ+oSE5InQu7Qid8TcDq+S/9qgo/JYrOpfUhHifpo7237frnzgLfwbRg3B\nHYQF9KrQRNgyo3ldJ/37/SVnh68EsTubQTUAj0+OoIU4IdDi6DX6UjgY87lVh/It\n3dkCRQgr6R5VpRZAPe3o7sBKiUyW+OQRYH+ivB/wL6rasMsZ4N3Uia4Q/a7FYjMr\nJ8lF0EPgK3G7mBo41OH6JlCUF6+JdOarLmTePE0I7yV2JaRLprZHcuHOt0FQ6mAt\n1i7Fykwt8AyulqhosBXx++G0M/4m/FlZ1hLHyg/GZuXQCM4aso3jiY++64RM/G3W\n/JMgXIm/AgMBAAECggEARZ6O90k//aEAr8g07r1J0ywRZruDtbfPWeGy0GfrRQ99\ngAHTXf1cVi1hkNQ5jUDlMAfHJ4z0TPMXvwV7mN5Jp7s2SW4NDoJSrwTKBwrUv2Cn\nnQzaD3wO1Phht3oJyw4P5j/COW1k/SaI5HV7dYw2FJHtVUTHq+1lKjFDdWsND/W1\nQFLMVPlL9GiRzw+gnVMu4lbXKTD1KbasjPRu1rafnwUp2+1/7Rl8uNP8EDasBq67\nv7pHSZpRJ+gAKRy7p56DSHZRSq709PDU+ht37yPhhXU3EPt/FFTg6i94vVDOsQIk\OlBlb4XpPPYjc2B5jZXxqy43dozRtEOlLST9jCtjoQKBgQD+5e7P/Edmwy1H3WWw\O1itMNnPLk+CAbndPTn8kxTubGK6xY6MK4HgEO88TxhUm0fQlMfAndlx6pd0Xrtk\+m9mQyuVAb4ILZ722SNh9IiWtVGoq9UMHjhtsPoOfCQGBnErVbYMysYBfqPIdn54\ctnoyI5tDWXuBZGCYx2RiYpm4QKBgQDJ827KXRA9HpWuAPAyOs5ixZfhAZTE1Imj\qaYdTugkpMS0iMxpkGnrCFz16B/8haj3WXTrTBWtP3zwesMadbTlfW0dgWWDq2rY\QMZLmy1hzzaGpSKryfxOOflTIkrxBur8agfZLRdcxy4A88CxezJgH9EVvnnva0wD\Pl5orc8knwKBgCr7RMDHjpaydLE4kQwdhb92jFPWQEvw1JGM4HlJp+7oUeGirH3Q\nXE8XK/AkejrSEFMIs4I0W9VMtItH6huF60D4NKIksBGa98IyLTg4Tsvy+TkS+JLZ\nibRdclz86+okLfMbud4AV1ErNJz59iuDWmFZaELVTonLYJT296Zx5eehAoGABouJ\nL63MdO6k0zrcjgQx5CmbPoOamrZ4r4E0DQcdpvJgHanBVjqD9EYVHTMktj5ut3WC\nwI16tl60YebYo+bksftaqfYjoBzSHagbxR+GXQEmNz7q3L5zGuXuGq+l1iHvQ7b8\nAiHf+/XIm+dKe3YOr+bYE+hUc1n64LAIx0O6zukCgYEAhd1Zb575mTV9IJKrOt0v\npED8QcPNYuabacVrheRyzvAp0SJKqwEsdNu/+Vraz2v5NsHLjKpGuprY+0eH+oI7\naE3JMjytapavUJoHAeGNOzZ9/2Dwybm6qhEK4KyH7sOzc9w0/+g0sJEXyB+ZWCYm\nRGcl7ds1oFBlCJbL+AgB5vk=\n-----END PRIVATE KEY-----\n",
+                "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDJFOsTRzYI9UHY\nsQELAiIQ+oSE5InQu7Qid8TcDq+S/9qgo/JYrOpfUhHifpo7237frnzgLfwbRg3B\nHYQF9KrQRNgyo3ldJ/37/SVnh68EsTubQTUAj0+OoIU4IdDi6DX6UjgY87lVh/It\n3dkCRQgr6R5VpRZAPe3o7sBKiUyW+OQRYH+ivB/wL6rasMsZ4N3Uia4Q/a7FYjMr\nJ8lF0EPgK3G7mBo41OH6JlCUF6+JdOarLmTePE0I7yV2JaRLprZHcuHOt0FQ6mAt\n1i7Fykwt8AyulqhosBXx++G0M/4m/FlZ1hLHyg/GZuXQCM4aso3jiY++64RM/G3W\n/JMgXIm/AgMBAAECggEARZ6O90k//aEAr8g07r1J0ywRZruDtbfPWeGy0GfrRQ99\ngAHTXf1cVi1hkNQ5jUDlMAfHJ4z0TPMXvwV7mN5Jp7s2SW4NDoJSrwTKBwrUv2Cn\nnQzaD3wO1Phht3oJyw4P5j/COW1k/SaI5HV7dYw2FJHtVUTHq+1lKjFDdWsND/W1\nQFLMVPlL9GiRzw+gnVMu4lbXKTD1KbasjPRu1rafnwUp2+1/7Rl8uNP8EDasBq67\nv7pHSZpRJ+gAKRy7p56DSHZRSq709PDU+ht37yPhhXU3EPt/FFTg6i94vVDOsQIk\OlBlb4XpPPYjc2B5jZXxqy43dozRtEOlLST9jCtjoQKBgQD+5e7P/Edmwy1H3WWw\O1itMNnPLk+CAbndPTn8kxTubGK6xY6MK4HgEO88TxhUm0fQlMfAndlx6pd0Xrtk\+m9mQyuVAb4ILZ722SNh9IiWtVGoq9UMHjhtsPoOfCQGBnErVbYMysYBfqPIdn54\ctnoyI5tDWXuBZGCYx2RiYpm4QKBgQDJ827KXRA9HpWuAPAyOs5ixZfhAZTE1Imj\qaYdTugkpMS0iMxpkGnrCFz16B/8haj3WXTrTBWtP3zwesMadbTlfW0dgWWDq2rY\QMZLmy1hzzaGpSKryfxOOflTIkrxBur8agfZLRdcxy4A88CxezJgH9EVvnnva0wD\Pl5orc8knwKBgCr7RMDHjpaydLE4kQwdhb92jFPWQEvw1JGM4HlJp+7oUeGirH3Q\nXE8XK/AkejrSEFMIs4I0W9VMtItH6huF60D4NKIksBGa98IyLTg4Tsvy+TkS+JLZ\nibRdclz86+okLfMbud4AV1ErNJz59iuDWmFZaELVTonLYJT296Zx5eehAoGABouJ\nL63MdO6k0zrcjgQx5CmbPoOamrZ4r4E0DQcdpvJgHanBVjqD9EYVHTMktj5ut3WC\nwI16tl60YebYo+bksftaqfYjoBzSHagbxR+GXQEmNz7q3L5zGuXuGq+l1iHvQ7b8\nAiHf+/XIm+dKe3YOr+bYE+hUc1n64LAIx0O6zukCgYEAhd1Zb575mTV9IJKrOt0v\npED8QcPNYuabacVrheRyzvAp0SJKqwEsdNu/+Vraz2v5NsHLjKpGuprY+0eH+oI7\naE3JMjytapavUJoHAeGNOzZ9/2Dwybm6qhEK4KyH7sOzc9w0/+g0sJEXyB+ZWCYm\nRGcl7ds1oFBlCJbL+AgB5vk=\n-----END PRIVATE KEY-----\n".replace("\\n", "\n"),
                 "client_email": "firebase-adminsdk-fbsvc@softview-cci-utility.iam.gserviceaccount.com",
                 "client_id": "103644538785344720338",
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40softview-cci-utility.iam.gserviceaccount.com",
-                "universe_domain": "googleapis.com"
+                "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40softview-cci-utility.iam.gserviceaccount.com"
             }
             
-            cred = credentials.Certificate(firebase_dict)
+            cred = credentials.Certificate(firebase_info)
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Database Connection Error: {e}")
