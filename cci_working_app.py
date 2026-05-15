@@ -47,17 +47,17 @@ st.markdown("""
 def init_db():
     if not firebase_admin._apps:
         try:
-            # Secrets se JSON string uthao
             sc_json = st.secrets["firebase"]["service_account_json"]
-            
-            # Error fix karne ke liye ye naya tarika (Strict handling)
             import ast
             try:
-                # Agar string sahi format mein hai toh ye handle kar lega
                 info = json.loads(sc_json, strict=False)
             except:
-                # Agar upar wala fail hua toh ye backslash errors thik kar dega
                 info = ast.literal_eval(sc_json)
+            
+            # --- YE SABSE ZAROORI LINE HAI (PEM ERROR FIX) ---
+            if "private_key" in info:
+                info["private_key"] = info["private_key"].replace("\\n", "\n")
+            # ------------------------------------------------
                 
             cred = credentials.Certificate(info)
             firebase_admin.initialize_app(cred)
