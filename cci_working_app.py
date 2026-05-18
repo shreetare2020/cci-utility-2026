@@ -34,7 +34,6 @@ def check_password():
         st.markdown("<h2 style='text-align: center; color: #8A2BE2;'>🔒 Softview CCI Utility Login</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            # autocomplete="new-password" se google suggestion prompt aana band ho jayega
             st.text_input(
                 "System Access Key", 
                 type="password", 
@@ -59,12 +58,28 @@ def check_password():
         return False
     else:
         return True
-# Agar password check fail ho jaye, toh aage ka code mat chalao (Stop right here)
+
+# Agar password check fail ho jaye, toh aage ka code mat chalao
 if not check_password():
     st.stop()
 
-# --- 🚀 AB YAHAAN SE AAPKA BAAKI KA PURA CODE SHURU HOGA ---
-st.markdown("""
+# --- ❌ PERMANENT GITHUB ICON & TOOLBAR CRUSHER BLOCK ---
+st.markdown(
+    """
+    <script>
+        const removeElements = () => {
+            const header = window.parent.document.querySelector('header[data-testid="stHeader"]');
+            const toolbar = window.parent.document.querySelector('[data-testid="stToolbar"]');
+            const deployBtn = window.parent.document.querySelector('.stAppDeployButton');
+            const mainMenu = window.parent.document.querySelector('#MainMenu');
+            
+            if (header) header.style.display = 'none';
+            if (toolbar) toolbar.style.display = 'none';
+            if (deployBtn) deployBtn.style.display = 'none';
+            if (mainMenu) mainMenu.style.display = 'none';
+        };
+        setInterval(removeElements, 100);
+    </script>
     <style>
     .stApp { background-color: #F4F9F4; } 
     [data-testid="stSidebar"] { background-color: #FFF0F5 !important; } 
@@ -110,19 +125,14 @@ st.markdown("""
         background-color: #F9F9F9;
         border-top: 2px solid #8A2BE2;
     }
-/* 🚫 Strict Rule: Header, GitHub Icon, Deploy Button aur Menu sab kuch ek sath block */
-    header[data-testid="stHeader"], 
-    .stAppDeployButton, 
-    #MainMenu, 
-    footer,
-    [data-testid="stDecoration"],
-    [data-testid="stToolbar"] {
+
+    /* CSS Backup for Toolbar Block */
+    header[data-testid="stHeader"], .stAppDeployButton, #MainMenu, [data-testid="stToolbar"], footer, [data-testid="stDecoration"] {
         visibility: hidden !important;
         display: none !important;
+        opacity: 0 !important;
         height: 0px !important;
     }
-    
-    /* 🚫 Sidebar ke upar ka extra space margin khatam karne ke liye */
     [data-testid="stAppViewBlockContainer"] {
         padding-top: 2rem !important;
     }
@@ -391,7 +401,6 @@ uploaded_file = st.file_uploader("Upload 'cci_working_upload_sheet.xlsx':", type
 
 if uploaded_file is not None:
     st.info("Excel sheets successfully uploaded in background buffer.")
-    
     run_calc = st.button("🔄 RUN CALCULATION ENGINE")
     
     if run_calc:
@@ -647,8 +656,8 @@ if uploaded_file is not None:
                         pdf.cell(100, 8, part, border=1, fill=True)
                         pdf.cell(35, 8, rate, border=1, fill=True, align="C")
                         pdf.cell(40, 8, amt, border=1, fill=True, align="R")
-                        pdf.set_font("Arial", "", 10)
                     else:
+                        pdf.set_font("Arial", "", 10)
                         pdf.cell(15, 8, sr, border=1, align="C")
                         pdf.cell(100, 8, part, border=1)
                         pdf.cell(35, 8, rate, border=1, align="C")
@@ -656,109 +665,26 @@ if uploaded_file is not None:
                     pdf.ln()
                     
                 pdf.set_fill_color(255, 240, 245)
-                pdf.set_text_color(138, 43, 226)
                 pdf.set_font("Arial", "B", 11)
-                pdf.cell(15, 10, "", border=1, fill=True)
-                pdf.cell(100, 10, "NET PAYABLE / (RECEIVABLE) DUE", border=1, fill=True)
-                pdf.cell(35, 10, "-", border=1, fill=True, align="C")
+                pdf.set_text_color(138, 43, 226)
+                pdf.cell(150, 10, "NET PAYABLE / RECEIVABLE BALANCE", border=1, fill=True)
                 pdf.cell(40, 10, f"Rs. {net_payable:,.2f}", border=1, fill=True, align="R")
                 
-                pdf_bytes = pdf.output(dest='B')
-                pdf_buffer = io.BytesIO(pdf_bytes)
-
+                pdf_output = pdf.output(dest="S").encode("latin1")
+                
                 with col_exp1:
                     st.download_button(
-                        label="📥 EXCEL REPORT GENERATE",
+                        label="🟢 DOWNLOAD DESIGNED EXCEL SHEET",
                         data=excel_buffer,
-                        file_name=f"CCI_Final_Settlement_Report_{datetime.now().strftime('%d%m%Y')}.xlsx",
+                        file_name=f"CCI_Audit_Settlement_{datetime.now().strftime('%d%m%Y')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
-                
                 with col_exp2:
                     st.download_button(
-                        label="📄 PDF REPORT GENERATE",
-                        data=pdf_buffer,
-                        file_name=f"CCI_Final_Settlement_Statement_{datetime.now().strftime('%d%m%Y')}.pdf",
+                        label="🔴 DOWNLOAD OFFICIAL STATEMENT PDF",
+                        data=pdf_output,
+                        file_name=f"CCI_Audit_Settlement_{datetime.now().strftime('%d%m%Y')}.pdf",
                         mime="application/pdf"
                     )
-                    
-                st.markdown("---")
-                
-                invoice_html = f"""
-                <div style="background-color: #FFFFFF; padding: 25px; border: 1px solid #8A2BE2; border-radius: 8px;">
-                    <div style="text-align: center; font-size: 20px; font-weight: bold; color: #8A2BE2; margin-bottom: 20px;">
-                        THE COTTON CORPORATION OF INDIA LTD. <br>
-                        <span style="font-size: 14px; color: #555555;">FINAL SETTLEMENT STATEMENT</span>
-                    </div>
-                    <table class="invoice-table">
-                        <thead>
-                            <tr>
-                                <th>SR. NO.</th>
-                                <th>PARTICULARS</th>
-                                <th style="text-align: right;">RATE / %</th>
-                                <th style="text-align: right;">AMOUNT (₹)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>Gross Material Amount (Total Bales: {total_bales:,})</td>
-                                <td style="text-align: right;">Base Price</td>
-                                <td style="text-align: right;">₹ {total_mat_amt:,.2f}</td>
-                            </tr>
-                            <tr>
-                                <td>2</td>
-                                <td>Carrying Cost (CC) Charges</td>
-                                <td style="text-align: right;">Slab Wise</td>
-                                <td style="text-align: right;">₹ {t_cc:,.2f}</td>
-                            </tr>
-                            <tr>
-                                <td>3</td>
-                                <td>Late Lifting (LL) Penalties</td>
-                                <td style="text-align: right;">Slab Wise</td>
-                                <td style="text-align: right;">₹ {t_ll:,.2f}</td>
-                            </tr>
-                            <tr>
-                                <td>4</td>
-                                <td>Add: GST on CC & LL Charges</td>
-                                <td style="text-align: right;">{g_tax}%</td>
-                                <td style="text-align: right;">₹ {calculated_gst:,.2f}</td>
-                            </tr>
-                            <tr style="background-color: #F1EAFA; font-weight: bold;">
-                                <td></td>
-                                <td>GROSS TOTAL (A)</td>
-                                <td style="text-align: right;">-</td>
-                                <td style="text-align: right;">₹ {(total_mat_amt + t_cc + t_ll + calculated_gst):,.2f}</td>
-                            </tr>
-                            <tr>
-                                <td>5</td>
-                                <td>Less: Cash Discount (CD) Received</td>
-                                <td style="text-align: right;">Config Rate</td>
-                                <td style="text-align: right; color: red;">- ₹ {t_cd:,.2f}</td>
-                            </tr>
-                            <tr>
-                                <td>6</td>
-                                <td>Less: EMD Interest Rebate (FIFO Method)</td>
-                                <td style="text-align: right;">As per Master</td>
-                                <td style="text-align: right; color: red;">- ₹ {total_emd_int:,.2f}</td>
-                            </tr>
-                            <tr>
-                                <td>7</td>
-                                <td>Less: Total EMD / Payments Realized</td>
-                                <td style="text-align: right;">Actual Paid</td>
-                                <td style="text-align: right; color: red;">- ₹ {total_payments:,.2f}</td>
-                            </tr>
-                            <tr class="invoice-total-row" style="background-color: #FFF0F5;">
-                                <td></td>
-                                <td style="color: #8A2BE2; font-size: 16px;">NET PAYABLE / (RECEIVABLE) DUE</td>
-                                <td style="text-align: right;">-</td>
-                                <td style="text-align: right; font-size: 16px; color: #8A2BE2;">₹ {net_payable:,.2f}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                """
-                st.markdown(invoice_html, unsafe_allow_html=True)
-                
         except Exception as e:
-            st.error(f"Calculation Error: {e}")
+            st.error(f"Calculation Interrupted: {e}")
