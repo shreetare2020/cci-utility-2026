@@ -23,33 +23,42 @@ def check_password():
     """Returns True if the user had the correct password."""
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        # Streamlit Cloud ke Secrets se password match karega
-        if st.session_state["password"] == st.secrets["password"]:
+        if st.session_state["utility_access_key"] == st.secrets["password"]:
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # password cache se delete karne ke liye
+            del st.session_state["utility_access_key"]  # cache clear karne ke liye
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # First run, show input for password.
+        # Login screen UI
         st.markdown("<h2 style='text-align: center; color: #8A2BE2;'>🔒 Softview CCI Utility Login</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.text_input("Enter Password", type="password", on_change=password_entered, key="password")
+            # autocomplete="new-password" se google suggestion prompt aana band ho jayega
+            st.text_input(
+                "System Access Key", 
+                type="password", 
+                on_change=password_entered, 
+                key="utility_access_key",
+                autocomplete="new-password"
+            )
             if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-                st.error("❌ Invalid Password. Please try again.")
+                st.error("❌ Invalid Key. Please try again.")
         return False
     elif not st.session_state["password_correct"]:
-        # Password galat hai, login screen firse dikhao
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.text_input("Enter Password", type="password", on_change=password_entered, key="password")
-            st.error("❌ Invalid Password. Please try again.")
+            st.text_input(
+                "System Access Key", 
+                type="password", 
+                on_change=password_entered, 
+                key="utility_access_key",
+                autocomplete="new-password"
+            )
+            st.error("❌ Invalid Key. Please try again.")
         return False
     else:
-        # Password sahi hai
         return True
-
 # Agar password check fail ho jaye, toh aage ka code mat chalao (Stop right here)
 if not check_password():
     st.stop()
@@ -100,6 +109,16 @@ st.markdown("""
         font-weight: bold;
         background-color: #F9F9F9;
         border-top: 2px solid #8A2BE2;
+    }
+/* 🚫 Header, GitHub Icon aur Deploy Button Chupane Ke Liye */
+    header[data-testid="stHeader"] {
+        visibility: hidden;
+        display: none;
+    }
+    
+    /* 🚫 Bottom Footer Hide Karne Ke Liye */
+    footer {
+        visibility: hidden;
     }
     </style>
 """, unsafe_allow_html=True)
