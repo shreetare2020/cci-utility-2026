@@ -268,13 +268,13 @@ with st.sidebar:
         with col_em1: emd_slab = st.number_input("EMD SLAB (%)", value=0.0)
         with col_em2: emd_int_rate = st.number_input("EMD INT RATE (%)", value=0.0)
 
-        st.markdown("**💰 CD & TAX SLABS (Aju-Baju)**")
+        st.markdown("**💰 CD & TAX SLABS**")
         col_tax1, col_tax2 = st.columns(2)
         with col_tax1: cd_d1 = st.number_input("CD Days 1", value=0)
         with col_tax2: cd_r1 = st.number_input("CD Rate 1 (%)", value=0.0)
         tax_rate = st.number_input("TAX RATE (%)", value=18.0)
 
-        st.markdown("**📉 LATE LIFTING SLABS (Aju-Baju)**")
+        st.markdown("**📉 LATE LIFTING SLABS**")
         col_ll1, col_ll2 = st.columns(2)
         with col_ll1: 
             ll_p1 = st.number_input("LL Days 1", value=0)
@@ -285,7 +285,7 @@ with st.sidebar:
             ll_r2 = st.number_input("LL Rate 2", value=0.0)
             ll_r3 = st.number_input("LL Rate 3", value=0.0)
 
-        st.markdown("**🚛 CARRYING COST SLABS (Aju-Baju)**")
+        st.markdown("**🚛 CARRYING COST SLABS**")
         col_cc1, col_cc2 = st.columns(2)
         with col_cc1:
             cc_d1 = st.number_input("CC Days 1", value=0)
