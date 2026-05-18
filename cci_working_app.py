@@ -12,12 +12,49 @@ import io
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# FPDF2 Integration - Standard Dynamic Bytes Engine
+# FPDF2 Integration
 from fpdf import FPDF
 
-# --- PAGE SETUP & THEME (Strict Brand Matching) ---
+# --- PAGE SETUP & THEME ---
 st.set_page_config(page_title="CCI Calculation Working Utility", layout="wide")
 
+# --- 🔒 SIMPLE PASSWORD PROTECTION SYSTEM ---
+def check_password():
+    """Returns True if the user had the correct password."""
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        # Streamlit Cloud ke Secrets se password match karega
+        if st.session_state["password"] == st.secrets["password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # password cache se delete karne ke liye
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # First run, show input for password.
+        st.markdown("<h2 style='text-align: center; color: #8A2BE2;'>🔒 Softview CCI Utility Login</h2>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.text_input("Enter Password", type="password", on_change=password_entered, key="password")
+            if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+                st.error("❌ Invalid Password. Please try again.")
+        return False
+    elif not st.session_state["password_correct"]:
+        # Password galat hai, login screen firse dikhao
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.text_input("Enter Password", type="password", on_change=password_entered, key="password")
+            st.error("❌ Invalid Password. Please try again.")
+        return False
+    else:
+        # Password sahi hai
+        return True
+
+# Agar password check fail ho jaye, toh aage ka code mat chalao (Stop right here)
+if not check_password():
+    st.stop()
+
+# --- 🚀 AB YAHAAN SE AAPKA BAAKI KA PURA CODE SHURU HOGA ---
 st.markdown("""
     <style>
     .stApp { background-color: #F4F9F4; } 
@@ -41,7 +78,6 @@ st.markdown("""
     .luxury-metric-title { font-size: 14px; color: #555555; font-weight: bold; text-transform: uppercase; }
     .luxury-metric-value { font-size: 24px; color: #8A2BE2; font-weight: bold; margin-top: 5px; }
     
-    /* Invoice Table Styling - Locked to Match Attached Requirements */
     .invoice-table {
         width: 100%;
         border-collapse: collapse;
@@ -268,13 +304,13 @@ with st.sidebar:
         with col_em1: emd_slab = st.number_input("EMD SLAB (%)", value=0.0)
         with col_em2: emd_int_rate = st.number_input("EMD INT RATE (%)", value=0.0)
 
-        st.markdown("**💰 CD & TAX SLABS**")
+        st.markdown("**💰 CD & TAX SLABS (Aju-Baju)**")
         col_tax1, col_tax2 = st.columns(2)
         with col_tax1: cd_d1 = st.number_input("CD Days 1", value=0)
         with col_tax2: cd_r1 = st.number_input("CD Rate 1 (%)", value=0.0)
         tax_rate = st.number_input("TAX RATE (%)", value=18.0)
 
-        st.markdown("**📉 LATE LIFTING SLABS**")
+        st.markdown("**📉 LATE LIFTING SLABS (Aju-Baju)**")
         col_ll1, col_ll2 = st.columns(2)
         with col_ll1: 
             ll_p1 = st.number_input("LL Days 1", value=0)
@@ -285,7 +321,7 @@ with st.sidebar:
             ll_r2 = st.number_input("LL Rate 2", value=0.0)
             ll_r3 = st.number_input("LL Rate 3", value=0.0)
 
-        st.markdown("**🚛 CARRYING COST SLABS**")
+        st.markdown("**🚛 CARRYING COST SLABS (Aju-Baju)**")
         col_cc1, col_cc2 = st.columns(2)
         with col_cc1:
             cc_d1 = st.number_input("CC Days 1", value=0)
@@ -544,10 +580,10 @@ if uploaded_file is not None:
                         
                 excel_buffer.seek(0)
                 
-                # --- NATIVE PDF STREAM GENERATION VIA FPDF2 (100% Raw Bytes Fixed) ---
+                # --- NATIVE PDF STREAM GENERATION ---
                 pdf = FPDF()
                 pdf.add_page()
-                pdf.set_text_color(138, 43, 226) # Purple Accent
+                pdf.set_text_color(138, 43, 226)
                 pdf.set_font("Arial", "B", 16)
                 pdf.cell(190, 10, "THE COTTON CORPORATION OF INDIA LTD.", ln=True, align="C")
                 pdf.set_text_color(85, 85, 85)
@@ -555,7 +591,6 @@ if uploaded_file is not None:
                 pdf.cell(190, 8, "FINAL SETTLEMENT STATEMENT", ln=True, align="C")
                 pdf.ln(10)
                 
-                # Table Headers
                 pdf.set_fill_color(138, 43, 226)
                 pdf.set_text_color(255, 255, 255)
                 pdf.set_font("Arial", "B", 10)
@@ -565,7 +600,6 @@ if uploaded_file is not None:
                 pdf.cell(40, 10, "AMOUNT (Rs.)", border=1, fill=True, align="R")
                 pdf.ln()
                 
-                # Table Data Setup
                 pdf.set_text_color(0, 0, 0)
                 pdf.set_font("Arial", "", 10)
                 
@@ -596,7 +630,6 @@ if uploaded_file is not None:
                         pdf.cell(40, 8, amt, border=1, align="R")
                     pdf.ln()
                     
-                # Highlight Net Payable Row
                 pdf.set_fill_color(255, 240, 245)
                 pdf.set_text_color(138, 43, 226)
                 pdf.set_font("Arial", "B", 11)
@@ -605,7 +638,6 @@ if uploaded_file is not None:
                 pdf.cell(35, 10, "-", border=1, fill=True, align="C")
                 pdf.cell(40, 10, f"Rs. {net_payable:,.2f}", border=1, fill=True, align="R")
                 
-                # CRITICAL FIX: dest='B' extracts explicit output buffer directly into MemoryStream without conversion corruption
                 pdf_bytes = pdf.output(dest='B')
                 pdf_buffer = io.BytesIO(pdf_bytes)
 
