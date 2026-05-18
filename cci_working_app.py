@@ -110,15 +110,21 @@ st.markdown("""
         background-color: #F9F9F9;
         border-top: 2px solid #8A2BE2;
     }
-/* 🚫 Header, GitHub Icon aur Deploy Button Chupane Ke Liye */
-    header[data-testid="stHeader"] {
-        visibility: hidden;
-        display: none;
+/* 🚫 Strict Rule: Header, GitHub Icon, Deploy Button aur Menu sab kuch ek sath block */
+    header[data-testid="stHeader"], 
+    .stAppDeployButton, 
+    #MainMenu, 
+    footer,
+    [data-testid="stDecoration"],
+    [data-testid="stToolbar"] {
+        visibility: hidden !important;
+        display: none !important;
+        height: 0px !important;
     }
     
-    /* 🚫 Bottom Footer Hide Karne Ke Liye */
-    footer {
-        visibility: hidden;
+    /* 🚫 Sidebar ke upar ka extra space margin khatam karne ke liye */
+    [data-testid="stAppViewBlockContainer"] {
+        padding-top: 2rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
