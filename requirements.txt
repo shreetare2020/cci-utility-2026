@@ -1,6 +1,8 @@
 streamlit
 pandas
 fpdf
+fpdf2
 openpyxl
 firebase-admin
 google-cloud-firestore
+Pillow
