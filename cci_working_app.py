@@ -30,10 +30,11 @@ def check_password():
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # Login screen UI (Premium Dark Style)
-        st.markdown("<h2 style='text-align: center; color: #74C324; text-shadow: 0px 0px 8px rgba(116,195,36,0.6);'>🔒 Softview CCI Utility Login</h2>", unsafe_allow_html=True)
+        # Login screen UI
+        st.markdown("<h2 style='text-align: center; color: #8A2BE2;'>🔒 Softview CCI Utility Login</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
+            # autocomplete="new-password" se google suggestion prompt aana band ho jayega
             st.text_input(
                 "System Access Key", 
                 type="password", 
@@ -58,264 +59,69 @@ def check_password():
         return False
     else:
         return True
-
-# Agar password check fail ho jaye, toh aage ka code mat chalao
+# Agar password check fail ho jaye, toh aage ka code mat chalao (Stop right here)
 if not check_password():
     st.stop()
 
-# --- 🎨 CRITICAL CSS OVERWRITE (DARK GRAY + PARROT GREEN + ORANGE MIX THEME) ---
+# --- 🚀 AB YAHAAN SE AAPKA BAAKI KA PURA CODE SHURU HOGA ---
 st.markdown("""
     <style>
-    /* 1. Pure Page Base Background to Deep Dark Gray */
-    .stApp { 
-        background-color: #121212 !important; 
-        color: #FFFFFF !important;
-        font-family: 'Segoe UI', Arial, sans-serif;
-    } 
+    .stApp { background-color: #F4F9F4; } 
+    [data-testid="stSidebar"] { background-color: #FFF0F5 !important; } 
+    h1, h2, h3, h4 { color: #8A2BE2 !important; font-weight: bold; }
+    .stButton>button, .stDownloadButton>button { background-color: #8A2BE2 !important; color: white !important; border-radius: 8px; font-weight: bold; width: 100%; }
+    .sidebar-header { font-size: 20px; font-weight: bold; color: #8A2BE2; margin-bottom: 15px; border-bottom: 2px solid #8A2BE2; padding-bottom: 5px; }
     
-    /* 2. Top Right Header Area for User & Clock */
-    .top-header-container {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        gap: 20px;
-        padding: 10px 0px;
-        margin-bottom: 10px;
-        border-bottom: 1px solid #2D2D2D;
-    }
-    .login-user-tag {
-        color: #74C324 !important;
-        font-size: 13px;
-        font-weight: 800;
-        text-shadow: 0px 0px 8px rgba(116,195,36,0.4);
-        background-color: #1A1A1A;
-        padding: 6px 12px;
-        border-radius: 4px;
-        border: 1px solid #333;
-    }
-    .date-clock-tag {
-        color: #FFFFFF !important;
-        font-size: 13px;
-        font-weight: 600;
-        background-color: #1A1A1A;
-        padding: 6px 12px;
-        border-radius: 4px;
-        border: 1px solid #333;
-    }
-    
-    /* 3. Deep Matte Gray Sidebar with Orange & Parrot Accent */
-    [data-testid="stSidebar"] { 
-        background-color: #1A1A1A !important;
-        border-right: 3px solid #74C324 !important;
-        box-shadow: 4px 0px 15px rgba(0,0,0,0.5);
-    }
-    
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
-        color: #E0E0E0 !important;
+    div[data-testid="stMarkdownContainer"] p, label[data-testid="stWidgetLabel"] p {
         font-size: 13px !important;
-        font-weight: 600 !important;
     }
     
-    .sidebar-header { 
-        font-size: 18px; 
-        font-weight: bold; 
-        color: #FF6B00; 
-        text-shadow: 0px 0px 6px rgba(255,107,0,0.5);
-        margin-bottom: 15px; 
-        border-bottom: 2px solid #74C324; 
-        padding-bottom: 5px; 
-    }
-    
-    /* 4. Text and Headers popping with Neon Effect */
-    h1, h2, h3, h4 { 
-        font-family: 'Segoe UI', Arial, sans-serif;
-        font-weight: 800 !important;
-        letter-spacing: 0.5px;
-    }
-    .parrot-text {
-        color: #74C324 !important;
-        text-shadow: 0px 0px 10px rgba(116,195,36,0.4);
-    }
-    .orange-text {
-        color: #FF6B00 !important;
-        text-shadow: 0px 0px 10px rgba(255,107,0,0.4);
-    }
-    
-    /* 5. Custom File Uploader Tuning (Dark Gray Box + Parrot Green Accents) */
-    div[data-testid="stFileUploader"] section {
-        background-color: #1E1E1E !important;
-        border: 2px dashed #74C324 !important;
-        border-radius: 8px !important;
-        padding: 20px !important;
-    }
-    div[data-testid="stFileUploader"] label p {
-        color: #74C324 !important;
-        font-weight: bold !important;
-    }
-    div[data-testid="stFileUploader"] section button {
-        background-color: #121212 !important;
-        color: #74C324 !important;
-        border: 1px solid #74C324 !important;
-        font-weight: 700 !important;
-    }
-    div[data-testid="stFileUploader"] section button:hover {
-        background-color: #74C324 !important;
-        color: #FFFFFF !important;
-        box-shadow: 0px 0px 10px rgba(116,195,36,0.5);
-    }
-    
-    /* 6. Native Input Boxes styled for High-Contrast Dark Gray */
-    div[data-baseweb="input"], div[data-baseweb="select"], .stDateInput>div {
-        background-color: #1E1E1E !important;
-        color: #FFFFFF !important;
-        border: 1px solid #333333 !important;
-        border-radius: 6px !important;
-    }
-    div[data-baseweb="input"]:focus-within {
-        border: 1px solid #FF6B00 !important;
-    }
-    input {
-        color: #FFFFFF !important;
-    }
-    
-    /* 7. Luxury Expanders with Smooth Transitions */
-    .stExpander {
-        background-color: #1A1A1A !important;
-        border: 1px solid #2D2D2D !important;
-        border-left: 3px solid #FF6B00 !important;
-        border-radius: 6px !important;
-        margin-bottom: 10px;
-    }
-    
-    /* 8. High-End Orange & Parrot Glow Action Buttons */
-    .stButton>button { 
-        background-color: #1E1E1E !important; 
-        color: #FF6B00 !important; 
-        border-radius: 6px; 
-        font-weight: 700; 
-        font-size: 14px;
-        letter-spacing: 1px;
-        border: 2px solid #FF6B00 !important;
-        width: 100%; 
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-    .stButton>button:hover {
-        background-color: #FF6B00 !important;
-        color: #FFFFFF !important;
-        box-shadow: 0px 0px 15px rgba(255, 107, 0, 0.6);
-        transform: translateY(-1px);
-    }
-    
-    .stDownloadButton>button {
-        background-color: #1E1E1E !important; 
-        color: #74C324 !important; 
-        border-radius: 6px; 
-        font-weight: 700; 
-        border: 2px solid #74C324 !important;
-        transition: all 0.3s ease;
-    }
-    .stDownloadButton>button:hover {
-        background-color: #74C324 !important;
-        color: #FFFFFF !important;
-        box-shadow: 0px 0px 15px rgba(116, 195, 36, 0.6);
-    }
-    
-    /* 9. Executive Summary Cards (Chote par ekdum ubhare huye) */
     .luxury-card {
-        background-color: #1A1A1A;
-        border-left: 4px solid #74C324;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0px 8px 16px rgba(0,0,0,0.6), inset 0px 1px 0px rgba(255,255,255,0.05);
-        margin-bottom: 15px;
-        border-top: 1px solid #2D2D2D;
-        border-right: 1px solid #2D2D2D;
-        border-bottom: 1px solid #2D2D2D;
+        background-color: #FFFFFF;
+        border-left: 5px solid #8A2BE2;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
     }
-    .luxury-metric-title { 
-        font-size: 11px;
-        color: #A0A0A0;
-        font-weight: 700; 
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .luxury-metric-value { 
-        font-size: 22px;
-        color: #74C324;
-        font-weight: 800; 
-        margin-top: 5px;
-        text-shadow: 0px 0px 8px rgba(116,195,36,0.3);
-    }
+    .luxury-metric-title { font-size: 14px; color: #555555; font-weight: bold; text-transform: uppercase; }
+    .luxury-metric-value { font-size: 24px; color: #8A2BE2; font-weight: bold; margin-top: 5px; }
     
-    /* 10. Professional Ledger HTML Table (Ultra Dark Matrix Style) */
     .invoice-table {
         width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
+        border-collapse: collapse;
         margin-top: 15px;
-        background-color: #161616;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0px 10px 25px rgba(0,0,0,0.7);
+        background-color: #FFFFFF;
     }
     .invoice-table th {
-        background-color: #1C1C1C;
-        color: #FF6B00 !important;
+        background-color: #8A2BE2;
+        color: white;
         text-align: left;
         padding: 12px;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #FF6B00;
-        text-transform: uppercase;
+        font-weight: bold;
     }
     .invoice-table td {
-        padding: 11px 12px;
-        border-bottom: 1px solid #252525;
-        font-size: 13px;
-        color: #E2E2E2;
+        padding: 10px;
+        border-bottom: 1px solid #E0E0E0;
+        font-size: 14px;
     }
-    .invoice-table tr:hover {
-        background-color: #1E1E1E;
-    }
-    
     .invoice-total-row {
         font-weight: bold;
-        background-color: #1D2A18 !important; 
-        border-top: 2px solid #74C324;
+        background-color: #F9F9F9;
+        border-top: 2px solid #8A2BE2;
     }
-    .invoice-total-row td {
-        color: #74C324 !important;
-        font-size: 14px !important;
-        font-weight: 800 !important;
-        text-shadow: 0px 0px 6px rgba(116,195,36,0.5);
-        border-bottom: none;
+/* 🚫 Header, GitHub Icon aur Deploy Button Chupane Ke Liye */
+    header[data-testid="stHeader"] {
+        visibility: hidden;
+        display: none;
     }
     
-    .stTabs [data-baseweb="tab"] {
-        color: #A0A0A0 !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
+    /* 🚫 Bottom Footer Hide Karne Ke Liye */
+    footer {
+        visibility: hidden;
     }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        color: #FF6B00 !important;
-        border-bottom-color: #FF6B00 !important;
-    }
-    
-    footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
-
-# --- TOP HEADER RENDER BLOCK (User & Dynamic Clock) ---
-current_ts = datetime.now().strftime("%d-%b-%Y | %I:%M:%S %p")
-header_html = f"""
-<div class="top-header-container">
-    <div class="login-user-tag">👤 USER: ADMINISTRATOR</div>
-    <div class="date-clock-tag">🕒 SYSTEM TIME: {current_ts}</div>
-</div>
-"""
-st.markdown(header_html, unsafe_allow_html=True)
 
 # --- DATABASE INITIALIZATION ---
 def init_db():
@@ -422,7 +228,7 @@ def extract_emd_and_payments(sheet_df):
             e_dt = row.iloc[emd_dt_idx]
             if e_amt > 0 and pd.notna(e_dt):
                 emd_list.append({'contract': c_emd, 'amt': e_amt, 'date': pd.to_datetime(e_dt)})
-                 
+                
         if pay_amt_idx is not None and pay_dt_idx is not None:
             c_pay = str(row.iloc[c_no_pay]).strip().replace('.', '-')
             p_amt = safe_float(row.iloc[pay_amt_idx])
@@ -455,7 +261,7 @@ def calculate_fifo_engine(emd_df, pay_df, master_df, default_rate):
         for req in c_emds:
             req_amt = req['amt']
             req_date = req['date']
-        
+            
             while req_amt > 0 and p_idx < len(c_pays):
                 pay = c_pays[p_idx]
                 pay_amt = pay['amt']
@@ -500,9 +306,9 @@ with st.sidebar:
         try: st.image(Image.open(logo_path), use_container_width=True)
         except: pass
         
-    st.markdown('<div class="sidebar-header">⚙️ CONFIGURATION CENTER</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">⚙️ MASTER SETUP</div>', unsafe_allow_html=True)
     
-    with st.expander("🛠️ OPEN MASTER SETUP", expanded=False):
+    with st.form("master_form_aju_baju_v13"):
         p_name = st.text_input("PARTY NAME (Optional)", value="").strip()
         
         col_proj1, col_proj2 = st.columns(2)
@@ -517,38 +323,35 @@ with st.sidebar:
         with col_em1: emd_slab = st.number_input("EMD SLAB (%)", value=0.0)
         with col_em2: emd_int_rate = st.number_input("EMD INT RATE (%)", value=0.0)
 
-        # Sub Heading 1: CD & TAX SLABS
-        with st.expander("💰 1) CD & TAX SLABS", expanded=False):
-            col_tax1, col_tax2 = st.columns(2)
-            with col_tax1: cd_d1 = st.number_input("CD Days 1", value=0)
-            with col_tax2: cd_r1 = st.number_input("CD Rate 1 (%)", value=0.0)
-            tax_rate = st.number_input("TAX RATE (%)", value=18.0)
+        st.markdown("**💰 CD & TAX SLABS (Aju-Baju)**")
+        col_tax1, col_tax2 = st.columns(2)
+        with col_tax1: cd_d1 = st.number_input("CD Days 1", value=0)
+        with col_tax2: cd_r1 = st.number_input("CD Rate 1 (%)", value=0.0)
+        tax_rate = st.number_input("TAX RATE (%)", value=18.0)
 
-        # Sub Heading 2: LATE LIFTING SLABS
-        with st.expander("📉 2) LATE LIFTING SLABS", expanded=False):
-            col_ll1, col_ll2 = st.columns(2)
-            with col_ll1:
-                ll_p1 = st.number_input("LL Days 1", value=0)
-                ll_p2 = st.number_input("LL Days 2", value=0)
-                ll_p3 = st.number_input("LL Days 3", value=0)
-            with col_ll2:
-                ll_r1 = st.number_input("LL Rate 1", value=0.0)
-                ll_r2 = st.number_input("LL Rate 2", value=0.0)
-                ll_r3 = st.number_input("LL Rate 3", value=0.0)
+        st.markdown("**📉 LATE LIFTING SLABS (Aju-Baju)**")
+        col_ll1, col_ll2 = st.columns(2)
+        with col_ll1: 
+            ll_p1 = st.number_input("LL Days 1", value=0)
+            ll_p2 = st.number_input("LL Days 2", value=0)
+            ll_p3 = st.number_input("LL Days 3", value=0)
+        with col_ll2:
+            ll_r1 = st.number_input("LL Rate 1", value=0.0)
+            ll_r2 = st.number_input("LL Rate 2", value=0.0)
+            ll_r3 = st.number_input("LL Rate 3", value=0.0)
 
-        # Sub Heading 3: CARRYING COST SLABS
-        with st.expander("🚛 3) CARRYING COST SLABS", expanded=False):
-            col_cc1, col_cc2 = st.columns(2)
-            with col_cc1:
-                cc_d1 = st.number_input("CC Days 1", value=0)
-                cc_d2 = st.number_input("CC Days 2", value=0)
-                cc_d3 = st.number_input("CC Days 3", value=0)
-            with col_cc2:
-                cc_r1 = st.number_input("CC Rate 1", value=0.0)
-                cc_r2 = st.number_input("CC Rate 2", value=0.0)
-                cc_r3 = st.number_input("CC Rate 3", value=0.0)
+        st.markdown("**🚛 CARRYING COST SLABS (Aju-Baju)**")
+        col_cc1, col_cc2 = st.columns(2)
+        with col_cc1:
+            cc_d1 = st.number_input("CC Days 1", value=0)
+            cc_d2 = st.number_input("CC Days 2", value=0)
+            cc_d3 = st.number_input("CC Days 3", value=0)
+        with col_cc2:
+            cc_r1 = st.number_input("CC Rate 1", value=0.0)
+            cc_r2 = st.number_input("CC Rate 2", value=0.0)
+            cc_r3 = st.number_input("CC Rate 3", value=0.0)
             
-        submitted = st.button("🏆 SAVE CONFIGURATION")
+        submitted = st.form_submit_button("🏆 SAVE CONFIGURATION")
         if submitted and c_no:
             db = init_db()
             if db:
@@ -560,8 +363,7 @@ with st.sidebar:
                     "Effective_Date": e_dt.strftime('%d-%m-%Y') if e_dt else "",
                     "EMD_Slab_Pct": emd_slab, "EMD_Interest_Rate": emd_int_rate, "Tax_Rate": tax_rate,
                     "CD_Days_1": cd_d1, "CD_Rate_1": cd_r1,
-                    "LL_Days_1": ll_p1, "LL_Rate_1": ll_r1, "LL_Days_2": ll_p2, "LL_Rate_2": ll_r2, 
-                    "LL_Days_3": ll_p3, "LL_Rate_3": ll_r3,
+                    "LL_Days_1": ll_p1, "LL_Rate_1": ll_r1, "LL_Days_2": ll_p2, "LL_Rate_2": ll_r2, "LL_Days_3": ll_p3, "LL_Rate_3": ll_r3,
                     "CC_Days_1": cc_d1, "CC_Rate_1": cc_r1, "CC_Days_2": cc_d2, "CC_Rate_2": cc_r2, "CC_Days_3": cc_d3, "CC_Rate_3": cc_r3
                 }
                 db.collection("master_data").document(doc_id).set(data)
@@ -569,7 +371,7 @@ with st.sidebar:
                 st.rerun()
 
 # --- MAIN ENGINE CONTENT ---
-st.markdown("<h1 class='parrot-text' style='text-align: center; margin-bottom: 25px;'>CCI CALCULATION WORKING UTILITY</h1>", unsafe_allow_html=True)
+st.title("⚜️ CCI CALCULATION WORKING UTILITY ⚜️")
 master_hist_df = get_master_data()
 
 if not master_hist_df.empty:
@@ -578,7 +380,7 @@ if not master_hist_df.empty:
     st.dataframe(master_hist_df, use_container_width=True)
 
 st.markdown("---")
-st.markdown("<h3 class='orange-text'>📁 BATCH EXTRACTION FILES UPLOADER</h3>", unsafe_allow_html=True)
+st.markdown("### 📁 BATCH EXTRACTION FILES UPLOADER")
 uploaded_file = st.file_uploader("Upload 'cci_working_upload_sheet.xlsx':", type=["xlsx"])
 
 if uploaded_file is not None:
@@ -654,19 +456,13 @@ if uploaded_file is not None:
                     
                 if not rule.empty:
                     r = rule.iloc[0]
-                    ll_days_1 = safe_int(r.get('LL_Days_1', 0));
-                    ll_rate_1 = safe_float(r.get('LL_Rate_1', 0.0))
-                    ll_days_2 = safe_int(r.get('LL_Days_2', 0));
-                    ll_rate_2 = safe_float(r.get('LL_Rate_2', 0.0))
-                    ll_days_3 = safe_int(r.get('LL_Days_3', 0));
-                    ll_rate_3 = safe_float(r.get('LL_Rate_3', 0.0))
+                    ll_days_1 = safe_int(r.get('LL_Days_1', 0)); ll_rate_1 = safe_float(r.get('LL_Rate_1', 0.0))
+                    ll_days_2 = safe_int(r.get('LL_Days_2', 0)); ll_rate_2 = safe_float(r.get('LL_Rate_2', 0.0))
+                    ll_days_3 = safe_int(r.get('LL_Days_3', 0)); ll_rate_3 = safe_float(r.get('LL_Rate_3', 0.0))
                     
-                    cc_days_1 = safe_int(r.get('CC_Days_1', 0));
-                    cc_rate_1 = safe_float(r.get('CC_Rate_1', 0.0))
-                    cc_days_2 = safe_int(r.get('CC_Days_2', 0));
-                    cc_rate_2 = safe_float(r.get('CC_Rate_2', 0.0))
-                    cc_days_3 = safe_int(r.get('CC_Days_3', 0));
-                    cc_rate_3 = safe_float(r.get('CC_Rate_3', 0.0))
+                    cc_days_1 = safe_int(r.get('CC_Days_1', 0)); cc_rate_1 = safe_float(r.get('CC_Rate_1', 0.0))
+                    cc_days_2 = safe_int(r.get('CC_Days_2', 0)); cc_rate_2 = safe_float(r.get('CC_Rate_2', 0.0))
+                    cc_days_3 = safe_int(r.get('CC_Days_3', 0)); cc_rate_3 = safe_float(r.get('CC_Rate_3', 0.0))
                     
                     g_cd = safe_float(r.get('CD_Rate_1', 0.0))
 
@@ -706,14 +502,14 @@ if uploaded_file is not None:
             net_payable = (total_mat_amt + t_ll + t_cc + calculated_gst) - (t_cd + total_emd_int + total_payments)
 
             # --- RENDER BLOCK OUTPUTS ---
-            st.markdown("<h2 class='orange-text' style='margin-top: 25px;'>🏆 FINAL CALCULATION AUDIT REPORT</h2>", unsafe_allow_html=True)
+            st.markdown("## 🏆 FINAL CALCULATION AUDIT REPORT")
             tab1, tab2, tab3 = st.tabs(["📊 1. EXECUTIVE SUMMARY", "📋 2. DETAILED LEDGER MATRIX", "📜 3. TEMPLATE INVOICE REPORT"])
             
             with tab1:
                 c_m1, c_m2, c_m3 = st.columns(3)
                 with c_m1: st.markdown(f'<div class="luxury-card"><div class="luxury-metric-title">Total Bales Lifted</div><div class="luxury-metric-value">{total_bales:,} Bales</div></div>', unsafe_allow_html=True)
                 with c_m2: st.markdown(f'<div class="luxury-card"><div class="luxury-metric-title">Gross Material Value</div><div class="luxury-metric-value">₹ {total_mat_amt:,.2f}</div></div>', unsafe_allow_html=True)
-                with c_m3: st.markdown(f'<div class="luxury-card" style="border-left: 4px solid #FF6B00;"><div class="luxury-metric-title" style="color: #FF6B00;">Net Payable / Receivable</div><div class="luxury-metric-value" style="color: #FF6B00; text-shadow: 0px 0px 8px rgba(255,107,0,0.3);">₹ {net_payable:,.2f}</div></div>', unsafe_allow_html=True)
+                with c_m3: st.markdown(f'<div class="luxury-card"><div class="luxury-metric-title">Net Payable / Receivable</div><div class="luxury-metric-value">₹ {net_payable:,.2f}</div></div>', unsafe_allow_html=True)
                 
                 summary_data = {
                     "Particulars Label": ["Material Amount Base", "Late Lifting (LL) Penalties", "Carrying Cost (CC) Charges", "Accrued GST On Charges", "Cash Discount (CD)", "FIFO EMD Interest Rebate", "Total Payments Received"],
@@ -748,7 +544,7 @@ if uploaded_file is not None:
                         ],
                         "RATE / %": ["Base Price", "Slab Wise", "Slab Wise", f"{g_tax}%", "-", "Config Rate", "As per Master", "Actual Paid"],
                         "AMOUNT (₹)": [
-                            total_mat_amt, t_cc, t_ll, calculated_gst,
+                            total_mat_amt, t_cc, t_ll, calculated_gst, 
                             (total_mat_amt + t_cc + t_ll + calculated_gst),
                             -t_cd, -total_emd_int, -total_payments
                         ]
@@ -758,21 +554,21 @@ if uploaded_file is not None:
                     workbook = writer.book
                     worksheet = writer.sheets["Settlement Statement"]
                     
-                    orange_header_fill = PatternFill(start_color="FF6B00", end_color="FF6B00", fill_type="solid")
-                    gross_total_fill = PatternFill(start_color="FFF5EE", end_color="FFF5EE", fill_type="solid") 
-                    net_payable_fill = PatternFill(start_color="EAF5EA", end_color="EAF5EA", fill_type="solid") 
+                    purple_header_fill = PatternFill(start_color="8A2BE2", end_color="8A2BE2", fill_type="solid")
+                    gross_total_fill = PatternFill(start_color="F1EAFA", end_color="F1EAFA", fill_type="solid") 
+                    net_payable_fill = PatternFill(start_color="FFF0F5", end_color="FFF0F5", fill_type="solid") 
                     
                     white_bold_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
                     bold_black_font = Font(name="Segoe UI", size=11, bold=True)
                     regular_font = Font(name="Segoe UI", size=11)
-                    final_net_font = Font(name="Segoe UI", size=12, bold=True, color="74C324")
+                    final_net_font = Font(name="Segoe UI", size=12, bold=True, color="8A2BE2")
                     
                     thin_border_side = Side(border_style="thin", color="D3D3D3")
                     grid_border = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
                     
                     for col_idx in range(1, 5):
                         cell = worksheet.cell(row=1, column=col_idx)
-                        cell.fill = orange_header_fill
+                        cell.fill = purple_header_fill
                         cell.font = white_bold_font
                         cell.alignment = Alignment(horizontal="center" if col_idx != 2 else "left", vertical="center")
                     
@@ -786,7 +582,7 @@ if uploaded_file is not None:
                             elif col_idx == 4:
                                 cell.number_format = '₹ #,##0.00'
                                 cell.alignment = Alignment(horizontal="right")
-                        
+                                
                         if row_idx == 6:
                             for col_idx in range(1, 5):
                                 worksheet.cell(row=row_idx, column=col_idx).fill = gross_total_fill
@@ -806,7 +602,7 @@ if uploaded_file is not None:
                 # --- NATIVE PDF STREAM GENERATION ---
                 pdf = FPDF()
                 pdf.add_page()
-                pdf.set_text_color(255, 107, 0)
+                pdf.set_text_color(138, 43, 226)
                 pdf.set_font("Arial", "B", 16)
                 pdf.cell(190, 10, "THE COTTON CORPORATION OF INDIA LTD.", ln=True, align="C")
                 pdf.set_text_color(85, 85, 85)
@@ -814,7 +610,7 @@ if uploaded_file is not None:
                 pdf.cell(190, 8, "FINAL SETTLEMENT STATEMENT", ln=True, align="C")
                 pdf.ln(10)
                 
-                pdf.set_fill_color(255, 107, 0)
+                pdf.set_fill_color(138, 43, 226)
                 pdf.set_text_color(255, 255, 255)
                 pdf.set_font("Arial", "B", 10)
                 pdf.cell(15, 10, "SR.", border=1, fill=True, align="C")
@@ -839,7 +635,7 @@ if uploaded_file is not None:
                 
                 for sr, part, rate, amt in rows_pdf:
                     if part == "GROSS TOTAL (A)":
-                        pdf.set_fill_color(255, 245, 238)
+                        pdf.set_fill_color(241, 234, 250)
                         pdf.set_font("Arial", "B", 10)
                         pdf.cell(15, 8, sr, border=1, fill=True, align="C")
                         pdf.cell(100, 8, part, border=1, fill=True)
@@ -847,14 +643,14 @@ if uploaded_file is not None:
                         pdf.cell(40, 8, amt, border=1, fill=True, align="R")
                         pdf.set_font("Arial", "", 10)
                     else:
-                        pdf.cell(15, 8, border=1, align="C")
+                        pdf.cell(15, 8, sr, border=1, align="C")
                         pdf.cell(100, 8, part, border=1)
                         pdf.cell(35, 8, rate, border=1, align="C")
                         pdf.cell(40, 8, amt, border=1, align="R")
                     pdf.ln()
                     
-                pdf.set_fill_color(234, 245, 234)
-                pdf.set_text_color(116, 195, 36)
+                pdf.set_fill_color(255, 240, 245)
+                pdf.set_text_color(138, 43, 226)
                 pdf.set_font("Arial", "B", 11)
                 pdf.cell(15, 10, "", border=1, fill=True)
                 pdf.cell(100, 10, "NET PAYABLE / (RECEIVABLE) DUE", border=1, fill=True)
@@ -882,76 +678,75 @@ if uploaded_file is not None:
                     
                 st.markdown("---")
                 
-                # HTML Live Sheet View optimized
                 invoice_html = f"""
-                <div style="background-color: #1A1A1A; padding: 25px; border: 2px solid #FF6B00; border-radius: 8px; box-shadow: 0px 12px 24px rgba(0,0,0,0.6);">
-                    <div style="text-align: center; font-size: 18px; font-weight: 800; color: #FFFFFF; letter-spacing: 0.5px; margin-bottom: 20px;">
+                <div style="background-color: #FFFFFF; padding: 25px; border: 1px solid #8A2BE2; border-radius: 8px;">
+                    <div style="text-align: center; font-size: 20px; font-weight: bold; color: #8A2BE2; margin-bottom: 20px;">
                         THE COTTON CORPORATION OF INDIA LTD. <br>
-                        <span style="font-size: 12px; font-weight: 700; color: #FF6B00; text-shadow: 0px 0px 5px rgba(255,107,0,0.3);">FINAL SETTLEMENT STATEMENT</span>
+                        <span style="font-size: 14px; color: #555555;">FINAL SETTLEMENT STATEMENT</span>
                     </div>
                     <table class="invoice-table">
                         <thead>
                             <tr>
-                                <th style="color: #FF6B00 !important;">SR. NO.</th>
-                                <th style="color: #FF6B00 !important;">PARTICULARS</th>
-                                <th style="text-align: right; color: #FF6B00 !important;">RATE / %</th>
-                                <th style="text-align: right; color: #FF6B00 !important;">AMOUNT (₹)</th>
+                                <th>SR. NO.</th>
+                                <th>PARTICULARS</th>
+                                <th style="text-align: right;">RATE / %</th>
+                                <th style="text-align: right;">AMOUNT (₹)</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>1</td>
                                 <td>Gross Material Amount (Total Bales: {total_bales:,})</td>
-                                <td style="text-align: right; font-size: 12px;">Base Price</td>
-                                <td style="text-align: right; font-weight: bold; color: #FFFFFF;">₹ {total_mat_amt:,.2f}</td>
+                                <td style="text-align: right;">Base Price</td>
+                                <td style="text-align: right;">₹ {total_mat_amt:,.2f}</td>
                             </tr>
                             <tr>
                                 <td>2</td>
                                 <td>Carrying Cost (CC) Charges</td>
-                                <td style="text-align: right; font-size: 12px;">Slab Wise</td>
+                                <td style="text-align: right;">Slab Wise</td>
                                 <td style="text-align: right;">₹ {t_cc:,.2f}</td>
                             </tr>
                             <tr>
                                 <td>3</td>
                                 <td>Late Lifting (LL) Penalties</td>
-                                <td style="text-align: right; font-size: 12px;">Slab Wise</td>
+                                <td style="text-align: right;">Slab Wise</td>
                                 <td style="text-align: right;">₹ {t_ll:,.2f}</td>
                             </tr>
                             <tr>
                                 <td>4</td>
                                 <td>Add: GST on CC & LL Charges</td>
-                                <td style="text-align: right; font-size: 12px;">{g_tax}%</td>
+                                <td style="text-align: right;">{g_tax}%</td>
                                 <td style="text-align: right;">₹ {calculated_gst:,.2f}</td>
                             </tr>
-                            <tr style="background-color: #242424; font-weight: bold;">
+                            <tr style="background-color: #F1EAFA; font-weight: bold;">
                                 <td></td>
-                                <td style="color: #FF6B00 !important; font-size: 13px;">GROSS TOTAL (A)</td>
+                                <td>GROSS TOTAL (A)</td>
                                 <td style="text-align: right;">-</td>
-                                <td style="text-align: right; color: #FF6B00 !important;">₹ {(total_mat_amt + t_cc + t_ll + calculated_gst):,.2f}</td>
+                                <td style="text-align: right;">₹ {(total_mat_amt + t_cc + t_ll + calculated_gst):,.2f}</td>
                             </tr>
                             <tr>
                                 <td>5</td>
                                 <td>Less: Cash Discount (CD) Received</td>
-                                <td style="text-align: right; font-size: 12px;">Config Rate</td>
-                                <td style="text-align: right; color: #FF4A4A;">- ₹ {t_cd:,.2f}</td>
+                                <td style="text-align: right;">Config Rate</td>
+                                <td style="text-align: right; color: red;">- ₹ {t_cd:,.2f}</td>
                             </tr>
                             <tr>
                                 <td>6</td>
                                 <td>Less: EMD Interest Rebate (FIFO Method)</td>
-                                <td style="text-align: right; font-size: 12px;">As per Master</td>
-                                <td style="text-align: right; color: #FF4A4A;">- ₹ {total_emd_int:,.2f}</td>
+                                <td style="text-align: right;">As per Master</td>
+                                <td style="text-align: right; color: red;">- ₹ {total_emd_int:,.2f}</td>
                             </tr>
                             <tr>
                                 <td>7</td>
                                 <td>Less: Total EMD / Payments Realized</td>
-                                <td style="text-align: right; font-size: 12px;">Actual Paid</td>
-                                <td style="text-align: right; color: #FF4A4A;">- ₹ {total_payments:,.2f}</td>
+                                <td style="text-align: right;">Actual Paid</td>
+                                <td style="text-align: right; color: red;">- ₹ {total_payments:,.2f}</td>
                             </tr>
-                            <tr class="invoice-total-row">
+                            <tr class="invoice-total-row" style="background-color: #FFF0F5;">
                                 <td></td>
-                                <td style="color: #74C324 !important;">NET PAYABLE / (RECEIVABLE) DUE</td>
+                                <td style="color: #8A2BE2; font-size: 16px;">NET PAYABLE / (RECEIVABLE) DUE</td>
                                 <td style="text-align: right;">-</td>
-                                <td style="text-align: right; color: #74C324 !important;">₹ {net_payable:,.2f}</td>
+                                <td style="text-align: right; font-size: 16px; color: #8A2BE2;">₹ {net_payable:,.2f}</td>
                             </tr>
                         </tbody>
                     </table>
