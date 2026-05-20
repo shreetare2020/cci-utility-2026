@@ -65,6 +65,15 @@ if not check_password():
 
 # --- 🚀 AB YAHAAN SE AAPKA BAAKI KA PURA CODE SHURU HOGA ---
 st.markdown("""
+    <style>
+    /* Ye code deploy menu (GitHub icon) ko hide kar dega */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
 <style>
 
 /* =========================
