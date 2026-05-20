@@ -65,62 +65,654 @@ if not check_password():
 
 # --- 🚀 AB YAHAAN SE AAPKA BAAKI KA PURA CODE SHURU HOGA ---
 st.markdown("""
-    <style>
-    .stApp { background-color: #F4F9F4; } 
-    [data-testid="stSidebar"] { background-color: #FFF0F5 !important; } 
-    h1, h2, h3, h4 { color: #8A2BE2 !important; font-weight: bold; }
-    .stButton>button, .stDownloadButton>button { background-color: #8A2BE2 !important; color: white !important; border-radius: 8px; font-weight: bold; width: 100%; }
-    .sidebar-header { font-size: 20px; font-weight: bold; color: #8A2BE2; margin-bottom: 15px; border-bottom: 2px solid #8A2BE2; padding-bottom: 5px; }
-    
-    div[data-testid="stMarkdownContainer"] p, label[data-testid="stWidgetLabel"] p {
-        font-size: 13px !important;
-    }
-    
-    .luxury-card {
-        background-color: #FFFFFF;
-        border-left: 5px solid #8A2BE2;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-    }
-    .luxury-metric-title { font-size: 14px; color: #555555; font-weight: bold; text-transform: uppercase; }
-    .luxury-metric-value { font-size: 24px; color: #8A2BE2; font-weight: bold; margin-top: 5px; }
-    
-    .invoice-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        background-color: #FFFFFF;
-    }
-    .invoice-table th {
-        background-color: #8A2BE2;
-        color: white;
-        text-align: left;
-        padding: 12px;
-        font-weight: bold;
-    }
-    .invoice-table td {
-        padding: 10px;
-        border-bottom: 1px solid #E0E0E0;
-        font-size: 14px;
-    }
-    .invoice-total-row {
-        font-weight: bold;
-        background-color: #F9F9F9;
-        border-top: 2px solid #8A2BE2;
-    }
-/* 🚫 Header, GitHub Icon aur Deploy Button Chupane Ke Liye */
-    header[data-testid="stHeader"] {
-        visibility: hidden;
-        display: none;
-    }
-    
-    /* 🚫 Bottom Footer Hide Karne Ke Liye */
-    footer {
-        visibility: hidden;
-    }
-    </style>
+<style>
+
+/* =========================
+   MAIN APP BACKGROUND
+========================= */
+
+.stApp {
+    background: linear-gradient(
+        135deg,
+        #D6D6D6 0%,
+        #C9C9C9 50%,
+        #BEBEBE 100%
+    );
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* =========================
+   HEADER HIDE
+========================= */
+
+header[data-testid="stHeader"] {
+    display: none;
+}
+
+footer {
+    display: none;
+}
+
+/* =========================
+   SIDEBAR ULTRA PREMIUM
+========================= */
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(
+        180deg,
+        #2B2B2B 0%,
+        #3A3A3A 100%
+    ) !important;
+
+    border-right: 2px solid #FF1493;
+
+    box-shadow:
+        8px 0px 30px rgba(255, 20, 147, 0.35);
+
+    padding-top: 10px;
+}
+
+/* Sidebar Text */
+
+[data-testid="stSidebar"] * {
+    color: white !important;
+}
+
+/* Sidebar Header */
+
+.sidebar-header {
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    );
+
+    padding: 14px;
+    border-radius: 14px;
+
+    text-align: center;
+
+    font-size: 20px;
+    font-weight: 700;
+
+    margin-bottom: 20px;
+
+    box-shadow:
+        0 0 25px rgba(255,20,147,0.5);
+}
+
+/* =========================
+   MAIN TITLE
+========================= */
+
+h1 {
+    color: #FF1493 !important;
+
+    text-align: center;
+
+    font-size: 42px !important;
+
+    font-weight: 900 !important;
+
+    text-shadow:
+        0px 0px 15px rgba(255,20,147,0.5);
+}
+
+/* =========================
+   SUBHEADINGS
+========================= */
+
+h2, h3, h4 {
+    color: #C71585 !important;
+    font-weight: 800 !important;
+}
+
+/* =========================
+   INPUT FIELDS
+========================= */
+
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input {
+
+    background-color: #ECECEC !important;
+
+    border: 2px solid #FF1493 !important;
+
+    border-radius: 14px !important;
+
+    color: #2B2B2B !important;
+
+    font-weight: 600 !important;
+
+    box-shadow:
+        0px 0px 10px rgba(255,20,147,0.15);
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+.stButton > button,
+.stDownloadButton > button {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    ) !important;
+
+    color: white !important;
+
+    border: none !important;
+
+    border-radius: 16px !important;
+
+    font-size: 16px !important;
+
+    font-weight: 700 !important;
+
+    padding: 12px 20px !important;
+
+    transition: all 0.3s ease !important;
+
+    box-shadow:
+        0px 8px 25px rgba(255,20,147,0.35);
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+
+    transform: translateY(-3px);
+
+    box-shadow:
+        0px 12px 30px rgba(255,20,147,0.55);
+
+    background: linear-gradient(
+        135deg,
+        #FF3CAC,
+        #784BA0
+    ) !important;
+}
+
+/* =========================
+   TABS ULTRA PREMIUM
+========================= */
+
+.stTabs [data-baseweb="tab-list"] {
+
+    gap: 12px;
+
+    background: rgba(255,255,255,0.15);
+
+    padding: 10px;
+
+    border-radius: 18px;
+
+    box-shadow:
+        inset 0px 0px 15px rgba(255,255,255,0.1);
+}
+
+/* Inactive Tabs */
+
+.stTabs [data-baseweb="tab"] {
+
+    background: #4A4A4A !important;
+
+    color: white !important;
+
+    border-radius: 16px !important;
+
+    padding: 14px 24px !important;
+
+    font-weight: 700 !important;
+
+    transition: 0.3s ease;
+
+    border: 2px solid transparent;
+
+    box-shadow:
+        0px 5px 15px rgba(0,0,0,0.2);
+}
+
+/* Active Tab */
+
+.stTabs [aria-selected="true"] {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    ) !important;
+
+    color: white !important;
+
+    border: 2px solid #FFB6D9 !important;
+
+    box-shadow:
+        0px 0px 25px rgba(255,20,147,0.6);
+
+    transform: translateY(-2px);
+}
+
+/* =========================
+   EXPANDERS PREMIUM
+========================= */
+
+.streamlit-expanderHeader {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    ) !important;
+
+    color: white !important;
+
+    border-radius: 14px !important;
+
+    font-size: 16px !important;
+
+    font-weight: 700 !important;
+
+    border: none !important;
+
+    padding: 10px !important;
+
+    box-shadow:
+        0px 5px 20px rgba(255,20,147,0.4);
+}
+
+.streamlit-expanderContent {
+
+    background: rgba(255,255,255,0.85);
+
+    border-radius: 0px 0px 16px 16px;
+
+    padding: 15px;
+
+    border: 1px solid rgba(255,20,147,0.2);
+}
+
+/* =========================
+   DATAFRAMES
+========================= */
+
+[data-testid="stDataFrame"] {
+
+    border-radius: 18px !important;
+
+    overflow: hidden;
+
+    box-shadow:
+        0px 10px 30px rgba(0,0,0,0.15);
+}
+
+/* =========================
+   METRIC CARDS
+========================= */
+
+.luxury-card {
+
+    background: rgba(255,255,255,0.92);
+
+    border-left: 8px solid #FF1493;
+
+    border-radius: 20px;
+
+    padding: 25px;
+
+    backdrop-filter: blur(10px);
+
+    box-shadow:
+        0px 10px 30px rgba(255,20,147,0.18);
+
+    transition: all 0.3s ease;
+}
+
+.luxury-card:hover {
+
+    transform: translateY(-5px);
+
+    box-shadow:
+        0px 15px 40px rgba(255,20,147,0.35);
+}
+
+.luxury-metric-title {
+
+    color: #666666;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    letter-spacing: 1px;
+}
+
+.luxury-metric-value {
+
+    color: #C71585;
+
+    font-size: 30px;
+
+    font-weight: 900;
+
+    margin-top: 8px;
+}
+
+/* =========================
+   TABLES
+========================= */
+
+.invoice-table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    overflow: hidden;
+
+    border-radius: 18px;
+}
+
+.invoice-table th {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    );
+
+    color: white;
+
+    padding: 14px;
+
+    font-size: 15px;
+}
+
+.invoice-table td {
+
+    padding: 12px;
+
+    background: rgba(255,255,255,0.92);
+
+    border-bottom: 1px solid #E0E0E0;
+}
+
+/* =========================
+   SCROLLBAR
+========================= */
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #D3D3D3;
+}
+
+::-webkit-scrollbar-thumb {
+
+    background: linear-gradient(
+        #FF1493,
+        #C71585
+    );
+
+    border-radius: 10px;
+}
+/* =========================
+   SIDEBAR FORM BUTTON FIX
+========================= */
+
+section[data-testid="stSidebar"] .stButton > button,
+section[data-testid="stSidebar"] .stDownloadButton > button,
+section[data-testid="stSidebar"] button[kind="primary"] {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    ) !important;
+
+    color: white !important;
+
+    border: none !important;
+
+    border-radius: 16px !important;
+
+    min-height: 50px !important;
+
+    font-size: 16px !important;
+
+    font-weight: 800 !important;
+
+    width: 100% !important;
+
+    margin-top: 15px !important;
+
+    box-shadow:
+        0px 8px 24px rgba(255,20,147,0.45) !important;
+
+    transition: all 0.3s ease !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover,
+section[data-testid="stSidebar"] button[kind="primary"]:hover {
+
+    transform: translateY(-3px);
+
+    background: linear-gradient(
+        135deg,
+        #FF3CAC,
+        #C71585
+    ) !important;
+
+    box-shadow:
+        0px 12px 28px rgba(255,20,147,0.65) !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:active {
+
+    transform: scale(0.98);
+}
+/* =========================
+   EXPANDED SECTION FIX
+========================= */
+
+/* Expanded Area Background */
+
+details[open] > div {
+
+    background: rgba(255,255,255,0.96) !important;
+
+    border-radius: 0px 0px 16px 16px !important;
+
+    padding: 14px !important;
+
+    color: #2B2B2B !important;
+}
+
+/* ALL TEXT INSIDE EXPANDED AREA */
+
+details[open] label,
+details[open] p,
+details[open] span,
+details[open] div {
+
+    color: #2B2B2B !important;
+
+    font-weight: 600 !important;
+}
+
+/* Input Labels */
+
+details[open] .stTextInput label,
+details[open] .stNumberInput label,
+details[open] .stDateInput label {
+
+    color: #C71585 !important;
+
+    font-weight: 800 !important;
+}
+
+/* Save Button Fix */
+
+details[open] button {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493,
+        #C71585
+    ) !important;
+
+    color: white !important;
+
+    border-radius: 14px !important;
+
+    border: none !important;
+
+    font-weight: 800 !important;
+
+    min-height: 48px !important;
+
+    box-shadow:
+        0px 8px 20px rgba(255,20,147,0.35);
+}
+/* =====================================
+   FORCE SIDEBAR SAVE BUTTON FIX
+===================================== */
+
+details[open] div[data-testid="stForm"] button {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493 0%,
+        #C71585 100%
+    ) !important;
+
+    color: white !important;
+
+    border: none !important;
+
+    border-radius: 16px !important;
+
+    height: 52px !important;
+
+    width: 100% !important;
+
+    font-size: 16px !important;
+
+    font-weight: 800 !important;
+
+    margin-top: 18px !important;
+
+    box-shadow:
+        0px 8px 22px rgba(255,20,147,0.45) !important;
+
+    transition: all 0.3s ease !important;
+
+    opacity: 1 !important;
+}
+
+/* Hover */
+
+details[open] div[data-testid="stForm"] button:hover {
+
+    background: linear-gradient(
+        135deg,
+        #FF3CAC,
+        #C71585
+    ) !important;
+
+    transform: translateY(-2px);
+
+    box-shadow:
+        0px 12px 28px rgba(255,20,147,0.65) !important;
+}
+
+/* Button Text */
+
+details[open] div[data-testid="stForm"] button p,
+details[open] div[data-testid="stForm"] button span {
+
+    color: white !important;
+
+    font-weight: 800 !important;
+
+    opacity: 1 !important;
+}
+/* =========================================
+   FINAL FORCE SAVE BUTTON FIX
+========================================= */
+
+/* Submit Button Exact Target */
+
+div[data-testid="stFormSubmitButton"] > button {
+
+    background: linear-gradient(
+        135deg,
+        #FF1493 0%,
+        #C71585 100%
+    ) !important;
+
+    color: white !important;
+
+    border: none !important;
+
+    border-radius: 18px !important;
+
+    min-height: 52px !important;
+
+    width: 100% !important;
+
+    font-size: 16px !important;
+
+    font-weight: 900 !important;
+
+    margin-top: 20px !important;
+
+    opacity: 1 !important;
+
+    box-shadow:
+        0px 10px 26px rgba(255,20,147,0.45) !important;
+
+    transition: all 0.3s ease !important;
+}
+
+/* Text inside button */
+
+div[data-testid="stFormSubmitButton"] > button p,
+div[data-testid="stFormSubmitButton"] > button span {
+
+    color: white !important;
+
+    font-weight: 900 !important;
+}
+
+/* Hover */
+
+div[data-testid="stFormSubmitButton"] > button:hover {
+
+    background: linear-gradient(
+        135deg,
+        #FF3CAC,
+        #D414A0
+    ) !important;
+
+    transform: translateY(-2px);
+
+    box-shadow:
+        0px 14px 30px rgba(255,20,147,0.65) !important;
+}
+
+/* Active */
+
+div[data-testid="stFormSubmitButton"] > button:active {
+
+    transform: scale(0.98);
+}
+
+</style>
 """, unsafe_allow_html=True)
 
 # --- DATABASE INITIALIZATION ---
@@ -300,75 +892,228 @@ def get_slab_rate(days, d1, r1, d2, r2, d3, r3):
     return r3
 
 # --- SIDEBAR MASTER SETUP ---
+# =========================================
+# PREMIUM ERP STYLE SIDEBAR NAVIGATION
+# =========================================
+
+# =========================================
+# ULTRA PREMIUM MASTER SIDEBAR
+# =========================================
+
 with st.sidebar:
+
     logo_path = "softview_logo.png"
+
     if os.path.exists(logo_path):
-        try: st.image(Image.open(logo_path), use_container_width=True)
-        except: pass
-        
-    st.markdown('<div class="sidebar-header">⚙️ MASTER SETUP</div>', unsafe_allow_html=True)
-    
-    with st.form("master_form_aju_baju_v13"):
-        p_name = st.text_input("PARTY NAME (Optional)", value="").strip()
-        
-        col_proj1, col_proj2 = st.columns(2)
-        with col_proj1: c_no = st.text_input("CONTRACT NO.", value="DEFAULT").upper().strip().replace('.', '-')
-        with col_proj2: p_valid = st.date_input("VALID TILL", value=None, format="DD/MM/YYYY")
-        
-        col_dt1, col_dt2 = st.columns(2)
-        with col_dt1: c_date = st.date_input("CONTRACT DATE", value=None, format="DD/MM/YYYY")
-        with col_dt2: e_dt = st.date_input("EFFECTIVE DATE", value=None, format="DD/MM/YYYY")
-        
-        col_em1, col_em2 = st.columns(2)
-        with col_em1: emd_slab = st.number_input("EMD SLAB (%)", value=0.0)
-        with col_em2: emd_int_rate = st.number_input("EMD INT RATE (%)", value=0.0)
+        try:
+            st.image(Image.open(logo_path), use_container_width=True)
+        except:
+            pass
 
-        st.markdown("**💰 CD & TAX SLABS (Aju-Baju)**")
-        col_tax1, col_tax2 = st.columns(2)
-        with col_tax1: cd_d1 = st.number_input("CD Days 1", value=0)
-        with col_tax2: cd_r1 = st.number_input("CD Rate 1 (%)", value=0.0)
-        tax_rate = st.number_input("TAX RATE (%)", value=18.0)
+    st.markdown("""
+    <div class="sidebar-header">
+        ⚙️ MASTER CONTROL PANEL
+    </div>
+    """, unsafe_allow_html=True)
 
-        st.markdown("**📉 LATE LIFTING SLABS (Aju-Baju)**")
-        col_ll1, col_ll2 = st.columns(2)
-        with col_ll1: 
-            ll_p1 = st.number_input("LL Days 1", value=0)
-            ll_p2 = st.number_input("LL Days 2", value=0)
-            ll_p3 = st.number_input("LL Days 3", value=0)
-        with col_ll2:
-            ll_r1 = st.number_input("LL Rate 1", value=0.0)
-            ll_r2 = st.number_input("LL Rate 2", value=0.0)
-            ll_r3 = st.number_input("LL Rate 3", value=0.0)
+    with st.form("master_form_aju_baju_v15"):
 
-        st.markdown("**🚛 CARRYING COST SLABS (Aju-Baju)**")
-        col_cc1, col_cc2 = st.columns(2)
-        with col_cc1:
-            cc_d1 = st.number_input("CC Days 1", value=0)
-            cc_d2 = st.number_input("CC Days 2", value=0)
-            cc_d3 = st.number_input("CC Days 3", value=0)
-        with col_cc2:
-            cc_r1 = st.number_input("CC Rate 1", value=0.0)
-            cc_r2 = st.number_input("CC Rate 2", value=0.0)
-            cc_r3 = st.number_input("CC Rate 3", value=0.0)
-            
-        submitted = st.form_submit_button("🏆 SAVE CONFIGURATION")
+        # =====================================
+        # BASIC DETAILS
+        # =====================================
+
+        with st.expander("📋 BASIC CONTRACT DETAILS", expanded=True):
+
+            p_name = st.text_input(
+                "PARTY NAME",
+                value=""
+            ).strip()
+
+            c_no = st.text_input(
+                "CONTRACT NO.",
+                value="DEFAULT"
+            ).upper().strip().replace('.', '-')
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                c_date = st.date_input(
+                    "CONTRACT DATE",
+                    value=None,
+                    format="DD/MM/YYYY"
+                )
+
+                e_dt = st.date_input(
+                    "EFFECTIVE DATE",
+                    value=None,
+                    format="DD/MM/YYYY"
+                )
+
+            with col2:
+
+                p_valid = st.date_input(
+                    "VALID TILL",
+                    value=None,
+                    format="DD/MM/YYYY"
+                )
+
+                emd_slab = st.number_input(
+                    "EMD SLAB (%)",
+                    value=0.0
+                )
+
+        # =====================================
+        # CD SETTINGS
+        # =====================================
+
+        with st.expander("💰 CASH DISCOUNT SETTINGS", expanded=False):
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                cd_d1 = st.number_input(
+                    "CD DAYS",
+                    value=0
+                )
+
+            with col2:
+
+                cd_r1 = st.number_input(
+                    "CD RATE (%)",
+                    value=0.0
+                )
+
+            tax_rate = st.number_input(
+                "GST / TAX RATE (%)",
+                value=18.0
+            )
+
+        # =====================================
+        # LL SETTINGS
+        # =====================================
+
+        with st.expander("📉 LATE LIFTING SETTINGS", expanded=False):
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                ll_p1 = st.number_input("LL Days 1", value=0)
+                ll_p2 = st.number_input("LL Days 2", value=0)
+                ll_p3 = st.number_input("LL Days 3", value=0)
+
+            with col2:
+
+                ll_r1 = st.number_input("LL Rate 1", value=0.0)
+                ll_r2 = st.number_input("LL Rate 2", value=0.0)
+                ll_r3 = st.number_input("LL Rate 3", value=0.0)
+
+        # =====================================
+        # CC SETTINGS
+        # =====================================
+
+        with st.expander("🚛 CARRYING COST SETTINGS", expanded=False):
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                cc_d1 = st.number_input("CC Days 1", value=0)
+                cc_d2 = st.number_input("CC Days 2", value=0)
+                cc_d3 = st.number_input("CC Days 3", value=0)
+
+            with col2:
+
+                cc_r1 = st.number_input("CC Rate 1", value=0.0)
+                cc_r2 = st.number_input("CC Rate 2", value=0.0)
+                cc_r3 = st.number_input("CC Rate 3", value=0.0)
+
+        # =====================================
+        # EMD SETTINGS
+        # =====================================
+
+        with st.expander("🏦 EMD INTEREST SETTINGS", expanded=False):
+
+            emd_int_rate = st.number_input(
+                "EMD INTEREST RATE (%)",
+                value=0.0
+            )
+
+        # =====================================
+        # SAVE BUTTON
+        # =====================================
+
+        submitted = st.form_submit_button(
+            "🏆 SAVE MASTER CONFIGURATION"
+        )
+
         if submitted and c_no:
+
             db = init_db()
+
             if db:
-                doc_id = f"CFG_{c_no}" if c_no == "DEFAULT" else f"{p_name}_{c_no}"
+
+                doc_id = (
+                    f"CFG_{c_no}"
+                    if c_no == "DEFAULT"
+                    else f"{p_name}_{c_no}"
+                )
+
                 data = {
-                    "Party_Name": p_name if p_name else "DEFAULT_GLOBAL", "Contract_No": c_no,
-                    "Project_Valid_Till": p_valid.strftime('%d-%m-%Y') if p_valid else "",
-                    "Contract_Date": c_date.strftime('%d-%m-%Y') if c_date else "",
-                    "Effective_Date": e_dt.strftime('%d-%m-%Y') if e_dt else "",
-                    "EMD_Slab_Pct": emd_slab, "EMD_Interest_Rate": emd_int_rate, "Tax_Rate": tax_rate,
-                    "CD_Days_1": cd_d1, "CD_Rate_1": cd_r1,
-                    "LL_Days_1": ll_p1, "LL_Rate_1": ll_r1, "LL_Days_2": ll_p2, "LL_Rate_2": ll_r2, "LL_Days_3": ll_p3, "LL_Rate_3": ll_r3,
-                    "CC_Days_1": cc_d1, "CC_Rate_1": cc_r1, "CC_Days_2": cc_d2, "CC_Rate_2": cc_r2, "CC_Days_3": cc_d3, "CC_Rate_3": cc_r3
+
+                    "Party_Name":
+                        p_name if p_name else "DEFAULT_GLOBAL",
+
+                    "Contract_No": c_no,
+
+                    "Project_Valid_Till":
+                        p_valid.strftime('%d-%m-%Y')
+                        if p_valid else "",
+
+                    "Contract_Date":
+                        c_date.strftime('%d-%m-%Y')
+                        if c_date else "",
+
+                    "Effective_Date":
+                        e_dt.strftime('%d-%m-%Y')
+                        if e_dt else "",
+
+                    "EMD_Slab_Pct": emd_slab,
+                    "EMD_Interest_Rate": emd_int_rate,
+                    "Tax_Rate": tax_rate,
+
+                    "CD_Days_1": cd_d1,
+                    "CD_Rate_1": cd_r1,
+
+                    "LL_Days_1": ll_p1,
+                    "LL_Rate_1": ll_r1,
+
+                    "LL_Days_2": ll_p2,
+                    "LL_Rate_2": ll_r2,
+
+                    "LL_Days_3": ll_p3,
+                    "LL_Rate_3": ll_r3,
+
+                    "CC_Days_1": cc_d1,
+                    "CC_Rate_1": cc_r1,
+
+                    "CC_Days_2": cc_d2,
+                    "CC_Rate_2": cc_r2,
+
+                    "CC_Days_3": cc_d3,
+                    "CC_Rate_3": cc_r3
                 }
+
                 db.collection("master_data").document(doc_id).set(data)
-                st.sidebar.success(f"Config Saved: {c_no}")
+
+                st.success(
+                    f"✅ Configuration Saved : {c_no}"
+                )
+
                 st.rerun()
+
 
 # --- MAIN ENGINE CONTENT ---
 st.title("⚜️ CCI CALCULATION WORKING UTILITY ⚜️")
