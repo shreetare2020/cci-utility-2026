@@ -639,8 +639,8 @@ If Lifting Date > Free Period:
 
 If Payment Date > CC Free End:
     CC Days = Payment Date − CC Free End
-Elif Lift Date > CC Free End:
-    CC Days = Lift Date − CC Free End
+#Elif Lift Date > CC Free End:
+    #CC Days = Lift Date − CC Free End
 Else: CC Days = 0 (no charges)
 
   First 30d  : Amt × 1.25%/month
