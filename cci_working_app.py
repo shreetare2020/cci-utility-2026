@@ -1,113 +1,117 @@
 """
-CCI WORKING CALCULATION UTILITY - Streamlit + Firebase Firestore
-Deploy: Streamlit Cloud
-Run locally: streamlit run cci_working_app.py
+CCI WORKING CALCULATION UTILITY — Streamlit Version
+Run: streamlit run cci_streamlit_app.py
+Data stored in cci_masters.json (local file)
 """
 
-import io, json, os
+import io, json, os, base64
+from datetime import datetime, date
 import pandas as pd
 import streamlit as st
-from datetime import date
 
-# ─── FIREBASE ────────────────────────────────────────────────────────────────
-import firebase_admin
-from firebase_admin import credentials, firestore
-
-def init_firebase():
-    if not firebase_admin._apps:
-        cred_dict = dict(st.secrets["firebase"])
-        cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred)
-    return firestore.client()
-
-db = init_firebase()
-
-def fs_load():
-    try:
-        doc = db.collection("cci_utility").document("masters").get()
-        if doc.exists:
-            return doc.to_dict()
-    except Exception as e:
-        st.warning(f"Firebase read error: {e}")
-    return {"projects": [], "contracts": []}
-
-def fs_save(data):
-    try:
-        db.collection("cci_utility").document("masters").set(data)
-    except Exception as e:
-        st.error(f"Firebase save error: {e}")
-
-# ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
+# ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="CCI Working Calculation Utility",
-    page_icon="🧮", layout="wide"
+    page_icon="🧮",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
+# ─── CUSTOM CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-div[data-testid="metric-container"]{
-    background:#f0f4ff;border:1px solid #c7d7fd;border-radius:10px;padding:12px;}
-.stTabs [data-baseweb="tab"]{padding:8px 20px;border-radius:8px 8px 0 0;}
-thead tr th{background:#f1f5f9 !important;font-size:11px !important;
-    text-transform:uppercase;letter-spacing:.04em;}
+[data-testid="stAppViewContainer"] { background: #f4f6fb; }
+[data-testid="stHeader"] { background: transparent; }
+.main .block-container { padding-top: 1rem; padding-bottom: 2rem; }
+.topbar {
+    background: linear-gradient(90deg, #1a56db, #1341a8);
+    color: white; padding: 14px 24px; border-radius: 10px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px; box-shadow: 0 2px 12px rgba(26,86,219,.25);
+}
+.topbar h1 { font-size: 19px; font-weight: 700; margin: 0; }
+.topbar .ver { font-size: 11px; background: rgba(255,255,255,.2); padding: 2px 10px; border-radius: 20px; }
+.metric-card {
+    background: white; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.metric-val { font-size: 20px; font-weight: 700; color: #1a56db; }
+.metric-lbl { font-size: 11px; color: #6b7280; margin-top: 3px; }
+.pill-open { background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.pill-closed { background: #fee2e2; color: #991b1b; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.formula-box {
+    background: #f8fafc; border-left: 4px solid #1a56db;
+    padding: 10px 14px; border-radius: 0 8px 8px 0;
+    font-family: monospace; font-size: 13px; color: #374151;
+    margin: 8px 0; white-space: pre-wrap;
+}
+div[data-testid="stTabs"] button { font-size: 14px; font-weight: 500; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── SESSION STATE ────────────────────────────────────────────────────────────
+# ─── MASTER FILE ──────────────────────────────────────────────────────────────
+MASTER_FILE = "cci_masters.json"
+
+def load_masters():
+    if os.path.exists(MASTER_FILE):
+        with open(MASTER_FILE) as f:
+            return json.load(f)
+    return {"projects": [], "contracts": []}
+
+def save_masters(data):
+    with open(MASTER_FILE, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+
 if "masters" not in st.session_state:
-    st.session_state.masters = fs_load()
+    st.session_state.masters = load_masters()
 
-def persist():
-    fs_save(st.session_state.masters)
-
-# ─── SAFE FLOAT ──────────────────────────────────────────────────────────────
+# ─── SAFE FLOAT ───────────────────────────────────────────────────────────────
 def sf(val, default=0.0):
     try:
         return float(val) if val not in ('', None) else default
     except:
         return default
 
-# ─── PARSE EXCEL ─────────────────────────────────────────────────────────────
+# ─── PARSE EXCEL ──────────────────────────────────────────────────────────────
 def parse_excel(file_bytes):
-    xl   = pd.ExcelFile(io.BytesIO(file_bytes))
-    sn   = xl.sheet_names
+    xl = pd.ExcelFile(io.BytesIO(file_bytes))
+    sheets = xl.sheet_names
 
-    cont = pd.read_excel(xl, sheet_name=sn[0], header=0)
+    cont = pd.read_excel(xl, sheet_name=sheets[0], header=0)
     cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
     cont = cont.dropna(subset=["Contract_No"])
     cont["Effective_Date"] = pd.to_datetime(cont["Effective_Date"], errors="coerce")
-    cont["Bales"]          = pd.to_numeric(cont["Bales"], errors="coerce")
+    cont["Bales"] = pd.to_numeric(cont["Bales"], errors="coerce")
 
-    raw2 = pd.read_excel(xl, sheet_name=sn[1], header=None)
-    emd  = raw2.iloc[1:,[0,1,2]].copy()
+    raw2 = pd.read_excel(xl, sheet_name=sheets[1], header=None)
+    emd = raw2.iloc[1:,[0,1,2]].copy()
     emd.columns = ["Contract_No","EMD_Date","EMD_Amount"]
-    emd  = emd.dropna(subset=["Contract_No","EMD_Amount"])
-    emd  = emd[~emd["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
-    emd["EMD_Date"]   = pd.to_datetime(emd["EMD_Date"],   errors="coerce")
-    emd["EMD_Amount"] = pd.to_numeric(emd["EMD_Amount"],  errors="coerce")
-    emd  = emd.dropna(subset=["EMD_Amount"]).reset_index(drop=True)
+    emd = emd.dropna(subset=["Contract_No","EMD_Amount"])
+    emd = emd[~emd["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
+    emd["EMD_Date"]   = pd.to_datetime(emd["EMD_Date"], errors="coerce")
+    emd["EMD_Amount"] = pd.to_numeric(emd["EMD_Amount"], errors="coerce")
+    emd = emd.dropna(subset=["EMD_Amount"]).reset_index(drop=True)
 
-    pay  = raw2.iloc[1:,[4,5,6]].copy()
+    pay = raw2.iloc[1:,[4,5,6]].copy()
     pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
-    pay  = pay.dropna(subset=["Contract_No","Payment_Amount"])
-    pay  = pay[~pay["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
-    pay["Payment_Date"]   = pd.to_datetime(pay["Payment_Date"],   errors="coerce")
-    pay["Payment_Amount"] = pd.to_numeric(pay["Payment_Amount"],  errors="coerce")
-    pay  = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
+    pay = pay.dropna(subset=["Contract_No","Payment_Amount"])
+    pay = pay[~pay["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
+    pay["Payment_Date"]   = pd.to_datetime(pay["Payment_Date"], errors="coerce")
+    pay["Payment_Amount"] = pd.to_numeric(pay["Payment_Amount"], errors="coerce")
+    pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
 
-    grn  = pd.read_excel(xl, sheet_name=sn[2], header=0)
+    grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
                    "Accepted_Qty_AUM","Accepted_Qty","Material_Amount",
                    "IGST","Party_Bill_Amount","Other_Amount","Final_Indent_Date"]
-    grn  = grn.dropna(subset=["Contract_No"])
-    grn["Party_Bill_Date"]   = pd.to_datetime(grn["Party_Bill_Date"],   errors="coerce")
+    grn = grn.dropna(subset=["Contract_No"])
+    grn["Party_Bill_Date"]   = pd.to_datetime(grn["Party_Bill_Date"], errors="coerce")
     grn["Final_Indent_Date"] = pd.to_datetime(grn["Final_Indent_Date"], errors="coerce")
-    grn["Material_Amount"]   = pd.to_numeric(grn["Material_Amount"],    errors="coerce")
-    grn["IGST"]              = pd.to_numeric(grn["IGST"],               errors="coerce").fillna(0)
-    grn["Party_Bill_Amount"] = pd.to_numeric(grn["Party_Bill_Amount"],  errors="coerce").fillna(0)
-    grn["Accepted_Qty_AUM"]  = pd.to_numeric(grn["Accepted_Qty_AUM"],   errors="coerce")
-    grn  = grn.sort_values("Party_Bill_Date").reset_index(drop=True)
+    grn["Material_Amount"]   = pd.to_numeric(grn["Material_Amount"], errors="coerce")
+    grn["IGST"]              = pd.to_numeric(grn["IGST"], errors="coerce").fillna(0)
+    grn["Party_Bill_Amount"] = pd.to_numeric(grn["Party_Bill_Amount"], errors="coerce").fillna(0)
+    grn["Accepted_Qty_AUM"]  = pd.to_numeric(grn["Accepted_Qty_AUM"], errors="coerce")
+    grn = grn.sort_values("Party_Bill_Date").reset_index(drop=True)
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
@@ -118,16 +122,16 @@ def run_calculations(cont, emd, pay, grn, mc):
     ll_gst       = sf(mc.get("ll_gst"), 5.0)
     cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in mc.get("cc_slabs",[])]
     cc_gst       = sf(mc.get("cc_gst"), 5.0)
-    cc_free_days = int(sf(mc.get("cc_free_days"), 60))  # Lifting free period from master
+    cc_free_days = int(sf(mc.get("cc_free_days"), 60))
 
     total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
     eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
-
-    per_bale_emd = {}
+    per_bale_emd  = {}
     for _, r in cont.iterrows():
         cn = r["Contract_No"]; b = r["Bales"] if r["Bales"] > 0 else 1
         per_bale_emd[cn] = total_emd_map.get(cn, 0) / b
+
+    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
 
     emd_pool = {}
     for cn, g in emd.groupby("Contract_No"):
@@ -141,17 +145,17 @@ def run_calculations(cont, emd, pay, grn, mc):
 
     results = []
     for _, row in grn.iterrows():
-        cn        = str(row["Contract_No"]).strip()
-        bales     = row["Accepted_Qty_AUM"]
-        pbe       = per_bale_emd.get(cn, 0)
-        mat       = row["Material_Amount"]
-        igst      = row["IGST"]
+        cn    = str(row["Contract_No"]).strip()
+        bales = row["Accepted_Qty_AUM"]
+        pbe   = per_bale_emd.get(cn, 0)
+        mat   = row["Material_Amount"]
+        igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
         eff_date  = eff_date_map.get(cn, pd.NaT)
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
-        payment_amt = round(pay_total_map.get(cn, 0), 2)
+        payment_amt = pay_total_map.get(cn, 0)
 
         # ── EMD FIFO ──
         emd_need = round(pbe * bales, 2)
@@ -202,7 +206,7 @@ def run_calculations(cont, emd, pay, grn, mc):
                     cd_amount    = round((mat * cd_pct_used / 100) * (diff_days / 365), 2)
                     break
 
-        # ── LATE LIFTING ──
+        # ── LATE LIFTING CHARGES ──
         ll_charges, ll_gst_amt, late_lift_days = 0.0, 0.0, 0
         if not pd.isna(pay_date) and not pd.isna(lift_date):
             free_end = pay_date + pd.Timedelta(days=15)
@@ -221,15 +225,18 @@ def run_calculations(cont, emd, pay, grn, mc):
                 ll_gst_amt = round(ll_charges * ll_gst / 100, 2)
 
         # ── CARRYING CHARGES ──
-        # CC Free End = Effective Date + cc_free_days (from master)
-        # e.g. 11-Apr-2025 + 60 = 10-Jun-2025
+        # If Payment Date > CC Free End → CC Days = Payment Date - CC Free End
+        # Else if Lift Date > CC Free End → CC Days = Lift Date - CC Free End
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
         cc_free_end = pd.NaT
         if not pd.isna(eff_date):
             cc_free_end = eff_date + pd.Timedelta(days=cc_free_days)
-            if not pd.isna(lift_date) and lift_date > cc_free_end:
-                cc_days_raw = (lift_date - cc_free_end).days
-                cc_days     = min(cc_days_raw, 60)
+            if not pd.isna(pay_date) and pay_date > cc_free_end:
+                cc_days = min((pay_date - cc_free_end).days, 60)
+            elif not pd.isna(lift_date) and lift_date > cc_free_end:
+                cc_days = min((lift_date - cc_free_end).days, 60)
+
+            if cc_days > 0:
                 s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
                 s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
                 rem = cc_days; cc_base = 0.0
@@ -249,7 +256,7 @@ def run_calculations(cont, emd, pay, grn, mc):
             "Material_Amount"  : round(mat, 2),
             "GST_On_Material"  : gst_on_mat,
             "Total_Bill_Amount": total_bill,
-            "Payment_Amount"   : payment_amt,
+            "Payment_Amount"   : round(payment_amt, 2),
             "Per_Bale_EMD"     : round(pbe, 2),
             "EMD_Allocated"    : round(emd_alloc, 2),
             "EMD_Date"         : emd_date,
@@ -269,36 +276,36 @@ def run_calculations(cont, emd, pay, grn, mc):
             "Carry_GST"        : cc_gst_amt,
         })
 
-    return pd.DataFrame(results)
+    return pd.DataFrame(results), per_bale_emd
 
-# ─── EXCEL OUTPUT ─────────────────────────────────────────────────────────────
-def to_excel_bytes(result_df, cont, emd, pay, grn):
+# ─── EXCEL EXPORT ─────────────────────────────────────────────────────────────
+def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         cols = [
             "Contract_No","GRN_No","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
-            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
-            "EMD_Days","EMD_Interest","CD_Days","CD_Pct","Cash_Discount",
+            "Per_Bale_EMD","EMD_Allocated","EMD_Date",
+            "Net_Amount","Payment_Date","EMD_Days","EMD_Interest",
+            "CD_Days","CD_Pct","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST"
         ]
         result_df[cols].to_excel(w, sheet_name="GRN Calculation", index=False)
-
         summary = result_df.groupby("Contract_No").agg(
-            GRNs              =("GRN_No","count"),
-            Total_Bales       =("Bales","sum"),
-            Total_Material    =("Material_Amount","sum"),
+            GRNs=("GRN_No","count"),
+            Total_Bales=("Bales","sum"),
+            Total_Material=("Material_Amount","sum"),
             Total_GST_Material=("GST_On_Material","sum"),
-            Total_Bill        =("Total_Bill_Amount","sum"),
-            Total_Payment     =("Payment_Amount","first"),
-            Total_EMD_Alloc   =("EMD_Allocated","sum"),
+            Total_Bill=("Total_Bill_Amount","sum"),
+            Total_Payment=("Payment_Amount","first"),
+            Total_EMD_Allocated=("EMD_Allocated","sum"),
             Total_EMD_Interest=("EMD_Interest","sum"),
-            Total_Cash_Disc   =("Cash_Discount","sum"),
-            Total_LL_Chg      =("Late_Lifting_Chg","sum"),
-            Total_LL_GST      =("Late_Lifting_GST","sum"),
-            Total_CC_Chg      =("Carry_Charges","sum"),
-            Total_CC_GST      =("Carry_GST","sum"),
+            Total_Cash_Discount=("Cash_Discount","sum"),
+            Total_Late_Lifting=("Late_Lifting_Chg","sum"),
+            Total_LL_GST=("Late_Lifting_GST","sum"),
+            Total_CC_Charges=("Carry_Charges","sum"),
+            Total_CC_GST=("Carry_GST","sum"),
         ).reset_index()
         summary.to_excel(w, sheet_name="Summary", index=False)
         cont.to_excel(w, sheet_name="PUR CONT", index=False)
@@ -308,340 +315,335 @@ def to_excel_bytes(result_df, cont, emd, pay, grn):
     buf.seek(0)
     return buf.getvalue()
 
-# ─── UI ───────────────────────────────────────────────────────────────────────
-st.title("🧮 CCI Working Calculation Utility")
+def fmt_inr(n):
+    if n is None or n == 0: return "—"
+    return f"₹{n:,.2f}"
 
-tab1, tab2, tab3, tab4 = st.tabs(["📋 Masters", "📤 Upload & Calculate", "📊 Results", "📖 Formula Guide"])
+def fmt_date(d):
+    if pd.isna(d) or str(d) in ("NaT","nan",""): return "—"
+    try: return str(d)[:10]
+    except: return str(d)
 
-# ════════════════════════════ TAB 1: MASTERS ══════════════════════════════════
-with tab1:
-    left_col, right_col = st.columns([1.1, 0.9])
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN APP
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    with left_col:
-        # ── PROJECT MASTER ──
-        with st.expander("🏗️ Project Master", expanded=True):
-            with st.form("project_form"):
-                c1, c2  = st.columns(2)
-                pname   = c1.text_input("Project Name *", placeholder="e.g. CCI-RAYGADA-2025")
-                psess   = c2.text_input("Session", placeholder="e.g. 2024-25")
-                c3, c4  = st.columns(2)
-                pfrom   = c3.date_input("From Period *", value=None)
-                pto     = c4.date_input("To Period *", value=None)
-                pstatus = st.selectbox("Status", ["open","closed"])
-                if st.form_submit_button("💾 Save Project", type="primary"):
-                    if not pname or not pfrom or not pto:
-                        st.error("Project Name, From and To Period required.")
-                    else:
-                        st.session_state.masters["projects"].append({
-                            "name": pname, "session": psess,
-                            "from_period": str(pfrom), "to_period": str(pto),
-                            "status": pstatus
-                        })
-                        persist()
-                        st.success(f"✅ Project '{pname}' saved to Firebase!")
-                        st.rerun()
+# Top bar
+st.markdown("""
+<div class="topbar">
+  <span style="font-size:24px">🧮</span>
+  <h1>CCI Working Calculation Utility</h1>
+  <span class="ver">v2.0 — Streamlit</span>
+</div>
+""", unsafe_allow_html=True)
+
+# Tabs
+tab_masters, tab_upload, tab_results, tab_help = st.tabs([
+    "📋 Masters", "📤 Upload & Calculate", "📊 Results", "📖 Formula Guide"
+])
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 1: MASTERS
+# ─────────────────────────────────────────────────────────────────────────────
+with tab_masters:
+    col_left, col_right = st.columns([1, 1], gap="large")
+
+    # ── PROJECT MASTER ──
+    with col_left:
+        with st.expander("🏗️ **Project Master**", expanded=True):
+            with st.form("project_form", clear_on_submit=True):
+                c1, c2 = st.columns(2)
+                proj_name    = c1.text_input("Project Name *", placeholder="e.g. CCI-RAYGADA-2025")
+                proj_session = c2.text_input("Session", placeholder="e.g. 2024-25")
+                c3, c4 = st.columns(2)
+                proj_from   = c3.date_input("From Period *", value=None)
+                proj_to     = c4.date_input("To Period *", value=None)
+                proj_status = st.selectbox("Status", ["open", "closed"])
+                save_proj = st.form_submit_button("💾 Save Project", use_container_width=True, type="primary")
+
+            if save_proj:
+                if not proj_name or not proj_from or not proj_to:
+                    st.error("Project Name, From & To Period are required.")
+                else:
+                    st.session_state.masters["projects"].append({
+                        "name": proj_name, "session": proj_session,
+                        "from_period": str(proj_from), "to_period": str(proj_to),
+                        "status": proj_status
+                    })
+                    save_masters(st.session_state.masters)
+                    st.success(f"✅ Project '{proj_name}' saved!")
+                    st.rerun()
 
         # ── CONTRACT MASTER ──
-        with st.expander("📄 Contract Master", expanded=True):
-            open_projects = [p["name"] for p in st.session_state.masters["projects"] if p["status"]=="open"]
-            if not open_projects:
-                st.warning("⚠️ Please add an Open project first.")
-            else:
-                with st.form("contract_form"):
-                    c1, c2 = st.columns(2)
-                    cproj  = c1.selectbox("Project *", open_projects)
-                    cparty = c2.text_input("Party Name", placeholder="Party name")
-                    c3, c4 = st.columns(2)
-                    cno    = c3.text_input("Contract No *", placeholder="e.g. RAY-110425")
-                    cdt    = c4.date_input("Contract Date", value=None)
-                    c5, c6 = st.columns(2)
-                    ceff   = c5.date_input("Effective Date", value=None)
-                    cbales = c6.number_input("Contracted Bales", min_value=0, value=0)
+        with st.expander("📄 **Contract Master**", expanded=True):
+            open_projects = [p["name"] for p in st.session_state.masters["projects"] if p["status"] == "open"]
 
-                    st.markdown("**📌 EMD Slab**")
-                    e1, e2 = st.columns(2)
-                    emd_d  = e1.number_input("EMD Days", min_value=0, value=365)
-                    emd_p  = e2.number_input("EMD Interest % p.a.", min_value=0.0, value=5.0, step=0.01)
+            with st.form("contract_form", clear_on_submit=True):
+                proj_sel  = st.selectbox("Project *", ["-- Select --"] + open_projects)
+                c1, c2 = st.columns(2)
+                party_name   = c1.text_input("Party Name *")
+                contract_no  = c2.text_input("Contract No *", placeholder="e.g. RAY-110425")
+                c3, c4 = st.columns(2)
+                cont_date    = c3.date_input("Contract Date", value=None)
+                eff_date     = c4.date_input("Effective Date", value=None)
+                cont_bales   = st.number_input("Contracted Bales", min_value=0, value=0)
 
-                    st.markdown("**💸 Cash Discount Slabs**")
-                    for i in range(1,4):
-                        ca, cb, _ = st.columns([1,1,1])
-                        ca.number_input(f"CD Slab {i} Days", min_value=0, value=0, key=f"cd{i}d")
-                        cb.number_input(f"CD Slab {i} %", min_value=0.0, value=0.0, step=0.01, key=f"cd{i}p")
-                    cd_gst = st.number_input("CD GST %", min_value=0.0, value=18.0, step=0.01)
+                st.markdown("**📌 EMD Slab**")
+                ce1, ce2 = st.columns(2)
+                emd_days = ce1.number_input("Days", min_value=0, value=365, key="emd_d")
+                emd_pct  = ce2.number_input("Interest % p.a.", min_value=0.0, value=5.0, step=0.01, key="emd_p")
 
-                    st.markdown("**⏰ Late Lifting Slabs**")
-                    ll_def = [(30,0.50),(30,0.75),(9999,1.00)]
-                    for i,(dd,dp) in enumerate(ll_def,1):
-                        la, lb, _ = st.columns([1,1,1])
-                        la.number_input(f"LL Slab {i} Days",    min_value=0,   value=dd, key=f"ll{i}d")
-                        lb.number_input(f"LL Slab {i} %/month", min_value=0.0, value=dp, step=0.01, key=f"ll{i}p")
-                    ll_gst = st.number_input("LL GST %", min_value=0.0, value=5.0, step=0.01)
+                st.markdown("**💸 Cash Discount Slabs**")
+                cd_cols = st.columns(3)
+                cd1d = cd_cols[0].number_input("Slab 1 Days", 0, value=30, key="cd1d")
+                cd1p = cd_cols[1].number_input("Slab 1 %", 0.0, value=0.50, step=0.01, key="cd1p")
+                cd2d = cd_cols[0].number_input("Slab 2 Days", 0, value=60, key="cd2d")
+                cd2p = cd_cols[1].number_input("Slab 2 %", 0.0, value=0.75, step=0.01, key="cd2p")
+                cd3d = cd_cols[0].number_input("Slab 3 Days", 0, value=90, key="cd3d")
+                cd3p = cd_cols[1].number_input("Slab 3 %", 0.0, value=1.00, step=0.01, key="cd3p")
+                cd_gst = st.number_input("CD GST %", 0.0, value=18.0, step=0.01)
 
-                    st.markdown("**🚛 Carrying Charges Slabs**")
-                    st.info("🆕 CC Free Period = Effective Date + below days")
-                    cc_free = st.number_input(
-                        "Total Lifting Free Period (Days from Effective Date)",
-                        min_value=0, value=60,
-                        help="e.g. 60 → CC applies after Effective Date + 60 days"
-                    )
-                    cc_def = [(30,1.25),(30,1.35)]
-                    for i,(dd,dp) in enumerate(cc_def,1):
-                        ca2, cb2, _ = st.columns([1,1,1])
-                        ca2.number_input(f"CC Slab {i} Days",    min_value=0,   value=dd, key=f"cc{i}d")
-                        cb2.number_input(f"CC Slab {i} %/month", min_value=0.0, value=dp, step=0.01, key=f"cc{i}p")
-                    cc_gst = st.number_input("CC GST %", min_value=0.0, value=5.0, step=0.01)
+                st.markdown("**⏰ Late Lifting Slabs**")
+                ll_cols = st.columns(3)
+                ll1d = ll_cols[0].number_input("Slab 1 Days", 0, value=30, key="ll1d")
+                ll1p = ll_cols[1].number_input("Slab 1 %/month", 0.0, value=0.50, step=0.01, key="ll1p")
+                ll2d = ll_cols[0].number_input("Slab 2 Days", 0, value=30, key="ll2d")
+                ll2p = ll_cols[1].number_input("Slab 2 %/month", 0.0, value=0.75, step=0.01, key="ll2p")
+                ll3d = ll_cols[0].number_input("Slab 3 Days", 0, value=9999, key="ll3d")
+                ll3p = ll_cols[1].number_input("Slab 3 %/month", 0.0, value=1.00, step=0.01, key="ll3p")
+                ll_gst_inp = st.number_input("LL GST %", 0.0, value=5.0, step=0.01)
 
-                    if st.form_submit_button("💾 Save Contract Master", type="primary"):
-                        if not cno:
-                            st.error("Contract No required.")
-                        else:
-                            contract = {
-                                "project": cproj, "party": cparty,
-                                "contract_no": cno,
-                                "contract_date":  str(cdt)  if cdt  else "",
-                                "effective_date": str(ceff) if ceff else "",
-                                "bales": cbales,
-                                "emd_days": emd_d, "emd_percent": emd_p,
-                                "cd_slabs": [{"days":st.session_state[f"cd{i}d"],"pct":st.session_state[f"cd{i}p"]} for i in range(1,4) if st.session_state[f"cd{i}d"]>0],
-                                "cd_gst": cd_gst,
-                                "ll_slabs": [{"days":st.session_state[f"ll{i}d"],"pct":st.session_state[f"ll{i}p"]} for i in range(1,4)],
-                                "ll_gst": ll_gst,
-                                "cc_free_days": cc_free,
-                                "cc_slabs": [{"days":st.session_state[f"cc{i}d"],"pct":st.session_state[f"cc{i}p"]} for i in range(1,3)],
-                                "cc_gst": cc_gst,
-                            }
-                            st.session_state.masters["contracts"].append(contract)
-                            persist()
-                            st.success(f"✅ Contract '{cno}' saved to Firebase!")
-                            st.rerun()
+                st.markdown("**🚛 Carrying Charges Slabs**")
+                st.caption("CC applies after: Effective Date + Free Period Days")
+                cc_free = st.number_input("Total Lifting Free Period (Days from Eff. Date)", 0, value=60)
+                cc_cols = st.columns(3)
+                cc1d = cc_cols[0].number_input("Slab 1 Days", 0, value=30, key="cc1d")
+                cc1p = cc_cols[1].number_input("Slab 1 %/month", 0.0, value=1.25, step=0.01, key="cc1p")
+                cc2d = cc_cols[0].number_input("Slab 2 Days", 0, value=30, key="cc2d")
+                cc2p = cc_cols[1].number_input("Slab 2 %/month", 0.0, value=1.35, step=0.01, key="cc2p")
+                cc_gst_inp = st.number_input("CC GST %", 0.0, value=5.0, step=0.01)
 
-    with right_col:
+                save_cont = st.form_submit_button("💾 Save Contract Master", use_container_width=True, type="primary")
+
+            if save_cont:
+                if proj_sel == "-- Select --" or not contract_no:
+                    st.error("Project and Contract No are required.")
+                else:
+                    cd_slabs = [s for s in [
+                        {"days": cd1d, "pct": cd1p},
+                        {"days": cd2d, "pct": cd2p},
+                        {"days": cd3d, "pct": cd3p},
+                    ] if s["days"] > 0]
+                    ll_slabs = [s for s in [
+                        {"days": ll1d, "pct": ll1p},
+                        {"days": ll2d, "pct": ll2p},
+                        {"days": ll3d, "pct": ll3p},
+                    ] if s["days"] > 0]
+                    cc_slabs = [s for s in [
+                        {"days": cc1d, "pct": cc1p},
+                        {"days": cc2d, "pct": cc2p},
+                    ] if s["days"] > 0]
+
+                    st.session_state.masters["contracts"].append({
+                        "project": proj_sel, "party": party_name,
+                        "contract_no": contract_no,
+                        "contract_date": str(cont_date) if cont_date else "",
+                        "effective_date": str(eff_date) if eff_date else "",
+                        "bales": cont_bales,
+                        "emd_days": emd_days, "emd_percent": emd_pct,
+                        "cd_slabs": cd_slabs, "cd_gst": cd_gst,
+                        "ll_slabs": ll_slabs, "ll_gst": ll_gst_inp,
+                        "cc_free_days": cc_free,
+                        "cc_slabs": cc_slabs, "cc_gst": cc_gst_inp,
+                    })
+                    save_masters(st.session_state.masters)
+                    st.success(f"✅ Contract '{contract_no}' saved!")
+                    st.rerun()
+
+    # ── RIGHT: SAVED LIST ──
+    with col_right:
         st.markdown("#### 🗂️ Saved Projects")
-        projs = st.session_state.masters["projects"]
-        if not projs:
-            st.info("No projects yet.")
+        if not st.session_state.masters["projects"]:
+            st.info("No projects saved yet.")
         else:
-            for i, p in enumerate(projs):
-                pill = "🟢 OPEN" if p["status"]=="open" else "🔴 CLOSED"
-                with st.container(border=True):
-                    r1, r2 = st.columns([3,1])
-                    r1.markdown(
-                        f"**{p['name']}** &nbsp; {pill}  \n"
-                        f"`{p.get('session','')}` &nbsp;|&nbsp; {p['from_period']} → {p['to_period']}"
-                    )
-                    with r2:
-                        tog = "🔒 Close" if p["status"]=="open" else "🔓 Open"
-                        if st.button(tog, key=f"tpj{i}"):
-                            st.session_state.masters["projects"][i]["status"] = "closed" if p["status"]=="open" else "open"
-                            persist(); st.rerun()
-                        if st.button("✏️ Extend", key=f"epj{i}"):
-                            st.session_state[f"edit_proj_{i}"] = True
-                        if st.button("🗑 Delete", key=f"dpj{i}"):
-                            st.session_state.masters["projects"].pop(i); persist(); st.rerun()
-                    if st.session_state.get(f"edit_proj_{i}"):
-                        nd = st.date_input("New To Date", key=f"nd_{i}")
-                        if st.button("✅ Save Date", key=f"spj{i}"):
-                            st.session_state.masters["projects"][i]["to_period"] = str(nd)
-                            persist(); st.session_state[f"edit_proj_{i}"] = False; st.rerun()
+            for i, p in enumerate(st.session_state.masters["projects"]):
+                pill = f'<span class="pill-{"open" if p["status"]=="open" else "closed"}">{p["status"].upper()}</span>'
+                c1, c2 = st.columns([4, 1])
+                c1.markdown(
+                    f"**{p['name']}** &nbsp;{pill}<br>"
+                    f"<small style='color:#6b7280'>{p.get('session','')} | {p['from_period']} → {p['to_period']}</small>",
+                    unsafe_allow_html=True
+                )
+                if c2.button("🗑 Delete", key=f"del_proj_{i}"):
+                    st.session_state.masters["projects"].pop(i)
+                    save_masters(st.session_state.masters)
+                    st.rerun()
 
+        st.markdown("---")
         st.markdown("#### 📋 Contract Masters")
-        conts = st.session_state.masters["contracts"]
-        if not conts:
-            st.info("No contracts yet.")
+        if not st.session_state.masters["contracts"]:
+            st.info("No contracts saved yet.")
         else:
-            for i, c in enumerate(conts):
-                with st.container(border=True):
-                    rc1, rc2 = st.columns([4,1])
-                    rc1.markdown(
-                        f"**{c['contract_no']}** &nbsp;|&nbsp; {c.get('party','')}  \n"
-                        f"`{c['project']}` &nbsp;|&nbsp; Bales: **{c.get('bales','—')}**  \n"
-                        f"EMD: {c.get('emd_days','—')}d @ {c.get('emd_percent','—')}% &nbsp;|&nbsp; "
-                        f"CC Free: **{c.get('cc_free_days',60)} days** &nbsp;|&nbsp; "
-                        f"LL GST: {c.get('ll_gst','—')}% &nbsp;|&nbsp; CC GST: {c.get('cc_gst','—')}%"
+            for i, c in enumerate(st.session_state.masters["contracts"]):
+                with st.container():
+                    col_info, col_del = st.columns([5, 1])
+                    col_info.markdown(
+                        f"**{c['contract_no']}** — {c.get('party','')} &nbsp;"
+                        f"<span style='font-size:11px;background:#eff6ff;color:#1a56db;padding:1px 8px;border-radius:10px'>{c['project']}</span><br>"
+                        f"<small style='color:#6b7280'>Eff: {c.get('effective_date','—')} | Bales: {c.get('bales','—')} | CC Free: {c.get('cc_free_days',60)}d | EMD: {c.get('emd_percent','—')}%</small>",
+                        unsafe_allow_html=True
                     )
-                    if rc2.button("🗑", key=f"dc{i}"):
-                        st.session_state.masters["contracts"].pop(i); persist(); st.rerun()
+                    if col_del.button("🗑", key=f"del_cont_{i}"):
+                        st.session_state.masters["contracts"].pop(i)
+                        save_masters(st.session_state.masters)
+                        st.rerun()
+                    st.markdown("<hr style='margin:6px 0;border-color:#f3f4f6'>", unsafe_allow_html=True)
 
-# ════════════════════════════ TAB 2: UPLOAD ═══════════════════════════════════
-with tab2:
-    st.subheader("📤 Upload Excel & Run Calculations")
-    conts = st.session_state.masters["contracts"]
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 2: UPLOAD & CALCULATE
+# ─────────────────────────────────────────────────────────────────────────────
+with tab_upload:
+    col_u1, col_u2 = st.columns([1, 1], gap="large")
 
-    if not conts:
-        st.warning("⚠️ Please save at least one Contract Master in the Masters tab first.")
-    else:
-        col1, col2 = st.columns([1.2, 0.8])
-        with col1:
-            cont_options    = {f"{c['contract_no']} | {c.get('party','')}": c for c in conts}
-            selected_lbl    = st.selectbox("Select Contract Master *", list(cont_options.keys()))
-            master_contract = cont_options[selected_lbl]
+    with col_u1:
+        st.markdown("#### Select Contract Master")
+        contracts = st.session_state.masters["contracts"]
+        if not contracts:
+            st.warning("⚠️ No contracts saved yet. Please add a contract in the Masters tab first.")
+        else:
+            cont_options = {f"{c['contract_no']} | {c.get('party','')}": c for c in contracts}
+            selected_cont_label = st.selectbox("Contract *", list(cont_options.keys()))
+            selected_mc = cont_options[selected_cont_label]
 
-            # Show selected master summary
-            mc = master_contract
-            st.info(
-                f"📌 **{mc['contract_no']}** | Bales: {mc.get('bales','—')} | "
-                f"EMD: {mc.get('emd_percent','—')}% | "
-                f"CC Free Period: **{mc.get('cc_free_days',60)} days** from Effective Date"
-            )
+            st.markdown("#### Upload Excel File")
+            st.info("📋 Excel must have 3 sheets: **Sheet 1** — PUR CONT DETAILS | **Sheet 2** — EMD PAYMENT DETAILS | **Sheet 3** — GRN BOOKING")
 
-            st.markdown("**Upload Excel File**")
-            st.caption("📋 Excel must have 3 sheets: PUR CONT DETAILS | EMD PAYMENT DETAILS | GRN BOOKING")
-            uploaded = st.file_uploader("Choose Excel File", type=["xlsx","xls"])
+            uploaded_file = st.file_uploader("Choose Excel file (.xlsx / .xls)", type=["xlsx","xls"])
 
-            if st.button("⚙️ Run Calculation", type="primary", disabled=(uploaded is None)):
-                try:
-                    with st.spinner("⏳ Running calculations..."):
-                        file_bytes = uploaded.read()
-                        cont_df, emd_df, pay_df, grn_df = parse_excel(file_bytes)
-                        result_df = run_calculations(cont_df, emd_df, pay_df, grn_df, master_contract)
-                        st.session_state["result_df"]   = result_df
-                        st.session_state["result_cont"] = cont_df
-                        st.session_state["result_emd"]  = emd_df
-                        st.session_state["result_pay"]  = pay_df
-                        st.session_state["result_grn"]  = grn_df
-                    st.success(f"✅ Done! {len(result_df)} GRNs processed. Go to **Results** tab ➡️")
-                except Exception as e:
-                    st.error(f"❌ Error: {e}")
-                    import traceback; st.code(traceback.format_exc())
+            if uploaded_file:
+                st.success(f"✅ {uploaded_file.name}")
+                if st.button("⚙️ Run Calculation", type="primary", use_container_width=True):
+                    with st.spinner("Calculating..."):
+                        try:
+                            file_bytes = uploaded_file.read()
+                            cont_df, emd_df, pay_df, grn_df = parse_excel(file_bytes)
+                            result_df, _ = run_calculations(cont_df, emd_df, pay_df, grn_df, selected_mc)
+                            excel_bytes  = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df)
+                            st.session_state["result_df"]    = result_df
+                            st.session_state["excel_bytes"]  = excel_bytes
+                            st.success(f"✅ {len(result_df)} GRNs calculated! Go to **📊 Results** tab.")
+                        except Exception as e:
+                            import traceback
+                            st.error(f"❌ Error: {e}")
+                            st.code(traceback.format_exc())
 
-        with col2:
-            st.markdown("**Expected Column Headers**")
-            st.markdown("""
+    with col_u2:
+        st.markdown("#### 📝 Expected Excel Format")
+        st.markdown("""
 **Sheet 1 – PUR CONT DETAILS**
 `Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI`
 
+---
 **Sheet 2 – EMD PAYMENT DETAILS**
 `Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | PAYMENT DATE | PAYMENT AMOUNT`
 
+---
 **Sheet 3 – GRN BOOKING**
 `contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE`
 """)
 
-# ════════════════════════════ TAB 3: RESULTS ══════════════════════════════════
-with tab3:
-    st.subheader("📊 Calculation Results")
-
-    if "result_df" not in st.session_state:
-        st.info("No results yet. Please upload an Excel file in the Upload tab.")
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 3: RESULTS
+# ─────────────────────────────────────────────────────────────────────────────
+with tab_results:
+    if "result_df" not in st.session_state or st.session_state["result_df"] is None:
+        st.info("No results yet. Upload an Excel file and run calculations.")
     else:
-        result_df = st.session_state["result_df"]
+        df = st.session_state["result_df"]
 
-        # ── METRICS ──
-        m1,m2,m3,m4,m5 = st.columns(5)
-        m1.metric("Total GRNs",      len(result_df))
-        m2.metric("Total Bill Amt",  f"₹{result_df['Total_Bill_Amount'].sum():,.0f}")
-        m3.metric("EMD Interest",    f"₹{result_df['EMD_Interest'].sum():,.2f}")
-        m4.metric("Late Lifting",    f"₹{result_df['Late_Lifting_Chg'].sum():,.2f}")
-        m5.metric("Carry Charges",   f"₹{result_df['Carry_Charges'].sum():,.2f}")
+        # Metrics
+        tot_bill   = df["Total_Bill_Amount"].sum()
+        tot_emd    = df["EMD_Interest"].sum()
+        tot_ll     = df["Late_Lifting_Chg"].sum()
+        tot_cc     = df["Carry_Charges"].sum()
+        total_grns = len(df)
 
-        # ── DOWNLOAD ──
-        excel_bytes = to_excel_bytes(
-            result_df,
-            st.session_state["result_cont"],
-            st.session_state["result_emd"],
-            st.session_state["result_pay"],
-            st.session_state["result_grn"],
-        )
-        st.download_button(
-            "⬇️ Download Excel Report", data=excel_bytes,
-            file_name="CCI_Calculation_Output.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.markdown(f'<div class="metric-card"><div class="metric-val">{total_grns}</div><div class="metric-lbl">Total GRNs</div></div>', unsafe_allow_html=True)
+        m2.markdown(f'<div class="metric-card"><div class="metric-val">₹{tot_bill:,.0f}</div><div class="metric-lbl">Total Bill Amt</div></div>', unsafe_allow_html=True)
+        m3.markdown(f'<div class="metric-card"><div class="metric-val" style="color:#0e9f6e">₹{tot_emd:,.0f}</div><div class="metric-lbl">EMD Interest</div></div>', unsafe_allow_html=True)
+        m4.markdown(f'<div class="metric-card"><div class="metric-val" style="color:#e02424">₹{tot_ll:,.0f}</div><div class="metric-lbl">Late Lifting</div></div>', unsafe_allow_html=True)
+        m5.markdown(f'<div class="metric-card"><div class="metric-val" style="color:#ff8c00">₹{tot_cc:,.0f}</div><div class="metric-lbl">Carry Charges</div></div>', unsafe_allow_html=True)
 
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── GRN DETAIL TABLE ──
+        # Download button
+        if "excel_bytes" in st.session_state:
+            st.download_button(
+                label="⬇️ Download Excel",
+                data=st.session_state["excel_bytes"],
+                file_name="CCI_Calculation_Output.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
+
+        # Results table — format for display
+        disp = df.copy()
+        date_cols = ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CC_Free_End"]
+        for col in date_cols:
+            disp[col] = disp[col].apply(fmt_date)
+
+        money_cols = ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
+                      "Per_Bale_EMD","EMD_Allocated","Net_Amount","EMD_Interest",
+                      "Cash_Discount","Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]
+        for col in money_cols:
+            disp[col] = disp[col].apply(lambda x: f"₹{x:,.2f}" if x else "—")
+
         st.markdown("#### GRN-Wise Detail")
-        disp = result_df.copy()
-        for dc in ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CC_Free_End"]:
-            disp[dc] = pd.to_datetime(disp[dc], errors="coerce").dt.strftime("%d-%b-%Y").fillna("—")
+        st.dataframe(disp, use_container_width=True, height=450)
 
-        disp = disp.rename(columns={
-            "Contract_No"      : "Contract",
-            "GRN_No"           : "GRN No",
-            "Effective_Date"   : "Eff. Date",
-            "Party_Bill_Date"  : "Lift Date",
-            "Material_Amount"  : "Material Amt",
-            "GST_On_Material"  : "GST on Mat",
-            "Total_Bill_Amount": "Total Bill",
-            "Payment_Amount"   : "Payment Amt",
-            "Per_Bale_EMD"     : "Per Bale EMD",
-            "EMD_Allocated"    : "EMD Alloc",
-            "EMD_Date"         : "EMD Date",
-            "Net_Amount"       : "Net Amt",
-            "Payment_Date"     : "Pay Date",
-            "EMD_Days"         : "Days",
-            "EMD_Interest"     : "EMD Interest",
-            "Cash_Discount"    : "Cash Disc",
-            "Late_Lift_Days"   : "Late Days",
-            "Late_Lifting_Chg" : "LL Chg",
-            "Late_Lifting_GST" : "LL GST",
-            "CC_Free_End"      : "CC Free End",
-            "CC_Days"          : "CC Days",
-            "Carry_Charges"    : "Carry Chg",
-            "Carry_GST"        : "CC GST",
-        })
+# ─────────────────────────────────────────────────────────────────────────────
+# TAB 4: FORMULA GUIDE
+# ─────────────────────────────────────────────────────────────────────────────
+with tab_help:
+    st.markdown("### 📖 Formula & Logic Guide")
+    c1, c2 = st.columns(2, gap="large")
 
-        show_cols = [
-            "Contract","GRN No","Eff. Date","Lift Date","Bales",
-            "Material Amt","GST on Mat","Total Bill","Payment Amt",
-            "Per Bale EMD","EMD Alloc","EMD Date","Net Amt","Pay Date",
-            "Days","EMD Interest","Cash Disc",
-            "Late Days","LL Chg","LL GST",
-            "CC Free End","CC Days","Carry Chg","CC GST"
-        ]
-        st.dataframe(disp[show_cols], use_container_width=True, hide_index=True)
+    with c1:
+        st.markdown("**📌 Per Bale EMD**")
+        st.markdown('<div class="formula-box">Per Bale EMD = Total EMD Payment ÷ Contracted Bales</div>', unsafe_allow_html=True)
 
-        # ── SUMMARY ──
-        st.markdown("#### Contract-wise Summary")
-        summary = result_df.groupby("Contract_No").agg(
-            GRNs              =("GRN_No","count"),
-            Total_Bales       =("Bales","sum"),
-            Total_Material    =("Material_Amount","sum"),
-            Total_GST_Material=("GST_On_Material","sum"),
-            Total_Bill        =("Total_Bill_Amount","sum"),
-            Total_Payment     =("Payment_Amount","first"),
-            Total_EMD_Alloc   =("EMD_Allocated","sum"),
-            Total_EMD_Interest=("EMD_Interest","sum"),
-            Total_Cash_Disc   =("Cash_Discount","sum"),
-            Total_LL_Chg      =("Late_Lifting_Chg","sum"),
-            Total_LL_GST      =("Late_Lifting_GST","sum"),
-            Total_CC_Chg      =("Carry_Charges","sum"),
-            Total_CC_GST      =("Carry_GST","sum"),
-        ).reset_index()
-        st.dataframe(summary, use_container_width=True, hide_index=True)
+        st.markdown("**💹 EMD Interest**")
+        st.markdown('<div class="formula-box">EMD Interest = ((EMD Allocated × EMD % p.a.) ÷ 365) × (Payment Date − EMD Date)</div>', unsafe_allow_html=True)
 
-# ════════════════════════════ TAB 4: HELP ═════════════════════════════════════
-with tab4:
-    st.subheader("📖 Formula & Logic Guide")
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.expander("📌 Per Bale EMD", expanded=True):
-            st.code("Per Bale EMD = Total EMD Payment ÷ Contracted Bales", language="text")
-        with st.expander("💹 EMD Interest", expanded=True):
-            st.code("EMD Interest = ((EMD Allocated × EMD % p.a.) ÷ 365) × (Payment Date − EMD Date)", language="text")
-        with st.expander("💸 Cash Discount", expanded=True):
-            st.code("CD = Material Amt × CD% × (Free Days ÷ 365)", language="text")
-        with st.expander("🧾 Bill Amounts", expanded=True):
-            st.code("""GST on Material  = IGST from GRN sheet
-Total Bill Amt   = Material Amount + GST on Material
-Payment Amount   = Total Final Payments for contract""", language="text")
-    with col2:
-        with st.expander("⏰ Late Lifting Charges", expanded=True):
-            st.code("""Free Period = Payment Date + 15 days
+        st.markdown("**💸 Cash Discount**")
+        st.markdown('<div class="formula-box">CD = Material Amount × CD% × (Days ÷ 365)</div>', unsafe_allow_html=True)
+
+        st.markdown("**🧾 Bill Amounts**")
+        st.markdown("""<div class="formula-box">GST on Material = IGST column from GRN sheet
+Total Bill Amount = Material Amount + GST on Material
+Payment Amount = Total Final Payments for contract</div>""", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown("**⏰ Late Lifting Charges**")
+        st.markdown("""<div class="formula-box">Free Period = Payment Date + 15 days
 If Lifting Date > Free Period:
   Late Days = Lifting Date − Free Period
   Slab 1 (first 30d) : Amt × 0.50%/month
   Slab 2 (next  30d) : Amt × 0.75%/month
   Slab 3 (beyond)    : Amt × 1.00%/month
-  + GST""", language="text")
-        with st.expander("🚛 Carrying Charges ⭐", expanded=True):
-            st.code("""CC Free End = Effective Date + Free Period Days (master se)
-Example: 11-Apr-2025 + 60 days = 10-Jun-2025
+  + GST as applicable</div>""", unsafe_allow_html=True)
 
-If Lifting Date > CC Free End:
-  CC Days = min(Lifting Date − CC Free End, 60)
+        st.markdown("**🚛 Carrying Charges**")
+        st.markdown("""<div class="formula-box">CC Free End = Effective Date + Free Period Days
+
+If Payment Date > CC Free End:
+    CC Days = Payment Date − CC Free End
+Elif Lift Date > CC Free End:
+    CC Days = Lift Date − CC Free End
+Else: CC Days = 0 (no charges)
+
   First 30d  : Amt × 1.25%/month
   Beyond 30d : Amt × 1.35%/month
-  + GST""", language="text")
+  + GST as applicable
+  Max 60 days cap applies</div>""", unsafe_allow_html=True)
