@@ -66,7 +66,21 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
+st.markdown("""
+    <style>
+    /* Input fields ka background aur text color fix */
+    .stTextInput > div > div > input, 
+    .stSelectbox > div > div > div, 
+    .stNumberInput > div > div > input {
+        background-color: #f0f2f6 !important; /* Grayish background */
+        color: #000000 !important;             /* Black text */
+    }
+    /* Label color change (optional) */
+    label {
+        color: #333333 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 # ─── PREMIUM CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
