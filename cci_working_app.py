@@ -13,11 +13,29 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ─── FIREBASE INIT (works both locally and on Streamlit Cloud) ───────────────
+# Local:  place your service account JSON as  firebase_key.json  next to app
+# Cloud:  add credentials in Streamlit Secrets as [firebase] section
+
+FIREBASE_KEY_FILE = "firebase_key.json"   # local JSON file path
+
 def init_firebase():
     if not firebase_admin._apps:
-        cred_dict = dict(st.secrets["firebase"])
-        cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-        cred = credentials.Certificate(cred_dict)
+        # ── Try Streamlit Secrets first (Streamlit Cloud) ──
+        try:
+            cred_dict = dict(st.secrets["firebase"])
+            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            cred = credentials.Certificate(cred_dict)
+        except Exception:
+            # ── Fallback: local JSON file (localhost) ──
+            if not os.path.exists(FIREBASE_KEY_FILE):
+                st.error(
+                    f"❌ Firebase key not found!\n\n"
+                    f"**Localhost fix:** Place your Firebase service account JSON "
+                    f"as **`firebase_key.json`** in the same folder as `cci_working_app.py`"
+                )
+                st.stop()
+            cred = credentials.Certificate(FIREBASE_KEY_FILE)
         firebase_admin.initialize_app(cred)
     return firestore.client()
 
