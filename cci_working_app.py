@@ -225,27 +225,29 @@ def run_calculations(cont, emd, pay, grn, mc):
                 ll_gst_amt = round(ll_charges * ll_gst / 100, 2)
 
         # ── CARRYING CHARGES ──
-        # If Payment Date > CC Free End → CC Days = Payment Date - CC Free End
-        # Else if Lift Date > CC Free End → CC Days = Lift Date - CC Free End
+        # Formula (as per user spec):
+        #   CC Free End = Effective Date + cc_free_days (from master)
+        #   CC Days     = Payment Date − CC Free End
+        #   CC Days <= 0 → No carrying charges
+        #   CC Days > 0  → Carrying charges applicable (capped at 60 days)
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
         cc_free_end = pd.NaT
         if not pd.isna(eff_date):
             cc_free_end = eff_date + pd.Timedelta(days=cc_free_days)
-            if not pd.isna(pay_date) and pay_date > cc_free_end:
-                cc_days = min((pay_date - cc_free_end).days, 60)
-            elif not pd.isna(lift_date) and lift_date > cc_free_end:
-                cc_days = min((lift_date - cc_free_end).days, 60)
-
-            if cc_days > 0:
-                s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
-                s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
-                rem = cc_days; cc_base = 0.0
-                d1  = min(rem, s1c["days"])
-                cc_base += mat*(s1c["pct"]/100)*(d1/30); rem -= d1
-                if rem > 0:
-                    cc_base += mat*(s2c["pct"]/100)*(rem/30)
-                cc_charges = round(cc_base, 2)
-                cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
+            if not pd.isna(pay_date):
+                cc_days_raw = (pay_date - cc_free_end).days  # Payment Date - CC Free End
+                if cc_days_raw > 0:                           # > 0 → charges apply
+                    cc_days = min(cc_days_raw, 60)            # max 60 days cap
+                    s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
+                    s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
+                    rem = cc_days; cc_base = 0.0
+                    d1  = min(rem, s1c["days"])
+                    cc_base += mat*(s1c["pct"]/100)*(d1/30); rem -= d1
+                    if rem > 0:
+                        cc_base += mat*(s2c["pct"]/100)*(rem/30)
+                    cc_charges = round(cc_base, 2)
+                    cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
+                # cc_days_raw <= 0 → payment made within free period, no CC
 
         results.append({
             "Contract_No"      : cn,
