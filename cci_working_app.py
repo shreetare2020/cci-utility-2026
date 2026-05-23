@@ -364,6 +364,20 @@ div[data-testid="stExpander"] summary {
     color: rgba(255,255,255,0.85) !important;
     font-weight: 600 !important;
 }
+/* Fix for expanded content visibility */
+div[data-testid="stExpander"] details[open] {
+    background: rgba(10,15,30,0.95) !important;
+}
+div[data-testid="stExpander"] details[open] > div,
+div[data-testid="stExpander"] details[open] p,
+div[data-testid="stExpander"] details[open] label {
+    color: rgba(255,255,255,0.85) !important;
+}
+div[data-testid="stExpander"] details[open] input,
+div[data-testid="stExpander"] details[open] textarea {
+    color: #ffffff !important;
+    background-color: #0d1b2e !important;
+}
 
 /* ── STATUS PILLS ── */
 .pill-open {
@@ -672,8 +686,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("ll_slabs",[])]
         ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
-        cc_gst       = sf(row_mc.get("cc_gst"), 5.0)
-        cc_free_days = int(sf(row_mc.get("cc_free_days"), 60))
+        cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
+        cc_free_days   = int(sf(row_mc.get("cc_free_days"), 60))
+        compound_prorata = bool(row_mc.get("compound_prorata", False))
         # ───────────────────────────────────────────────────────────────────
 
         bales = row["Accepted_Qty_AUM"]
@@ -741,11 +756,26 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 s2 = ll_slabs[1] if len(ll_slabs)>1 else {"days":30,"pct":0.75}
                 s3 = ll_slabs[2] if len(ll_slabs)>2 else {"days":9999,"pct":1.00}
                 rem = late_lift_days; ll_base = 0.0
-                d1 = min(rem, s1["days"]); ll_base += mat*(s1["pct"]/100)*(d1/30); rem -= d1
-                if rem > 0:
-                    d2 = min(rem, s2["days"]); ll_base += mat*(s2["pct"]/100)*(d2/30); rem -= d2
-                if rem > 0:
-                    ll_base += mat*(s3["pct"]/100)*(rem/30)
+                if compound_prorata:
+                    # Compound prorata: each slab charges compound on cumulative amount
+                    running = mat
+                    d1 = min(rem, s1["days"])
+                    slab1_charge = running * (s1["pct"]/100) * (d1/30)
+                    ll_base += slab1_charge; running += slab1_charge; rem -= d1
+                    if rem > 0:
+                        d2 = min(rem, s2["days"])
+                        slab2_charge = running * (s2["pct"]/100) * (d2/30)
+                        ll_base += slab2_charge; running += slab2_charge; rem -= d2
+                    if rem > 0:
+                        slab3_charge = running * (s3["pct"]/100) * (rem/30)
+                        ll_base += slab3_charge
+                else:
+                    # Simple prorata (original logic)
+                    d1 = min(rem, s1["days"]); ll_base += mat*(s1["pct"]/100)*(d1/30); rem -= d1
+                    if rem > 0:
+                        d2 = min(rem, s2["days"]); ll_base += mat*(s2["pct"]/100)*(d2/30); rem -= d2
+                    if rem > 0:
+                        ll_base += mat*(s3["pct"]/100)*(rem/30)
                 ll_charges = round(ll_base, 2)
                 ll_gst_amt = round(ll_charges * ll_gst / 100, 2)
 
@@ -763,10 +793,21 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                     s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
                     s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
                     rem = cc_days; cc_base = 0.0
-                    d1  = min(rem, s1c["days"])
-                    cc_base += mat*(s1c["pct"]/100)*(d1/30); rem -= d1
-                    if rem > 0:
-                        cc_base += mat*(s2c["pct"]/100)*(rem/30)
+                    if compound_prorata:
+                        # Compound prorata: second slab charges on (mat + first slab charges)
+                        running = mat
+                        d1 = min(rem, s1c["days"])
+                        slab1c = running * (s1c["pct"]/100) * (d1/30)
+                        cc_base += slab1c; running += slab1c; rem -= d1
+                        if rem > 0:
+                            slab2c = running * (s2c["pct"]/100) * (rem/30)
+                            cc_base += slab2c
+                    else:
+                        # Simple prorata (original logic)
+                        d1  = min(rem, s1c["days"])
+                        cc_base += mat*(s1c["pct"]/100)*(d1/30); rem -= d1
+                        if rem > 0:
+                            cc_base += mat*(s2c["pct"]/100)*(rem/30)
                     cc_charges = round(cc_base, 2)
                     cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
 
@@ -938,6 +979,18 @@ with tab_masters:
                 ll_gst = st.number_input("LL GST %", key="ll_gst", min_value=0.0, value=5.0, step=0.01)
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+                st.markdown('<div class="sec-label">🔁 Compound Prorata Basis</div>', unsafe_allow_html=True)
+                st.caption("Controls how CC & LL charges are calculated when days exceed a slab.")
+                compound_prorata = st.radio(
+                    "Compound Prorata Basis",
+                    options=["Not Applicable", "Applicable"],
+                    index=0,
+                    key="compound_prorata",
+                    help="Applicable: Each slab's charges compound on top of the previous slab amount. Not Applicable: Simple prorata per slab (current behaviour).",
+                    horizontal=True
+                )
+
+                st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 st.markdown('<div class="sec-label">🚛 Carrying Charges Slabs</div>', unsafe_allow_html=True)
                 st.caption("📐 CC Days = Payment Date − (Effective Date + Free Period Days)  |  CC Days > 0 → Charges apply")
                 cc_free = st.number_input("Total Lifting Free Period (Days from Effective Date)",
@@ -977,6 +1030,7 @@ with tab_masters:
                                 {"days":int(st.session_state.ll3d),"pct":float(st.session_state.ll3p)},
                             ],
                             "ll_gst": float(st.session_state.ll_gst),
+                            "compound_prorata": st.session_state.compound_prorata == "Applicable",
                             "cc_free_days": int(st.session_state.cc_free),
                             "cc_slabs": [
                                 {"days":int(st.session_state.cc1d),"pct":float(st.session_state.cc1p)},
