@@ -356,27 +356,53 @@ div[data-testid="stDataFrame"] {
 
 /* ── EXPANDER ── */
 div[data-testid="stExpander"] {
-    background: rgba(255,255,255,0.04) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: #0d1b2e !important;
+    border: 1px solid rgba(0,214,90,0.25) !important;
     border-radius: 10px !important;
 }
 div[data-testid="stExpander"] summary {
+    background: #0d1b2e !important;
     color: rgba(255,255,255,0.85) !important;
     font-weight: 600 !important;
+    border-radius: 10px !important;
 }
-/* Fix for expanded content visibility */
-div[data-testid="stExpander"] details[open] {
-    background: rgba(10,15,30,0.95) !important;
+div[data-testid="stExpander"] summary:hover {
+    background: rgba(0,113,45,0.15) !important;
 }
-div[data-testid="stExpander"] details[open] > div,
-div[data-testid="stExpander"] details[open] p,
-div[data-testid="stExpander"] details[open] label {
+/* Expanded content area - force dark background */
+div[data-testid="stExpander"] > details,
+div[data-testid="stExpander"] details {
+    background: #0d1b2e !important;
+    border-radius: 10px !important;
+}
+div[data-testid="stExpander"] details > div,
+div[data-testid="stExpander"] details > div > div,
+div[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    background: #0d1b2e !important;
     color: rgba(255,255,255,0.85) !important;
 }
-div[data-testid="stExpander"] details[open] input,
-div[data-testid="stExpander"] details[open] textarea {
+/* All child elements inside expander */
+div[data-testid="stExpander"] * {
+    color: rgba(255,255,255,0.85) !important;
+}
+/* Override white background on any nested divs */
+div[data-testid="stExpander"] div,
+div[data-testid="stExpander"] section {
+    background-color: transparent !important;
+}
+/* File uploader inside expander */
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] {
+    background: rgba(255,255,255,0.03) !important;
+    border: 2px dashed rgba(0,214,90,0.3) !important;
+    border-radius: 10px !important;
+}
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] * {
+    color: rgba(255,255,255,0.75) !important;
+}
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] button {
+    background: linear-gradient(135deg, #00712D, #009B3A) !important;
     color: #ffffff !important;
-    background-color: #0d1b2e !important;
+    border: none !important;
 }
 
 /* ── STATUS PILLS ── */
@@ -420,6 +446,94 @@ div[data-testid="stExpander"] details[open] textarea {
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
 ::-webkit-scrollbar-thumb { background: rgba(0,214,90,0.3); border-radius: 3px; }
 
+/* ── PRORATA INLINE LABELS ── */
+.prorata-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #00D65A;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+.prorata-hint {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+
+/* ── RADIO BUTTON FIX ── */
+div[data-testid="stRadio"] > div {
+    background: transparent !important;
+}
+div[data-testid="stRadio"] label {
+    color: rgba(255,255,255,0.85) !important;
+    background: transparent !important;
+}
+div[data-testid="stRadio"] span {
+    color: rgba(255,255,255,0.85) !important;
+}
+/* Radio circle colour */
+div[data-testid="stRadio"] input[type="radio"] + div {
+    border-color: rgba(0,214,90,0.6) !important;
+}
+div[data-testid="stRadio"] input[type="radio"]:checked + div {
+    background: #00D65A !important;
+    border-color: #00D65A !important;
+}
+
+/* ── GLOBAL DARK OVERRIDES ── */
+/* Kill Streamlit white backgrounds everywhere */
+.stApp, .main, [data-testid="stAppViewContainer"] > .main {
+    background: transparent !important;
+}
+/* Radio buttons */
+div[data-testid="stRadio"] {
+    background: transparent !important;
+}
+div[data-testid="stRadio"] label {
+    color: rgba(255,255,255,0.8) !important;
+}
+div[data-testid="stRadio"] div[role="radiogroup"] {
+    background: transparent !important;
+}
+/* Number input */
+div[data-testid="stNumberInput"] {
+    background: transparent !important;
+}
+/* All stBlock / column containers */
+div[data-testid="column"],
+div[data-testid="stVerticalBlock"],
+div[data-testid="stHorizontalBlock"] {
+    background: transparent !important;
+}
+/* Selectbox dropdown background */
+div[data-baseweb="popover"] [role="listbox"],
+div[data-baseweb="popover"] {
+    background-color: #0d1b2e !important;
+}
+div[data-baseweb="popover"] [role="option"] {
+    background-color: #0d1b2e !important;
+    color: #ffffff !important;
+}
+div[data-baseweb="popover"] [role="option"]:hover,
+div[data-baseweb="popover"] [aria-selected="true"] {
+    background-color: rgba(0,214,90,0.2) !important;
+}
+/* Checkbox */
+div[data-testid="stCheckbox"] label {
+    color: rgba(255,255,255,0.8) !important;
+}
+/* Warning / info / error boxes */
+div[data-testid="stAlert"] {
+    border-radius: 8px !important;
+}
+/* Caption */
+div[data-testid="stCaptionContainer"] p {
+    color: rgba(255,255,255,0.45) !important;
+}
+
 /* ── CONTRACT CARD ── */
 .contract-card {
     background: rgba(255,255,255,0.04);
@@ -452,6 +566,28 @@ div[data-testid="stFileUploader"] {
 div[data-testid="stFileUploader"]:hover {
     border-color: rgba(0,214,90,0.6) !important;
     background: rgba(0,113,45,0.05) !important;
+}
+/* File uploader button text fix */
+div[data-testid="stFileUploader"] button {
+    background: linear-gradient(135deg, #00712D, #009B3A) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+}
+div[data-testid="stFileUploader"] button:hover {
+    background: linear-gradient(135deg, #009B3A, #00D65A) !important;
+}
+div[data-testid="stFileUploader"] small,
+div[data-testid="stFileUploader"] span,
+div[data-testid="stFileUploader"] p {
+    color: rgba(255,255,255,0.65) !important;
+}
+div[data-testid="stFileUploaderDropzone"] {
+    background: transparent !important;
+}
+div[data-testid="stFileUploaderDropzone"] * {
+    color: rgba(255,255,255,0.65) !important;
 }
 
 /* ── CAPTION ── */
@@ -688,7 +824,8 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
         cc_free_days   = int(sf(row_mc.get("cc_free_days"), 60))
-        compound_prorata = bool(row_mc.get("compound_prorata", False))
+        ll_compound      = bool(row_mc.get("ll_compound", False))
+        cc_compound      = bool(row_mc.get("cc_compound", False))
         # ───────────────────────────────────────────────────────────────────
 
         bales = row["Accepted_Qty_AUM"]
@@ -756,7 +893,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 s2 = ll_slabs[1] if len(ll_slabs)>1 else {"days":30,"pct":0.75}
                 s3 = ll_slabs[2] if len(ll_slabs)>2 else {"days":9999,"pct":1.00}
                 rem = late_lift_days; ll_base = 0.0
-                if compound_prorata:
+                if ll_compound:
                     # Compound prorata: each slab charges compound on cumulative amount
                     running = mat
                     d1 = min(rem, s1["days"])
@@ -793,7 +930,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                     s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
                     s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
                     rem = cc_days; cc_base = 0.0
-                    if compound_prorata:
+                    if cc_compound:
                         # Compound prorata: second slab charges on (mat + first slab charges)
                         running = mat
                         d1 = min(rem, s1c["days"])
@@ -977,17 +1114,18 @@ with tab_masters:
                 ll3d = ll3a.number_input("Slab 3 Days", key="ll3d", min_value=0, value=9999)
                 ll3p = ll3b.number_input("Slab 3 %/month", key="ll3p", min_value=0.0, value=1.00, step=0.01)
                 ll_gst = st.number_input("LL GST %", key="ll_gst", min_value=0.0, value=5.0, step=0.01)
-
-                st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
-                st.markdown('<div class="sec-label">🔁 Compound Prorata Basis</div>', unsafe_allow_html=True)
-                st.caption("Controls how CC & LL charges are calculated when days exceed a slab.")
-                compound_prorata = st.radio(
-                    "Compound Prorata Basis",
+                st.markdown("""
+                <div class="prorata-label">🔁 LL Compound Prorata Basis</div>
+                """, unsafe_allow_html=True)
+                st.markdown("""
+                <div class="prorata-hint">Applicable: Slab 2 charges on (Mat + Slab 1 charge), Slab 3 on cumulative. Not Applicable: Simple prorata per slab.</div>
+                """, unsafe_allow_html=True)
+                ll_compound = st.selectbox(
+                    "LL Compound Prorata",
                     options=["Not Applicable", "Applicable"],
                     index=0,
-                    key="compound_prorata",
-                    help="Applicable: Each slab's charges compound on top of the previous slab amount. Not Applicable: Simple prorata per slab (current behaviour).",
-                    horizontal=True
+                    key="ll_compound",
+                    label_visibility="collapsed"
                 )
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
@@ -1003,6 +1141,19 @@ with tab_masters:
                 cc2d = cc2a.number_input("Slab 2 Days", key="cc2d", min_value=0, value=30)
                 cc2p = cc2b.number_input("Slab 2 %/month", key="cc2p", min_value=0.0, value=1.35, step=0.01)
                 cc_gst = st.number_input("CC GST %", key="cc_gst", min_value=0.0, value=5.0, step=0.01)
+                st.markdown("""
+                <div class="prorata-label">🔁 CC Compound Prorata Basis</div>
+                """, unsafe_allow_html=True)
+                st.markdown("""
+                <div class="prorata-hint">Applicable: Slab 2 charges on (Mat + Slab 1 charge). Not Applicable: Simple prorata per slab.</div>
+                """, unsafe_allow_html=True)
+                cc_compound = st.selectbox(
+                    "CC Compound Prorata",
+                    options=["Not Applicable", "Applicable"],
+                    index=0,
+                    key="cc_compound",
+                    label_visibility="collapsed"
+                )
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 if st.button("💾  Save Contract Master", type="primary", key="btn_cont"):
@@ -1030,13 +1181,14 @@ with tab_masters:
                                 {"days":int(st.session_state.ll3d),"pct":float(st.session_state.ll3p)},
                             ],
                             "ll_gst": float(st.session_state.ll_gst),
-                            "compound_prorata": st.session_state.compound_prorata == "Applicable",
+                            "ll_compound": st.session_state.ll_compound == "Applicable",
                             "cc_free_days": int(st.session_state.cc_free),
                             "cc_slabs": [
                                 {"days":int(st.session_state.cc1d),"pct":float(st.session_state.cc1p)},
                                 {"days":int(st.session_state.cc2d),"pct":float(st.session_state.cc2p)},
                             ],
                             "cc_gst": float(st.session_state.cc_gst),
+                            "cc_compound": st.session_state.cc_compound == "Applicable",
                         }
                         st.session_state.masters["contracts"].append(contract)
                         persist()
