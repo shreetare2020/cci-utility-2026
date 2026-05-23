@@ -66,21 +66,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-st.markdown("""
-    <style>
-    /* Input fields ka background aur text color fix */
-    .stTextInput > div > div > input, 
-    .stSelectbox > div > div > div, 
-    .stNumberInput > div > div > input {
-        background-color: #f0f2f6 !important; /* Grayish background */
-        color: #000000 !important;             /* Black text */
-    }
-    /* Label color change (optional) */
-    label {
-        color: #333333 !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+
 # ─── PREMIUM CSS ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -244,27 +230,71 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
 }
 
 /* ── FORM ELEMENTS ── */
+/* Force dark background + white text on ALL input boxes */
 div[data-testid="stTextInput"] input,
 div[data-testid="stNumberInput"] input,
-div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-    background: rgba(255,255,255,0.06) !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
+div[data-testid="stDateInput"] input,
+div[data-testid="stTextArea"] textarea,
+input[type="text"], input[type="number"], input[type="date"] {
+    background-color: #0d1b2e !important;
+    border: 1.5px solid rgba(0,214,90,0.4) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    caret-color: #00D65A !important;
+}
+div[data-testid="stTextInput"] input:focus,
+div[data-testid="stNumberInput"] input:focus,
+div[data-testid="stDateInput"] input:focus {
+    border-color: #00D65A !important;
+    box-shadow: 0 0 0 2px rgba(0,214,90,0.2) !important;
+    outline: none !important;
+}
+/* Selectbox container */
+div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+div[data-baseweb="select"] > div {
+    background-color: #0d1b2e !important;
+    border: 1.5px solid rgba(0,214,90,0.4) !important;
     border-radius: 8px !important;
     color: #ffffff !important;
 }
+div[data-baseweb="select"] span,
+div[data-baseweb="select"] [data-testid="stSelectbox"] span {
+    color: #ffffff !important;
+    background: transparent !important;
+}
+/* Dropdown list */
+div[data-baseweb="popover"] ul,
+div[data-baseweb="menu"] {
+    background-color: #0d1b2e !important;
+    border: 1px solid rgba(0,214,90,0.3) !important;
+}
+div[data-baseweb="menu"] li,
+div[data-baseweb="option"] {
+    color: #ffffff !important;
+    background-color: #0d1b2e !important;
+}
+div[data-baseweb="option"]:hover {
+    background-color: rgba(0,214,90,0.15) !important;
+}
+/* Labels */
 div[data-testid="stTextInput"] label,
 div[data-testid="stNumberInput"] label,
 div[data-testid="stSelectbox"] label,
-div[data-testid="stDateInput"] label {
-    color: rgba(255,255,255,0.7) !important;
+div[data-testid="stDateInput"] label,
+div[data-testid="stTextArea"] label {
+    color: rgba(255,255,255,0.75) !important;
     font-size: 12px !important;
     font-weight: 500 !important;
 }
-div[data-testid="stDateInput"] input {
+/* Placeholder */
+div[data-testid="stTextInput"] input::placeholder,
+div[data-testid="stNumberInput"] input::placeholder {
+    color: rgba(255,255,255,0.35) !important;
+}
+/* Number input stepper buttons */
+div[data-testid="stNumberInput"] button {
+    color: rgba(255,255,255,0.6) !important;
     background: rgba(255,255,255,0.06) !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-    color: #ffffff !important;
-    border-radius: 8px !important;
 }
 
 /* ── BUTTONS ── */
@@ -447,6 +477,58 @@ div[data-testid="stSpinner"] { color: #00D65A !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ─── LOGIN CREDENTIALS ────────────────────────────────────────────────────────
+# Add/change users here: {"username": "password"}
+APP_USERS = {
+    "admin":    "cci@2025",
+    "softview": "sv@admin",
+}
+
+# ─── LOGIN GATE ───────────────────────────────────────────────────────────────
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "_login_error" not in st.session_state:
+    st.session_state._login_error = ""
+
+def _do_login():
+    u = st.session_state.get("_lu", "").strip()
+    p = st.session_state.get("_lp", "")
+    if APP_USERS.get(u) == p:
+        st.session_state.authenticated = True
+        st.session_state._login_error = ""
+    else:
+        st.session_state._login_error = "❌ Invalid username or password."
+
+if not st.session_state.authenticated:
+    st.markdown("""
+    <style>
+    .login-card {
+        background: linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02));
+        border: 1px solid rgba(0,214,90,0.35);
+        border-radius: 18px;
+        padding: 40px 36px 36px;
+        box-shadow: 0 8px 40px rgba(0,113,45,0.25);
+        max-width: 420px;
+        margin: 80px auto 0;
+    }
+    .lt { font-size:22px; font-weight:700; color:#fff; margin-bottom:4px; }
+    .ls { font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:24px; }
+    .le { color:#f87171; font-size:13px; margin-top:8px; }
+    </style>
+    """, unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.markdown('<div class="lt">🔐 CCI Utility Login</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ls">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
+        st.text_input("Username", key="_lu", placeholder="Enter username")
+        st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
+        st.button("🔓  Login", on_click=_do_login, type="primary", use_container_width=True)
+        if st.session_state._login_error:
+            st.markdown(f'<div class="le">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 if "masters" not in st.session_state:
     st.session_state.masters = fs_load()
@@ -504,14 +586,62 @@ def parse_excel(file_bytes):
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
-def run_calculations(cont, emd, pay, grn, mc):
-    emd_rate     = sf(mc.get("emd_percent"), 5.0)
-    cd_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in mc.get("cd_slabs",[])]
-    ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in mc.get("ll_slabs",[])]
-    ll_gst       = sf(mc.get("ll_gst"), 5.0)
-    cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in mc.get("cc_slabs",[])]
-    cc_gst       = sf(mc.get("cc_gst"), 5.0)
-    cc_free_days = int(sf(mc.get("cc_free_days"), 60))
+def _get_mc_for_contract(cn, all_contracts):
+    """
+    EITHER/OR master lookup:
+    1. Check if a contract master exists whose contract_no matches cn exactly.
+    2. If found → use that master's conditions.
+    3. If NOT found → fall back to DEFAULT contract master.
+    """
+    cn_str = str(cn).strip().upper()
+    # First pass: exact match on contract_no (case-insensitive)
+    for c in all_contracts:
+        if str(c.get("contract_no", "")).strip().upper() == cn_str:
+            return c
+    # Second pass: DEFAULT fallback
+    for c in all_contracts:
+        if str(c.get("contract_no", "")).strip().upper() == "DEFAULT":
+            return c
+    # Last resort: return first available master
+    return all_contracts[0] if all_contracts else {}
+
+
+def run_calculations(cont, emd, pay, grn, mc_or_contracts):
+    """
+    mc_or_contracts: either a single mc dict (legacy) OR a list of all contracts.
+    When a list is passed, per-row EITHER/OR lookup is done automatically.
+    """
+    # Support both old single-mc call and new multi-mc list call
+    _contracts_list = mc_or_contracts if isinstance(mc_or_contracts, list) else None
+    _single_mc      = mc_or_contracts if not isinstance(mc_or_contracts, list) else None
+
+    def _mc(cn):
+        if _contracts_list is not None:
+            return _get_mc_for_contract(cn, _contracts_list)
+        return _single_mc
+
+    # Pre-compute maps (contract-level, not row-level)
+    mc_dummy = _mc("DEFAULT") or (_contracts_list[0] if _contracts_list else {})
+    # We read slabs PER ROW now; the dummy is used only as a fallback reference
+    _ = mc_dummy  # suppress unused warning
+
+    total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
+    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
+    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
+    per_bale_emd  = {}
+    for _, r in cont.iterrows():
+        cn = r["Contract_No"]; b = r["Bales"] if r["Bales"] > 0 else 1
+        per_bale_emd[cn] = total_emd_map.get(cn, 0) / b
+
+    emd_pool = {}
+    for cn, g in emd.groupby("Contract_No"):
+        emd_pool[cn] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
+        emd_pool[cn]["Remaining"] = emd_pool[cn]["EMD_Amount"].astype(float)
+
+    pay_pool = {}
+    for cn, g in pay.groupby("Contract_No"):
+        pay_pool[cn] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
+        pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
 
     total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
     eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
@@ -534,6 +664,18 @@ def run_calculations(cont, emd, pay, grn, mc):
     results = []
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
+
+        # ── PER-ROW MASTER LOOKUP (EITHER/OR) ──────────────────────────────
+        row_mc       = _mc(cn)
+        emd_rate     = sf(row_mc.get("emd_percent"), 5.0)
+        cd_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cd_slabs",[])]
+        ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("ll_slabs",[])]
+        ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
+        cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
+        cc_gst       = sf(row_mc.get("cc_gst"), 5.0)
+        cc_free_days = int(sf(row_mc.get("cc_free_days"), 60))
+        # ───────────────────────────────────────────────────────────────────
+
         bales = row["Accepted_Qty_AUM"]
         pbe   = per_bale_emd.get(cn, 0)
         mat   = row["Material_Amount"]
@@ -944,7 +1086,7 @@ with tab_upload:
                         try:
                             fb = uploaded_file.read()
                             cont_df, emd_df, pay_df, grn_df = parse_excel(fb)
-                            result_df  = run_calculations(cont_df, emd_df, pay_df, grn_df, sel_mc)
+                            result_df  = run_calculations(cont_df, emd_df, pay_df, grn_df, contracts)
                             excel_bytes = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df)
                             st.session_state["result_df"]   = result_df
                             st.session_state["excel_bytes"] = excel_bytes
