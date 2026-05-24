@@ -120,11 +120,19 @@ st.markdown("""
     border: 1px solid rgba(255,255,255,0.2);
 }
 .logo-img {
-    height: 54px;
+    height: 52px;
     width: auto;
-    border-radius: 8px;
-    background: white;
-    padding: 4px 8px;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 5px 10px;
+    object-fit: contain;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+}
+.top-header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
 }
 
 /* ── TABS ── */
@@ -360,14 +368,34 @@ div[data-testid="stExpander"] {
     border: 1px solid rgba(0,214,90,0.25) !important;
     border-radius: 10px !important;
 }
-div[data-testid="stExpander"] summary {
+div[data-testid="stExpander"] summary,
+div[data-testid="stExpander"] details > summary,
+div[data-testid="stExpander"] summary:focus,
+div[data-testid="stExpander"] summary:active {
     background: #0d1b2e !important;
-    color: rgba(255,255,255,0.85) !important;
+    color: #ffffff !important;
     font-weight: 600 !important;
     border-radius: 10px !important;
 }
+/* Expanded state — still white, slight green tint */
+div[data-testid="stExpander"] details[open] > summary,
+div[data-testid="stExpander"][open] > summary {
+    background: rgba(0,80,30,0.35) !important;
+    color: #ffffff !important;
+    border-radius: 10px 10px 0 0 !important;
+}
+/* Force white on all inner text nodes of summary */
+div[data-testid="stExpander"] summary span,
+div[data-testid="stExpander"] summary p,
+div[data-testid="stExpander"] summary div,
+div[data-testid="stExpander"] summary svg,
+div[data-testid="stExpander"] summary * {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
 div[data-testid="stExpander"] summary:hover {
-    background: rgba(0,113,45,0.15) !important;
+    background: rgba(0,113,45,0.20) !important;
+    color: #ffffff !important;
 }
 /* Expanded content area - force dark background */
 div[data-testid="stExpander"] > details,
@@ -627,25 +655,57 @@ div[data-testid="stSpinner"] { color: #00D65A !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── LOGIN CREDENTIALS ────────────────────────────────────────────────────────
-# Add/change users here: {"username": "password"}
-APP_USERS = {
-    "admin":    "cci@2025",
-    "softview": "sv@admin",
-}
+# ─── LOGIN CREDENTIALS (Firebase-backed) ─────────────────────────────────────
+_DEFAULT_USERS = {"admin": "cci@2025", "softview": "sv@admin"}
+
+def _load_users():
+    """Returns dict: {username: {"password": str, "mobile": str, "email": str}} """
+    try:
+        doc = db.collection("cci_utility").document("app_users").get()
+        if doc.exists:
+            raw = doc.to_dict().get("users", {})
+            # Migrate legacy flat {user: password} format to rich format
+            migrated = {}
+            for k, v in raw.items():
+                if isinstance(v, str):
+                    migrated[k] = {"password": v, "mobile": "", "email": ""}
+                else:
+                    migrated[k] = v
+            return migrated if migrated else _get_default_users_rich()
+    except Exception:
+        pass
+    return _get_default_users_rich()
+
+def _get_default_users_rich():
+    rich = {}
+    for k, v in _DEFAULT_USERS.items():
+        rich[k] = {"password": v, "mobile": "", "email": ""}
+    return rich
+
+def _save_users(users_dict):
+    try:
+        db.collection("cci_utility").document("app_users").set({"users": users_dict})
+    except Exception as e:
+        st.error(f"User save error: {e}")
 
 # ─── LOGIN GATE ───────────────────────────────────────────────────────────────
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "_login_error" not in st.session_state:
     st.session_state._login_error = ""
+if "_logged_user" not in st.session_state:
+    st.session_state._logged_user = ""
 
 def _do_login():
     u = st.session_state.get("_lu", "").strip()
     p = st.session_state.get("_lp", "")
-    if APP_USERS.get(u) == p:
+    users = _load_users()
+    user_rec = users.get(u, {})
+    user_pass = user_rec.get("password", user_rec) if isinstance(user_rec, dict) else user_rec
+    if user_pass == p:
         st.session_state.authenticated = True
-        st.session_state._login_error = ""
+        st.session_state._logged_user  = u
+        st.session_state._login_error  = ""
     else:
         st.session_state._login_error = "❌ Invalid username or password."
 
@@ -686,6 +746,10 @@ if "proj_msg" not in st.session_state:
     st.session_state.proj_msg = ""
 if "cont_msg" not in st.session_state:
     st.session_state.cont_msg = ""
+if "edit_contract_idx" not in st.session_state:
+    st.session_state.edit_contract_idx = None
+if "clear_contract_flag" not in st.session_state:
+    st.session_state.clear_contract_flag = False
 
 def persist():
     fs_save(st.session_state.masters)
@@ -1006,6 +1070,12 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     return buf.getvalue()
 
 # ─── TOP HEADER ───────────────────────────────────────────────────────────────
+# Live clock + user info injected via auto-refresh component
+import datetime as _dt
+_now = _dt.datetime.now()
+_clock_str = _now.strftime("%d %b %Y  |  %H:%M:%S")
+_logged_user = st.session_state.get("_logged_user", "")
+
 st.markdown(f"""
 <div class="top-header">
   <div class="top-header-left">
@@ -1015,16 +1085,32 @@ st.markdown(f"""
       <div class="top-header-sub">Softview Technologies &nbsp;·&nbsp; EMD Interest &nbsp;·&nbsp; Carrying Charges &nbsp;·&nbsp; Late Lifting</div>
     </div>
   </div>
-  <span class="top-header-badge">v2.0 PREMIUM</span>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+    <span class="top-header-badge">v2.0 PREMIUM</span>
+    <span style="font-size:11px;color:rgba(0,214,90,0.9);font-weight:600;letter-spacing:.04em">
+      👤 {_logged_user.upper()}
+    </span>
+    <span style="font-size:11px;color:rgba(255,255,255,0.45);font-family:monospace;letter-spacing:.04em">
+      🕐 {_clock_str}
+    </span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
+# Auto-refresh every 1 second so clock ticks
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=1000, limit=None, key="clock_refresh")
+except ImportError:
+    pass  # autorefresh not installed — clock shows static time, refreshes on interaction
+
 # ─── TABS ─────────────────────────────────────────────────────────────────────
-tab_masters, tab_upload, tab_results, tab_help = st.tabs([
+tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
     "  📋  Masters  ",
     "  📤  Upload & Calculate  ",
     "  📊  Results  ",
-    "  📖  Formula Guide  "
+    "  📖  Formula Guide  ",
+    "  👤  User Master  "
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1156,43 +1242,72 @@ with tab_masters:
                 )
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
-                if st.button("💾  Save Contract Master", type="primary", key="btn_cont"):
-                    if not st.session_state.cno:
-                        st.error("❌ Contract No is required.")
-                    else:
-                        contract = {
-                            "project": st.session_state.cproj,
-                            "party": st.session_state.cparty,
-                            "contract_no": st.session_state.cno,
-                            "contract_date": str(st.session_state.cdt) if st.session_state.cdt else "",
-                            "effective_date": str(st.session_state.ceff) if st.session_state.ceff else "",
-                            "bales": int(st.session_state.cbales),
-                            "emd_days": int(st.session_state.emd_d),
-                            "emd_percent": float(st.session_state.emd_p),
-                            "cd_slabs": [s for s in [
-                                {"days":int(st.session_state.cd1d),"pct":float(st.session_state.cd1p)},
-                                {"days":int(st.session_state.cd2d),"pct":float(st.session_state.cd2p)},
-                                {"days":int(st.session_state.cd3d),"pct":float(st.session_state.cd3p)},
-                            ] if s["days"]>0],
-                            "cd_gst": float(st.session_state.cd_gst),
-                            "ll_slabs": [
-                                {"days":int(st.session_state.ll1d),"pct":float(st.session_state.ll1p)},
-                                {"days":int(st.session_state.ll2d),"pct":float(st.session_state.ll2p)},
-                                {"days":int(st.session_state.ll3d),"pct":float(st.session_state.ll3p)},
-                            ],
-                            "ll_gst": float(st.session_state.ll_gst),
-                            "ll_compound": st.session_state.ll_compound == "Applicable",
-                            "cc_free_days": int(st.session_state.cc_free),
-                            "cc_slabs": [
-                                {"days":int(st.session_state.cc1d),"pct":float(st.session_state.cc1p)},
-                                {"days":int(st.session_state.cc2d),"pct":float(st.session_state.cc2p)},
-                            ],
-                            "cc_gst": float(st.session_state.cc_gst),
-                            "cc_compound": st.session_state.cc_compound == "Applicable",
-                        }
-                        st.session_state.masters["contracts"].append(contract)
-                        persist()
-                        st.session_state.cont_msg = f"Contract '{st.session_state.cno}' saved to Firebase!"
+
+                # Editing mode indicator
+                editing_idx = st.session_state.edit_contract_idx
+                if editing_idx is not None:
+                    st.markdown(f'<div style="background:rgba(217,119,6,0.2);border:1px solid rgba(217,119,6,0.5);border-radius:8px;padding:8px 14px;color:#fbbf24;font-size:12px;font-weight:600;margin-bottom:10px">✏️ Editing Contract — changes will overwrite the existing record</div>', unsafe_allow_html=True)
+
+                btn_col1, btn_col2 = st.columns([1, 1])
+                with btn_col1:
+                    save_label = "💾  Update Contract" if editing_idx is not None else "💾  Save Contract Master"
+                    if st.button(save_label, type="primary", key="btn_cont", use_container_width=True):
+                        if not st.session_state.cno:
+                            st.error("❌ Contract No is required.")
+                        else:
+                            contract = {
+                                "project": st.session_state.cproj,
+                                "party": st.session_state.cparty,
+                                "contract_no": st.session_state.cno,
+                                "contract_date": str(st.session_state.cdt) if st.session_state.cdt else "",
+                                "effective_date": str(st.session_state.ceff) if st.session_state.ceff else "",
+                                "bales": int(st.session_state.cbales),
+                                "emd_days": int(st.session_state.emd_d),
+                                "emd_percent": float(st.session_state.emd_p),
+                                "cd_slabs": [s for s in [
+                                    {"days":int(st.session_state.cd1d),"pct":float(st.session_state.cd1p)},
+                                    {"days":int(st.session_state.cd2d),"pct":float(st.session_state.cd2p)},
+                                    {"days":int(st.session_state.cd3d),"pct":float(st.session_state.cd3p)},
+                                ] if s["days"]>0],
+                                "cd_gst": float(st.session_state.cd_gst),
+                                "ll_slabs": [
+                                    {"days":int(st.session_state.ll1d),"pct":float(st.session_state.ll1p)},
+                                    {"days":int(st.session_state.ll2d),"pct":float(st.session_state.ll2p)},
+                                    {"days":int(st.session_state.ll3d),"pct":float(st.session_state.ll3p)},
+                                ],
+                                "ll_gst": float(st.session_state.ll_gst),
+                                "ll_compound": st.session_state.ll_compound == "Applicable",
+                                "cc_free_days": int(st.session_state.cc_free),
+                                "cc_slabs": [
+                                    {"days":int(st.session_state.cc1d),"pct":float(st.session_state.cc1p)},
+                                    {"days":int(st.session_state.cc2d),"pct":float(st.session_state.cc2p)},
+                                ],
+                                "cc_gst": float(st.session_state.cc_gst),
+                                "cc_compound": st.session_state.cc_compound == "Applicable",
+                            }
+                            if editing_idx is not None:
+                                st.session_state.masters["contracts"][editing_idx] = contract
+                                st.session_state.edit_contract_idx = None
+                                st.session_state.cont_msg = f"Contract '{st.session_state.cno}' updated!"
+                            else:
+                                st.session_state.masters["contracts"].append(contract)
+                                st.session_state.cont_msg = f"Contract '{st.session_state.cno}' saved to Firebase!"
+                            persist()
+                            st.rerun()
+                with btn_col2:
+                    if st.button("🗑️  Clear Fields", key="btn_clear_cont", use_container_width=True):
+                        # Clear ONLY contract form input fields — saved contracts are NOT touched
+                        _saved_masters = st.session_state.masters  # preserve saved data
+                        for k in ["cparty","cno"]:
+                            if k in st.session_state: st.session_state[k] = ""
+                        for k in ["cbales","emd_d","cd1d","cd2d","cd3d","ll1d","ll2d","ll3d","cc_free","cc1d","cc2d"]:
+                            if k in st.session_state: st.session_state[k] = 0
+                        for k in ["emd_p","cd1p","cd2p","cd3p","cd_gst","ll1p","ll2p","ll3p","ll_gst","cc1p","cc2p","cc_gst"]:
+                            if k in st.session_state: st.session_state[k] = 0.0
+                        for k in ["cdt","ceff"]:
+                            if k in st.session_state: del st.session_state[k]
+                        st.session_state.edit_contract_idx = None
+                        st.session_state.masters = _saved_masters  # restore saved data
                         st.rerun()
 
     # ── RIGHT PREVIEW ──
@@ -1252,7 +1367,45 @@ with tab_masters:
                         <span>🚛 CC Free: {c.get('cc_free_days',60)} days</span>
                       </div>
                     </div>""", unsafe_allow_html=True)
-                    if st.button("🗑 Delete", key=f"dc{i}", use_container_width=False):
+                    cc_b1, cc_b2 = st.columns(2)
+                    if cc_b1.button("✏️ Edit", key=f"ec{i}", use_container_width=True):
+                        # Load contract into form fields
+                        cx = st.session_state.masters["contracts"][i]
+                        st.session_state.edit_contract_idx = i
+                        st.session_state.cparty = cx.get("party","")
+                        st.session_state.cno    = cx.get("contract_no","")
+                        st.session_state.cbales = cx.get("bales",0)
+                        st.session_state.emd_p  = cx.get("emd_percent",5.0)
+                        st.session_state.emd_d  = cx.get("emd_days",365)
+                        cd_s = cx.get("cd_slabs",[{},{},{}])
+                        st.session_state.cd1d = cd_s[0].get("days",0) if len(cd_s)>0 else 0
+                        st.session_state.cd1p = cd_s[0].get("pct",0.0) if len(cd_s)>0 else 0.0
+                        st.session_state.cd2d = cd_s[1].get("days",0) if len(cd_s)>1 else 0
+                        st.session_state.cd2p = cd_s[1].get("pct",0.0) if len(cd_s)>1 else 0.0
+                        st.session_state.cd3d = cd_s[2].get("days",0) if len(cd_s)>2 else 0
+                        st.session_state.cd3p = cd_s[2].get("pct",0.0) if len(cd_s)>2 else 0.0
+                        st.session_state.cd_gst = cx.get("cd_gst",18.0)
+                        ll_s = cx.get("ll_slabs",[{},{},{}])
+                        st.session_state.ll1d = ll_s[0].get("days",30) if len(ll_s)>0 else 30
+                        st.session_state.ll1p = ll_s[0].get("pct",0.50) if len(ll_s)>0 else 0.50
+                        st.session_state.ll2d = ll_s[1].get("days",30) if len(ll_s)>1 else 30
+                        st.session_state.ll2p = ll_s[1].get("pct",0.75) if len(ll_s)>1 else 0.75
+                        st.session_state.ll3d = ll_s[2].get("days",9999) if len(ll_s)>2 else 9999
+                        st.session_state.ll3p = ll_s[2].get("pct",1.00) if len(ll_s)>2 else 1.00
+                        st.session_state.ll_gst = cx.get("ll_gst",5.0)
+                        st.session_state.ll_compound = "Applicable" if cx.get("ll_compound") else "Not Applicable"
+                        st.session_state.cc_free = cx.get("cc_free_days",60)
+                        cc_s = cx.get("cc_slabs",[{},{}])
+                        st.session_state.cc1d = cc_s[0].get("days",30) if len(cc_s)>0 else 30
+                        st.session_state.cc1p = cc_s[0].get("pct",1.25) if len(cc_s)>0 else 1.25
+                        st.session_state.cc2d = cc_s[1].get("days",30) if len(cc_s)>1 else 30
+                        st.session_state.cc2p = cc_s[1].get("pct",1.35) if len(cc_s)>1 else 1.35
+                        st.session_state.cc_gst = cx.get("cc_gst",5.0)
+                        st.session_state.cc_compound = "Applicable" if cx.get("cc_compound") else "Not Applicable"
+                        st.rerun()
+                    if cc_b2.button("🗑 Delete", key=f"dc{i}", use_container_width=True):
+                        if st.session_state.edit_contract_idx == i:
+                            st.session_state.edit_contract_idx = None
                         st.session_state.masters["contracts"].pop(i); persist(); st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1423,6 +1576,116 @@ with tab_help:
         ]:
             st.markdown(f'<div class="sec-label">{title}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="formula-box">{formula}</div>', unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5: USER MASTER
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_users:
+    # Only admin can manage users
+    current_user = st.session_state.get("_logged_user","")
+    if current_user != "admin":
+        st.warning("⚠️ Only **admin** user can manage User Master.")
+    else:
+        st.markdown('<div class="sec-label">👤 User Management</div>', unsafe_allow_html=True)
+        st.caption("Add, edit or delete application users. Admin account cannot be deleted.")
+
+        # Load users from Firebase
+        all_users = _load_users()
+
+        # ── Add New User ──
+        with st.expander("➕  Add New User", expanded=False):
+            ua1, ua2 = st.columns(2)
+            new_uname   = ua1.text_input("Username ✱",    key="new_uname",   placeholder="e.g. user1")
+            new_upass   = ua2.text_input("Password ✱",    key="new_upass",   type="password", placeholder="Min 6 chars")
+            ua3, ua4    = st.columns(2)
+            new_umobile = ua3.text_input("Mobile No.",     key="new_umobile", placeholder="e.g. 9876543210")
+            new_uemail  = ua4.text_input("Email ID",       key="new_uemail",  placeholder="e.g. user@example.com")
+            if st.button("💾  Add User", type="primary", key="btn_add_user"):
+                nu = st.session_state.new_uname.strip().lower()
+                np = st.session_state.new_upass.strip()
+                nm = st.session_state.new_umobile.strip()
+                ne = st.session_state.new_uemail.strip()
+                if not nu or not np:
+                    st.error("❌ Username and Password are required.")
+                elif len(np) < 6:
+                    st.error("❌ Password must be at least 6 characters.")
+                elif nu in all_users:
+                    st.error(f"❌ Username '{nu}' already exists.")
+                else:
+                    all_users[nu] = {"password": np, "mobile": nm, "email": ne}
+                    _save_users(all_users)
+                    st.success(f"✅ User '{nu}' added successfully!")
+                    st.rerun()
+
+        st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+
+        # ── List + Edit + Delete Users ──
+        st.markdown('<div class="sec-label">📋 Existing Users</div>', unsafe_allow_html=True)
+
+        for uname in list(all_users.keys()):
+            is_admin = (uname == "admin")
+            with st.container():
+                udata  = all_users[uname] if isinstance(all_users[uname], dict) else {"password": all_users[uname], "mobile": "", "email": ""}
+                umob   = udata.get("mobile", "")
+                uemail = udata.get("email", "")
+                st.markdown(f"""
+                <div class="contract-card" style="margin-bottom:6px">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <span style="font-size:20px">{"👑" if is_admin else "👤"}</span>
+                    <span style="font-weight:700;color:#fff;font-size:14px">{uname}</span>
+                    {"<span style='background:rgba(217,119,6,0.25);color:#fbbf24;font-size:10px;padding:2px 10px;border-radius:20px;font-weight:700;border:1px solid rgba(217,119,6,0.4)'>ADMIN</span>" if is_admin else ""}
+                    {"<span style='color:rgba(255,255,255,0.45);font-size:11px'>📱 " + umob + "</span>" if umob else ""}
+                    {"<span style='color:rgba(255,255,255,0.45);font-size:11px'>✉️ " + uemail + "</span>" if uemail else ""}
+                  </div>
+                </div>""", unsafe_allow_html=True)
+
+                ub1, ub2, ub3 = st.columns([2, 1, 1])
+                # Password change input
+                new_pass_key = f"chpass_{uname}"
+                new_p = ub1.text_input(
+                    f"New password for {uname}",
+                    key=new_pass_key,
+                    type="password",
+                    placeholder="Enter new password to change",
+                    label_visibility="collapsed"
+                )
+                if ub2.button("🔑 Change Password", key=f"chpbtn_{uname}", use_container_width=True):
+                    np2 = st.session_state.get(new_pass_key,"").strip()
+                    if len(np2) < 6:
+                        st.error(f"❌ Password must be at least 6 characters for '{uname}'.")
+                    else:
+                        udata["password"] = np2
+                        all_users[uname] = udata
+                        _save_users(all_users)
+                        st.success(f"✅ Password changed for '{uname}'!")
+                        st.rerun()
+                if not is_admin:
+                    if ub3.button("🗑 Delete", key=f"delbtn_{uname}", use_container_width=True):
+                        del all_users[uname]
+                        _save_users(all_users)
+                        st.success(f"✅ User '{uname}' deleted.")
+                        st.rerun()
+                else:
+                    ub3.markdown('<span style="color:rgba(255,255,255,0.25);font-size:11px">Admin protected</span>', unsafe_allow_html=True)
+                # Mobile + Email edit row
+                uc1, uc2, uc3 = st.columns([2, 2, 1])
+                mob_key   = f"mob_{uname}"
+                email_key = f"eml_{uname}"
+                new_mob   = uc1.text_input("📱 Mobile",   key=mob_key,   value=umob,   placeholder="Mobile no.", label_visibility="collapsed")
+                new_email = uc2.text_input("✉️ Email",    key=email_key, value=uemail, placeholder="Email ID",   label_visibility="collapsed")
+                if uc3.button("💾 Update", key=f"updbtn_{uname}", use_container_width=True):
+                    udata["mobile"] = st.session_state.get(mob_key, "").strip()
+                    udata["email"]  = st.session_state.get(email_key, "").strip()
+                    all_users[uname] = udata
+                    _save_users(all_users)
+                    st.success(f"✅ Contact info updated for '{uname}'!")
+                    st.rerun()
+
+        st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background:rgba(0,113,45,0.1);border:1px solid rgba(0,214,90,0.2);border-radius:8px;padding:10px 16px;font-size:12px;color:rgba(255,255,255,0.5)">
+        🔒 Currently logged in as: <strong style="color:#86efac">{current_user}</strong> &nbsp;·&nbsp; Total users: <strong style="color:#fff">{len(all_users)}</strong>
+        </div>""", unsafe_allow_html=True)
 
 # ── FOOTER ────────────────────────────────────────────────────────────────────
 st.markdown("""
