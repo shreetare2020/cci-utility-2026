@@ -6,4 +6,4 @@ openpyxl
 firebase-admin
 google-cloud-firestore
 Pillow
-streamlit-autorefresh
+
