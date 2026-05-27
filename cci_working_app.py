@@ -982,7 +982,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         # ── CARRYING CHARGES ──
         # CC Days = Payment Date − CC Free End
-        # CC Days <= 0 → No charges | CC Days > 0 → Charges apply (max 60d)
+        # CC Days <= 0 → No charges | CC Days > 0 → Charges apply
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
         cc_free_end = pd.NaT
         if not pd.isna(eff_date):
@@ -990,7 +990,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             if not pd.isna(pay_date):
                 cc_days_raw = (pay_date - cc_free_end).days
                 if cc_days_raw > 0:
-                    cc_days = min(cc_days_raw, 60)
+                    cc_days = cc_days_raw
                     s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
                     s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
                     rem = cc_days; cc_base = 0.0
@@ -1572,7 +1572,7 @@ with tab_help:
             ("⏰ Late Lifting Charges",
              "Free Period  = Payment Date + 15 days\n\nIf Lifting Date > Free Period:\n  Late Days = Lifting Date − Free Period\n  Slab 1 (first 30d) : Amt × 0.50%/month\n  Slab 2 (next  30d) : Amt × 0.75%/month\n  Slab 3 (beyond)   : Amt × 1.00%/month\n  + GST as applicable"),
             ("🚛 Carrying Charges ⭐",
-             "CC Free End = Effective Date + Free Period Days\nExample: 11-Apr-2025 + 60 = 10-Jun-2025\n\nCC Days = Payment Date − CC Free End\n\nIf CC Days ≤ 0 → No Carrying Charges\nIf CC Days > 0 → Charges apply (max 60d):\n  First 30d  : Amt × 1.25%/month\n  Beyond 30d : Amt × 1.35%/month\n  + GST as applicable"),
+             "CC Free End = Effective Date + Free Period Days\nExample: 11-Apr-2025 + 60 = 10-Jun-2025\n\nCC Days = Payment Date − CC Free End\n\nIf CC Days ≤ 0 → No Carrying Charges\nIf CC Days > 0 → Charges apply:\n  First 30d  : Amt × 1.25%/month\n  Beyond 30d : Amt × 1.35%/month\n  + GST as applicable"),
         ]:
             st.markdown(f'<div class="sec-label">{title}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="formula-box">{formula}</div>', unsafe_allow_html=True)
