@@ -981,9 +981,17 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 ll_gst_amt = round(ll_charges * ll_gst / 100, 2)
 
         # ── CARRYING CHARGES ──
-        # CC Days = Payment Date − CC Free End
-        # CC Days <= 0 → No charges | CC Days > 0 → Charges apply
+        # CC Days  = Payment Date − CC Free End (actual days, no cap)
+        # CC Days <= 0 → No charges
+        # CC Days > 0  → Compound prorata across slabs (unlimited):
+        #   Slab 1 (day  1– 30): mat × 1.25% × (days_in_slab / 30)
+        #   Slab 2 (day 31– 60): (running) × 1.35% × (days_in_slab / 30)
+        #   Slab 3 (day 61– 90): (running) × 1.35% × (days_in_slab / 30)
+        #   Slab 4 (day 91–120): (running) × 1.35% × (days_in_slab / 30)
+        #   ... and so on every 30 days until all remaining days are consumed.
+        #   Each slab charges on the RUNNING amount (principal + all prior slab charges).
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
+        cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
         cc_free_end = pd.NaT
         if not pd.isna(eff_date):
             cc_free_end = eff_date + pd.Timedelta(days=cc_free_days)
@@ -991,25 +999,38 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 cc_days_raw = (pay_date - cc_free_end).days
                 if cc_days_raw > 0:
                     cc_days = cc_days_raw
-                    s1c = cc_slabs[0] if len(cc_slabs)>0 else {"days":30,"pct":1.25}
-                    s2c = cc_slabs[1] if len(cc_slabs)>1 else {"days":30,"pct":1.35}
-                    rem = cc_days; cc_base = 0.0
-                    if cc_compound:
-                        # Compound prorata: second slab charges on (mat + first slab charges)
-                        running = mat
-                        d1 = min(rem, s1c["days"])
-                        slab1c = running * (s1c["pct"]/100) * (d1/30)
-                        cc_base += slab1c; running += slab1c; rem -= d1
-                        if rem > 0:
-                            slab2c = running * (s2c["pct"]/100) * (rem/30)
-                            cc_base += slab2c
-                    else:
-                        # Simple prorata (original logic)
-                        d1  = min(rem, s1c["days"])
-                        cc_base += mat*(s1c["pct"]/100)*(d1/30); rem -= d1
-                        if rem > 0:
-                            cc_base += mat*(s2c["pct"]/100)*(rem/30)
-                    cc_charges = round(cc_base, 2)
+                    s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
+                    s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
+
+                    rem     = cc_days
+                    running = mat       # running = principal + accumulated charges
+                    total   = 0.0
+                    slab_n  = 0         # slab counter (0-based)
+
+                    while rem > 0:
+                        slab_n += 1
+                        if slab_n == 1:
+                            rate     = s1c["pct"] / 100
+                            slab_days = s1c["days"]
+                        else:
+                            rate     = s2c["pct"] / 100
+                            slab_days = s2c["days"]
+
+                        d        = min(rem, slab_days)
+                        charge   = running * rate * (d / 30)
+                        rounded  = round(charge, 2)
+
+                        # label: "1-30", "31-60", "61-90", "91-120", ...
+                        day_from = (slab_n - 1) * 30 + 1
+                        day_to   = day_from + d - 1
+                        label    = f"{day_from}-{day_to}"
+                        cc_slab_breakdown.append((label, rounded))
+
+                        running += charge
+                        total   += charge
+                        rem     -= d
+
+                    cc_charges = round(total, 2)
                     cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
 
         results.append({
@@ -1025,6 +1046,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
             "Late_Lifting_GST":ll_gst_amt, "CC_Free_End":cc_free_end,
             "CC_Days":cc_days, "Carry_Charges":cc_charges, "Carry_GST":cc_gst_amt,
+            "_cc_slab_breakdown": cc_slab_breakdown,  # dynamic slab columns built in df_to_excel_bytes & display
         })
     return pd.DataFrame(results)
 
@@ -1038,14 +1060,33 @@ def fmt_date(v):
 def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
-        cols = [
+
+        # ── Build dynamic slab columns from _cc_slab_breakdown ──────────────
+        # Find the maximum number of slabs across all rows
+        max_slabs = result_df["_cc_slab_breakdown"].apply(len).max() if "_cc_slab_breakdown" in result_df.columns else 0
+        slab_col_names = []
+        for i in range(max_slabs):
+            # Generate label from first row that has this slab; fallback to position
+            try:
+                lbl = result_df["_cc_slab_breakdown"].dropna().iloc[0][i][0]
+            except Exception:
+                d_from = i * 30 + 1; d_to = d_from + 29
+                lbl = f"{d_from}-{d_to}"
+            col = f"CC_Slab{i+1}_{lbl}"
+            slab_col_names.append(col)
+            result_df[col] = result_df["_cc_slab_breakdown"].apply(
+                lambda x: x[i][1] if isinstance(x, list) and len(x) > i else 0.0
+            )
+
+        base_cols = [
             "Contract_No","GRN_No","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
             "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
             "EMD_Days","EMD_Interest","CD_Days","CD_Pct","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
-            "CC_Free_End","CC_Days","Carry_Charges","Carry_GST"
+            "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
+        cols = base_cols + slab_col_names
         result_df[cols].to_excel(w, sheet_name="GRN Calculation", index=False)
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
@@ -1525,6 +1566,20 @@ with tab_results:
         st.markdown('<div class="sec-label">📊 GRN-Wise Detail</div>', unsafe_allow_html=True)
 
         disp = df.copy()
+        # Build dynamic slab columns from _cc_slab_breakdown (same logic as Excel export)
+        if "_cc_slab_breakdown" in disp.columns:
+            max_slabs = disp["_cc_slab_breakdown"].apply(lambda x: len(x) if isinstance(x, list) else 0).max()
+            for i in range(max_slabs):
+                try:
+                    lbl = disp["_cc_slab_breakdown"].dropna().iloc[0][i][0]
+                except Exception:
+                    d_from = i * 30 + 1; lbl = f"{d_from}-{d_from+29}"
+                col = f"CC_Slab{i+1}_{lbl}"
+                disp[col] = disp["_cc_slab_breakdown"].apply(
+                    lambda x: x[i][1] if isinstance(x, list) and len(x) > i else 0.0
+                )
+        # Drop internal list column — PyArrow cannot serialize Python lists
+        disp = disp.drop(columns=[c for c in disp.columns if c.startswith("_")], errors="ignore")
         for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CC_Free_End"]:
             disp[col] = disp[col].apply(fmt_date)
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
@@ -1572,7 +1627,7 @@ with tab_help:
             ("⏰ Late Lifting Charges",
              "Free Period  = Payment Date + 15 days\n\nIf Lifting Date > Free Period:\n  Late Days = Lifting Date − Free Period\n  Slab 1 (first 30d) : Amt × 0.50%/month\n  Slab 2 (next  30d) : Amt × 0.75%/month\n  Slab 3 (beyond)   : Amt × 1.00%/month\n  + GST as applicable"),
             ("🚛 Carrying Charges ⭐",
-             "CC Free End = Effective Date + Free Period Days\nExample: 11-Apr-2025 + 60 = 10-Jun-2025\n\nCC Days = Payment Date − CC Free End\n\nIf CC Days ≤ 0 → No Carrying Charges\nIf CC Days > 0 → Charges apply:\n  First 30d  : Amt × 1.25%/month\n  Beyond 30d : Amt × 1.35%/month\n  + GST as applicable"),
+             "CC Free End = Effective Date + Free Period Days\nExample: 11-Apr-2025 + 60 = 10-Jun-2025\n\nCC Days = Payment Date − CC Free End\n\nIf CC Days ≤ 0 → No Carrying Charges\nIf CC Days > 0 → Compound Prorata (unlimited slabs, every 30 days):\n\n  Slab 1 (Day  1– 30): Material Amt × 1.25% × (days/30)\n  Slab 2 (Day 31– 60): (Running Amt) × 1.35% × (days/30)\n  Slab 3 (Day 61– 90): (Running Amt) × 1.35% × (days/30)\n  Slab 4 (Day 91–120): (Running Amt) × 1.35% × (days/30)\n  ... continues every 30 days beyond 1 year as well\n\nRunning Amt = Principal + all prior slab charges (compounding)\n+ GST on total Carry Charges as applicable"),
         ]:
             st.markdown(f'<div class="sec-label">{title}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="formula-box">{formula}</div>', unsafe_allow_html=True)
