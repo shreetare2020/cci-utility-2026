@@ -72,10 +72,10 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-* { font-family: 'Inter', sans-serif; }
+* { font-family: 'Inter', sans-serif; font-size: 14px; }
 
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(135deg, #0a0f1e 0%, #0d1b2e 50%, #0a1628 100%);
+    background: linear-gradient(135deg, #252b3b 0%, #2a3447 50%, #252f40 100%);
     min-height: 100vh;
 }
 [data-testid="stHeader"] { background: transparent !important; }
@@ -83,7 +83,7 @@ st.markdown("""
 
 /* ── TOP HEADER ── */
 .top-header {
-    background: linear-gradient(90deg, #00712D 0%, #009B3A 40%, #0a1628 100%);
+    background: linear-gradient(90deg, #1a7a1a 0%, #22a832 40%, #0a1628 100%);
     border-radius: 14px;
     padding: 0px 24px;
     margin-bottom: 18px;
@@ -98,14 +98,14 @@ st.markdown("""
 }
 .top-header-title {
     color: #ffffff;
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 700;
     letter-spacing: -0.3px;
     line-height: 1.2;
 }
 .top-header-sub {
     color: rgba(255,255,255,0.7);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 400;
     margin-top: 2px;
 }
@@ -144,7 +144,7 @@ div[data-testid="stTabs"] {
     margin-bottom: 18px;
 }
 div[data-testid="stTabs"] button {
-    font-size: 13px !important;
+    font-size: 14px !important;
     font-weight: 500 !important;
     color: rgba(255,255,255,0.55) !important;
     border-radius: 8px !important;
@@ -152,7 +152,7 @@ div[data-testid="stTabs"] button {
     transition: all 0.2s !important;
 }
 div[data-testid="stTabs"] button[aria-selected="true"] {
-    background: linear-gradient(135deg, #00712D, #009B3A) !important;
+    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
     color: #ffffff !important;
     font-weight: 600 !important;
     box-shadow: 0 2px 12px rgba(0,113,45,0.4) !important;
@@ -172,9 +172,9 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
     backdrop-filter: blur(10px);
 }
 .sv-card-title {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
-    color: #00D65A;
+    color: #39FF14;
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-bottom: 14px;
@@ -212,28 +212,28 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
     height: 3px;
     border-radius: 14px 14px 0 0;
 }
-.metric-card.green::before  { background: linear-gradient(90deg, #00712D, #00D65A); }
+.metric-card.green::before  { background: linear-gradient(90deg, #1a7a1a, #39FF14); }
 .metric-card.blue::before   { background: linear-gradient(90deg, #1a56db, #3b82f6); }
 .metric-card.teal::before   { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .metric-card.red::before    { background: linear-gradient(90deg, #dc2626, #ef4444); }
 .metric-card.orange::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
 
 .metric-val {
-    font-size: 22px;
+    font-size: 23px;
     font-weight: 700;
     color: #ffffff;
     margin-bottom: 4px;
     letter-spacing: -0.5px;
 }
 .metric-lbl {
-    font-size: 11px;
+    font-size: 14px;
     color: rgba(255,255,255,0.5);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: .06em;
 }
 .metric-icon {
-    font-size: 20px;
+    font-size: 21px;
     margin-bottom: 8px;
 }
 
@@ -244,23 +244,23 @@ div[data-testid="stNumberInput"] input,
 div[data-testid="stDateInput"] input,
 div[data-testid="stTextArea"] textarea,
 input[type="text"], input[type="number"], input[type="date"] {
-    background-color: #0d1b2e !important;
+    background-color: #243040 !important;
     border: 1.5px solid rgba(0,214,90,0.4) !important;
     border-radius: 8px !important;
     color: #ffffff !important;
-    caret-color: #00D65A !important;
+    caret-color: #39FF14 !important;
 }
 div[data-testid="stTextInput"] input:focus,
 div[data-testid="stNumberInput"] input:focus,
 div[data-testid="stDateInput"] input:focus {
-    border-color: #00D65A !important;
+    border-color: #39FF14 !important;
     box-shadow: 0 0 0 2px rgba(0,214,90,0.2) !important;
     outline: none !important;
 }
 /* Selectbox container */
 div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
 div[data-baseweb="select"] > div {
-    background-color: #0d1b2e !important;
+    background-color: #243040 !important;
     border: 1.5px solid rgba(0,214,90,0.4) !important;
     border-radius: 8px !important;
     color: #ffffff !important;
@@ -273,13 +273,13 @@ div[data-baseweb="select"] [data-testid="stSelectbox"] span {
 /* Dropdown list */
 div[data-baseweb="popover"] ul,
 div[data-baseweb="menu"] {
-    background-color: #0d1b2e !important;
+    background-color: #243040 !important;
     border: 1px solid rgba(0,214,90,0.3) !important;
 }
 div[data-baseweb="menu"] li,
 div[data-baseweb="option"] {
     color: #ffffff !important;
-    background-color: #0d1b2e !important;
+    background-color: #243040 !important;
 }
 div[data-baseweb="option"]:hover {
     background-color: rgba(0,214,90,0.15) !important;
@@ -291,7 +291,7 @@ div[data-testid="stSelectbox"] label,
 div[data-testid="stDateInput"] label,
 div[data-testid="stTextArea"] label {
     color: rgba(255,255,255,0.75) !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     font-weight: 500 !important;
 }
 /* Placeholder */
@@ -307,7 +307,7 @@ div[data-testid="stNumberInput"] button {
 
 /* ── BUTTONS ── */
 div[data-testid="stButton"] button[kind="primary"] {
-    background: linear-gradient(135deg, #00712D, #009B3A) !important;
+    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
     border: none !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
@@ -364,7 +364,7 @@ div[data-testid="stDataFrame"] {
 
 /* ── EXPANDER ── */
 div[data-testid="stExpander"] {
-    background: #0d1b2e !important;
+    background: #243040 !important;
     border: 1px solid rgba(0,214,90,0.25) !important;
     border-radius: 10px !important;
 }
@@ -372,7 +372,7 @@ div[data-testid="stExpander"] summary,
 div[data-testid="stExpander"] details > summary,
 div[data-testid="stExpander"] summary:focus,
 div[data-testid="stExpander"] summary:active {
-    background: #0d1b2e !important;
+    background: #243040 !important;
     color: #ffffff !important;
     font-weight: 600 !important;
     border-radius: 10px !important;
@@ -400,13 +400,13 @@ div[data-testid="stExpander"] summary:hover {
 /* Expanded content area - force dark background */
 div[data-testid="stExpander"] > details,
 div[data-testid="stExpander"] details {
-    background: #0d1b2e !important;
+    background: #243040 !important;
     border-radius: 10px !important;
 }
 div[data-testid="stExpander"] details > div,
 div[data-testid="stExpander"] details > div > div,
 div[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
-    background: #0d1b2e !important;
+    background: #243040 !important;
     color: rgba(255,255,255,0.85) !important;
 }
 /* All child elements inside expander */
@@ -427,25 +427,37 @@ div[data-testid="stExpander"] div[data-testid="stFileUploader"] {
 div[data-testid="stExpander"] div[data-testid="stFileUploader"] * {
     color: rgba(255,255,255,0.75) !important;
 }
-div[data-testid="stExpander"] div[data-testid="stFileUploader"] button {
-    background: linear-gradient(135deg, #00712D, #009B3A) !important;
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] button,
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] button:focus {
+    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
+    background-color: #22a832 !important;
     color: #ffffff !important;
     border: none !important;
+    opacity: 1 !important;
+}
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] button:hover,
+div[data-testid="stExpander"] div[data-testid="stFileUploader"] button:active {
+    background: linear-gradient(135deg, #22a832, #39FF14) !important;
+    background-color: #39FF14 !important;
+    color: #0a1a0a !important;
+    border: none !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 12px rgba(57,255,20,0.4) !important;
 }
 
 /* ── STATUS PILLS ── */
 .pill-open {
-    background: linear-gradient(135deg, #00712D, #009B3A);
+    background: linear-gradient(135deg, #1a7a1a, #22a832);
     color: #ffffff;
     padding: 3px 12px; border-radius: 20px;
-    font-size: 11px; font-weight: 700;
+    font-size: 14px; font-weight: 700;
     letter-spacing: .04em;
 }
 .pill-closed {
     background: linear-gradient(135deg, #dc2626, #ef4444);
     color: #ffffff;
     padding: 3px 12px; border-radius: 20px;
-    font-size: 11px; font-weight: 700;
+    font-size: 14px; font-weight: 700;
 }
 
 /* ── SECTION DIVIDER ── */
@@ -458,11 +470,11 @@ div[data-testid="stExpander"] div[data-testid="stFileUploader"] button {
 /* ── FORMULA BOX ── */
 .formula-box {
     background: rgba(0,113,45,0.1);
-    border-left: 3px solid #00D65A;
+    border-left: 3px solid #39FF14;
     border-radius: 0 8px 8px 0;
     padding: 12px 16px;
     font-family: 'Courier New', monospace;
-    font-size: 13px;
+    font-size: 14px;
     color: #86efac;
     margin: 8px 0;
     white-space: pre-wrap;
@@ -476,16 +488,16 @@ div[data-testid="stExpander"] div[data-testid="stFileUploader"] button {
 
 /* ── PRORATA INLINE LABELS ── */
 .prorata-label {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
-    color: #00D65A;
+    color: #39FF14;
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-top: 12px;
     margin-bottom: 4px;
 }
 .prorata-hint {
-    font-size: 11px;
+    font-size: 14px;
     color: rgba(255,255,255,0.45);
     margin-bottom: 6px;
     line-height: 1.5;
@@ -507,8 +519,8 @@ div[data-testid="stRadio"] input[type="radio"] + div {
     border-color: rgba(0,214,90,0.6) !important;
 }
 div[data-testid="stRadio"] input[type="radio"]:checked + div {
-    background: #00D65A !important;
-    border-color: #00D65A !important;
+    background: #39FF14 !important;
+    border-color: #39FF14 !important;
 }
 
 /* ── GLOBAL DARK OVERRIDES ── */
@@ -539,10 +551,10 @@ div[data-testid="stHorizontalBlock"] {
 /* Selectbox dropdown background */
 div[data-baseweb="popover"] [role="listbox"],
 div[data-baseweb="popover"] {
-    background-color: #0d1b2e !important;
+    background-color: #243040 !important;
 }
 div[data-baseweb="popover"] [role="option"] {
-    background-color: #0d1b2e !important;
+    background-color: #243040 !important;
     color: #ffffff !important;
 }
 div[data-baseweb="popover"] [role="option"]:hover,
@@ -575,9 +587,9 @@ div[data-testid="stCaptionContainer"] p {
 
 /* ── SECTION LABEL ── */
 .sec-label {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
-    color: #00D65A;
+    color: #39FF14;
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-bottom: 10px;
@@ -592,19 +604,33 @@ div[data-testid="stFileUploader"] {
     padding: 8px !important;
 }
 div[data-testid="stFileUploader"]:hover {
-    border-color: rgba(0,214,90,0.6) !important;
-    background: rgba(0,113,45,0.05) !important;
+    border-color: rgba(57,255,20,0.6) !important;
+    background: rgba(26,122,26,0.05) !important;
 }
-/* File uploader button text fix */
-div[data-testid="stFileUploader"] button {
-    background: linear-gradient(135deg, #00712D, #009B3A) !important;
+/* File uploader button — all states locked to parrot green */
+div[data-testid="stFileUploader"] button,
+div[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploader"] button[kind],
+[data-testid="stFileUploader"] button {
+    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
+    background-color: #22a832 !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 6px !important;
     font-weight: 600 !important;
+    opacity: 1 !important;
 }
-div[data-testid="stFileUploader"] button:hover {
-    background: linear-gradient(135deg, #009B3A, #00D65A) !important;
+div[data-testid="stFileUploader"] button:hover,
+div[data-testid="stFileUploader"] button:focus,
+div[data-testid="stFileUploader"] button:active,
+div[data-testid="stFileUploaderDropzone"] button:hover,
+[data-testid="stFileUploader"] button:hover {
+    background: linear-gradient(135deg, #22a832, #39FF14) !important;
+    background-color: #39FF14 !important;
+    color: #0a1a0a !important;
+    border: none !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 12px rgba(57,255,20,0.4) !important;
 }
 div[data-testid="stFileUploader"] small,
 div[data-testid="stFileUploader"] span,
@@ -629,7 +655,7 @@ div[data-testid="stCaptionContainer"] {
 h1,h2,h3,h4 { color: #ffffff !important; }
 
 /* ── SPINNER ── */
-div[data-testid="stSpinner"] { color: #00D65A !important; }
+div[data-testid="stSpinner"] { color: #39FF14 !important; }
 
 /* ── SUCCESS MSG ── */
 .success-msg {
@@ -647,7 +673,7 @@ div[data-testid="stSpinner"] { color: #00D65A !important; }
 .sv-footer {
     text-align: center;
     color: rgba(255,255,255,0.25);
-    font-size: 11px;
+    font-size: 14px;
     padding: 20px 0 8px;
     border-top: 1px solid rgba(255,255,255,0.06);
     margin-top: 30px;
@@ -1505,7 +1531,7 @@ with tab_upload:
         ]:
             st.markdown(f"""
             <div class="contract-card">
-              <div style="font-size:11px;font-weight:700;color:#00D65A;margin-bottom:6px">{title}</div>
+              <div style="font-size:11px;font-weight:700;color:#39FF14;margin-bottom:6px">{title}</div>
               <div style="font-size:11px;color:rgba(255,255,255,0.5);font-family:monospace">{cols}</div>
             </div>""", unsafe_allow_html=True)
 
