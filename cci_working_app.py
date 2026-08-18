@@ -121,9 +121,9 @@ st.markdown("""
 }
 .logo-img {
     height: 68px; width: auto;
-    border-radius: 10px; background: #ffffff;
-    padding: 4px 8px; object-fit: contain;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2); flex-shrink: 0;
+    border-radius: 10px; background: transparent;
+    padding: 0; object-fit: contain;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12); flex-shrink: 0;
 }
 .top-header-left { display: flex !important; align-items: center !important; gap: 14px !important; }
 
@@ -519,6 +519,76 @@ div[data-testid="stFileUploader"] small,
 div[data-testid="stFileUploader"] span,
 div[data-testid="stFileUploader"] p { color: #6b7280 !important; }
 div[data-testid="stFileUploaderDropzone"] { background: transparent !important; }
+
+/* ── FINAL EXECUTIVE LIGHT THEME OVERRIDES ── */
+body, .stApp, [data-testid="stAppViewContainer"] {
+    color: #1f2937 !important;
+}
+.contract-card {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+    border: 1px solid #dbe3ea !important;
+    box-shadow: 0 4px 14px rgba(15,23,42,0.06) !important;
+}
+.contract-card * { color: #374151 !important; }
+.contract-card strong { color: #166534 !important; }
+.contract-card [style*="color:#fff"], .contract-card [style*="color: #fff"] { color:#374151 !important; }
+.pill-open, .pill-closed { color:#ffffff !important; }
+.sec-label { color: #176b35 !important; }
+div[data-testid="stCaptionContainer"] p,
+.stCaption, .stMarkdown p, .stMarkdown li { color: #4b5563 !important; }
+div[data-testid="stCheckbox"] label,
+div[data-testid="stRadio"] label,
+div[data-testid="stRadio"] span { color: #374151 !important; }
+div[data-testid="stButton"] button {
+    min-height: 40px !important;
+    color: #1f2937 !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+}
+div[data-testid="stButton"] button[kind="primary"] {
+    color: #ffffff !important;
+    background: linear-gradient(135deg,#176b35,#22a832) !important;
+    border: none !important;
+}
+div[data-testid="stButton"] button:hover {
+    color: #14532d !important;
+    border-color: #22a832 !important;
+    background: #f0fdf4 !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+    color: #ffffff !important;
+    background: linear-gradient(135deg,#14532d,#22a832) !important;
+}
+div[data-testid="stDownloadButton"] button {
+    color: #ffffff !important;
+    background: linear-gradient(135deg,#1d4ed8,#2563eb) !important;
+}
+div[data-testid="stExpander"] *,
+div[data-testid="stExpander"] summary,
+div[data-testid="stExpander"] summary * { color: #374151 !important; }
+div[data-testid="stExpander"] summary { background:#f8fafc !important; }
+div[data-testid="stExpander"] details[open] > summary {
+    color:#176b35 !important;
+    background:#f0fdf4 !important;
+}
+div[data-testid="stTextInput"] input,
+div[data-testid="stNumberInput"] input,
+div[data-testid="stDateInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-baseweb="select"] > div {
+    color:#111827 !important;
+    background:#ffffff !important;
+}
+div[data-testid="stFileUploader"] {
+    background:#f8fafc !important;
+}
+div[data-testid="stFileUploader"] * { color:#475569 !important; }
+div[data-testid="stFileUploader"] button {
+    color:#ffffff !important;
+    background:linear-gradient(135deg,#176b35,#22a832) !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -611,8 +681,8 @@ if not st.session_state.authenticated:
     _, col, _ = st.columns([1, 2, 1])
     with col:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown(f'<div style="text-align:center;margin-bottom:18px"><img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:#ffffff;padding:8px 14px;border-radius:14px;box-shadow:0 2px 12px rgba(0,86,179,0.15);" alt="Softview Technologies"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="lt">🔐 CCI Utility Login</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center;margin-bottom:18px"><img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:transparent;padding:0;border-radius:10px;box-shadow:none;" alt="Softview Technologies"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="lt">🔐 CCI Utility Login</div><div style="text-align:center;font-size:11px;color:#64748b;margin-top:-2px;margin-bottom:16px;letter-spacing:.06em">SOFTVIEW TECHNOLOGIES</div>', unsafe_allow_html=True)
         st.markdown('<div class="ls">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
         st.text_input("Username", key="_lu", placeholder="Enter username")
         st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
@@ -758,6 +828,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         pay_pool[cn] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
         pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
 
+    branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
     results = []
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
@@ -778,6 +849,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         bales = row["Accepted_Qty_AUM"]
         pbe   = per_bale_emd.get(cn, 0)
         mat   = row["Material_Amount"]
+        # Branch comes from PUR CONT DETAILS and is carried into every result row.
+        branch = branch_map.get(cn, "")
+
         igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
         eff_date  = eff_date_map.get(cn, pd.NaT)
@@ -917,7 +991,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                     cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
 
         results.append({
-            "Contract_No":cn, "GRN_No":row["GRN_No"],
+            "Contract_No":cn, "GRN_No":row["GRN_No"], "Branch": branch,
             "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
@@ -962,7 +1036,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             )
 
         base_cols = [
-            "Contract_No","GRN_No","Effective_Date","Party_Bill_Date","Bales",
+            "Contract_No","GRN_No","Branch","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
             "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
             "EMD_Days","EMD_Interest","CD_Days","CD_Pct","Cash_Discount",
@@ -970,13 +1044,23 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
         cols = base_cols + slab_col_names
-        result_df[cols].to_excel(w, sheet_name="GRN Calculation", index=False)
+        detail_export = result_df[cols].copy()
+        # Add a clear GRAND TOTAL row at the bottom of the detail report.
+        detail_total = {c: "" for c in detail_export.columns}
+        detail_total["Contract_No"] = "GRAND TOTAL"
+        for c in ["Bales","Material_Amount","GST_On_Material","Total_Bill_Amount",
+                  "Payment_Amount","EMD_Allocated","EMD_Interest","Cash_Discount",
+                  "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
+            if c in detail_export.columns:
+                detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
+        detail_export = pd.concat([detail_export, pd.DataFrame([detail_total])], ignore_index=True)
+        detail_export.to_excel(w, sheet_name="GRN Calculation", index=False)
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
             Total_Material=("Material_Amount","sum"),
             Total_GST=("GST_On_Material","sum"),
             Total_Bill=("Total_Bill_Amount","sum"),
-            Total_Payment=("Payment_Amount","first"),
+            Total_Payment=("Payment_Amount","sum"),
             Total_EMD=("EMD_Allocated","sum"),
             Total_EMD_Interest=("EMD_Interest","sum"),
             Total_Cash_Disc=("Cash_Discount","sum"),
@@ -985,6 +1069,15 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             Total_CC=("Carry_Charges","sum"),
             Total_CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        # Branch is contract-level data from PUR CONT DETAILS.
+        branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
+        summary.insert(1, "Branch", summary["Contract_No"].map(branch_map).fillna(""))
+        summary_total = {c: "" for c in summary.columns}
+        summary_total["Contract_No"] = "GRAND TOTAL"
+        for c in summary.columns:
+            if c != "Contract_No" and c != "Branch":
+                summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
+        summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         summary.to_excel(w, sheet_name="Summary", index=False)
         cont.to_excel(w, sheet_name="PUR CONT", index=False)
         emd.to_excel(w, sheet_name="EMD Payments", index=False)
@@ -1004,45 +1097,42 @@ st.markdown(f"""
 <div class="top-header">
   <div class="top-header-left">
     <img src="data:image/png;base64,{LOGO_B64}" class="logo-img" alt="Softview">
-    <div>
-      <div class="top-header-title">CCI Working Calculation Utility</div>
-
-    </div>
+    <div class="top-header-title">CCI Working Calculation Utility</div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
     <span class="top-header-badge">v2.0 PREMIUM</span>
     <span style="font-size:11px;color:rgba(0,214,90,0.9);font-weight:600;letter-spacing:.04em">
       👤 {_logged_user.upper()}
     </span>
-    <span id="sv-live-clock" style="font-size:11px;color:rgba(255,255,255,0.45);font-family:monospace;letter-spacing:.04em">
-      🕐 {_clock_str}
+    <span style="font-size:11px;color:rgba(255,255,255,0.55);font-family:monospace;letter-spacing:.04em">
+      Live clock
     </span>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# JS-based live clock - no page refresh needed
-st.markdown("""
+# The clock is rendered in the header HTML and refreshed by the browser.
+# A small self-contained iframe is used so Streamlit's DOM sandbox cannot block
+# the one-second JavaScript timer.
+import streamlit.components.v1 as components
+components.html(f"""
+<div style="font:600 11px monospace;color:#64748b;text-align:right;white-space:nowrap">
+  <span id="clock">🕐 {_clock_str}</span>
+</div>
 <script>
-(function() {
-  function updateClock() {
-    var el = document.getElementById('sv-live-clock');
-    if (!el) return;
-    var now = new Date();
-    var dd = String(now.getDate()).padStart(2,'0');
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var mm = months[now.getMonth()];
-    var yyyy = now.getFullYear();
-    var hh = String(now.getHours()).padStart(2,'0');
-    var min = String(now.getMinutes()).padStart(2,'0');
-    var ss = String(now.getSeconds()).padStart(2,'0');
-    el.innerText = '🕐 ' + dd + ' ' + mm + ' ' + yyyy + '  |  ' + hh + ':' + min + ':' + ss;
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
-})();
+(function(){{
+  function tick(){{
+    const n=new Date();
+    const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const p=x=>String(x).padStart(2,'0');
+    document.getElementById('clock').textContent =
+      '🕐 '+p(n.getDate())+' '+m[n.getMonth()]+' '+n.getFullYear()+
+      '  |  '+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+  }}
+  tick(); setInterval(tick,1000);
+}})();
 </script>
-""", unsafe_allow_html=True)
+""", height=24, scrolling=False)
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
 tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
@@ -1099,6 +1189,61 @@ with tab_masters:
             if not open_projs:
                 st.warning("⚠️ Please create an Open project first.")
             else:
+                # Apply a pending contract edit BEFORE any widgets with these keys are created.
+                pending_edit = st.session_state.pop("_pending_contract_edit", None)
+                if pending_edit is not None:
+                    def _edit_date(v):
+                        try:
+                            return date.fromisoformat(str(v)[:10]) if v else None
+                        except Exception:
+                            return None
+
+                    # Clear old widget state first, then seed the new values safely.
+                    _edit_keys = [
+                        "cproj","cparty","cno","cdt","ceff","cbales","emd_d","emd_p",
+                        "cd1d","cd1p","cd2d","cd2p","cd3d","cd3p","cd_gst",
+                        "ll1d","ll1p","ll2d","ll2p","ll3d","ll3p","ll_gst","ll_compound",
+                        "cc_free","cc1d","cc1p","cc2d","cc2p","cc_gst","cc_compound"
+                    ]
+                    for _k in _edit_keys:
+                        st.session_state.pop(_k, None)
+
+                    _proj = pending_edit.get("project", open_projs[0])
+                    st.session_state.cproj = _proj if _proj in open_projs else open_projs[0]
+                    st.session_state.cparty = pending_edit.get("party", "")
+                    st.session_state.cno = pending_edit.get("contract_no", "")
+                    st.session_state.cdt = _edit_date(pending_edit.get("contract_date"))
+                    st.session_state.ceff = _edit_date(pending_edit.get("effective_date"))
+                    st.session_state.cbales = int(pending_edit.get("bales", 0) or 0)
+                    st.session_state.emd_p = float(pending_edit.get("emd_percent", 5.0) or 5.0)
+                    st.session_state.emd_d = int(pending_edit.get("emd_days", 365) or 365)
+
+                    cd_s = pending_edit.get("cd_slabs", []) or []
+                    for _n in range(1, 4):
+                        _s = cd_s[_n-1] if len(cd_s) >= _n else {}
+                        st.session_state[f"cd{_n}d"] = int(_s.get("days", 0) or 0)
+                        st.session_state[f"cd{_n}p"] = float(_s.get("pct", 0.0) or 0.0)
+                    st.session_state.cd_gst = float(pending_edit.get("cd_gst", 18.0) or 18.0)
+
+                    ll_s = pending_edit.get("ll_slabs", []) or []
+                    _ll_defaults = [(30, 0.50), (30, 0.75), (9999, 1.00)]
+                    for _n, (_dd, _pp) in enumerate(_ll_defaults, 1):
+                        _s = ll_s[_n-1] if len(ll_s) >= _n else {}
+                        st.session_state[f"ll{_n}d"] = int(_s.get("days", _dd) or _dd)
+                        st.session_state[f"ll{_n}p"] = float(_s.get("pct", _pp) or _pp)
+                    st.session_state.ll_gst = float(pending_edit.get("ll_gst", 5.0) or 5.0)
+                    st.session_state.ll_compound = "Applicable" if pending_edit.get("ll_compound") else "Not Applicable"
+
+                    st.session_state.cc_free = int(pending_edit.get("cc_free_days", 60) or 60)
+                    cc_s = pending_edit.get("cc_slabs", []) or []
+                    _cc_defaults = [(30, 1.25), (30, 1.35)]
+                    for _n, (_dd, _pp) in enumerate(_cc_defaults, 1):
+                        _s = cc_s[_n-1] if len(cc_s) >= _n else {}
+                        st.session_state[f"cc{_n}d"] = int(_s.get("days", _dd) or _dd)
+                        st.session_state[f"cc{_n}p"] = float(_s.get("pct", _pp) or _pp)
+                    st.session_state.cc_gst = float(pending_edit.get("cc_gst", 5.0) or 5.0)
+                    st.session_state.cc_compound = "Applicable" if pending_edit.get("cc_compound") else "Not Applicable"
+
                 c1, c2 = st.columns(2)
                 cproj  = c1.selectbox("Project ✱", open_projs, key="cproj")
                 cparty = c2.text_input("Party Name", key="cparty", placeholder="e.g. ABC Cotton Ltd.")
@@ -1322,39 +1467,12 @@ with tab_masters:
                     </div>""", unsafe_allow_html=True)
                     cc_b1, cc_b2 = st.columns(2)
                     if cc_b1.button("✏️ Edit", key=f"ec{i}", use_container_width=True):
-                        # Load contract into form fields
+                        # IMPORTANT: do not assign widget keys in the same run after widgets exist.
+                        # Store the contract as a pending payload, then apply it before widgets
+                        # are created on the next rerun. This avoids StreamlitAPIException.
                         cx = st.session_state.masters["contracts"][i]
                         st.session_state.edit_contract_idx = i
-                        st.session_state.cparty = cx.get("party","")
-                        st.session_state.cno    = cx.get("contract_no","")
-                        st.session_state.cbales = cx.get("bales",0)
-                        st.session_state.emd_p  = cx.get("emd_percent",5.0)
-                        st.session_state.emd_d  = cx.get("emd_days",365)
-                        cd_s = cx.get("cd_slabs",[{},{},{}])
-                        st.session_state.cd1d = cd_s[0].get("days",0) if len(cd_s)>0 else 0
-                        st.session_state.cd1p = cd_s[0].get("pct",0.0) if len(cd_s)>0 else 0.0
-                        st.session_state.cd2d = cd_s[1].get("days",0) if len(cd_s)>1 else 0
-                        st.session_state.cd2p = cd_s[1].get("pct",0.0) if len(cd_s)>1 else 0.0
-                        st.session_state.cd3d = cd_s[2].get("days",0) if len(cd_s)>2 else 0
-                        st.session_state.cd3p = cd_s[2].get("pct",0.0) if len(cd_s)>2 else 0.0
-                        st.session_state.cd_gst = cx.get("cd_gst",18.0)
-                        ll_s = cx.get("ll_slabs",[{},{},{}])
-                        st.session_state.ll1d = ll_s[0].get("days",30) if len(ll_s)>0 else 30
-                        st.session_state.ll1p = ll_s[0].get("pct",0.50) if len(ll_s)>0 else 0.50
-                        st.session_state.ll2d = ll_s[1].get("days",30) if len(ll_s)>1 else 30
-                        st.session_state.ll2p = ll_s[1].get("pct",0.75) if len(ll_s)>1 else 0.75
-                        st.session_state.ll3d = ll_s[2].get("days",9999) if len(ll_s)>2 else 9999
-                        st.session_state.ll3p = ll_s[2].get("pct",1.00) if len(ll_s)>2 else 1.00
-                        st.session_state.ll_gst = cx.get("ll_gst",5.0)
-                        st.session_state.ll_compound = "Applicable" if cx.get("ll_compound") else "Not Applicable"
-                        st.session_state.cc_free = cx.get("cc_free_days",60)
-                        cc_s = cx.get("cc_slabs",[{},{}])
-                        st.session_state.cc1d = cc_s[0].get("days",30) if len(cc_s)>0 else 30
-                        st.session_state.cc1p = cc_s[0].get("pct",1.25) if len(cc_s)>0 else 1.25
-                        st.session_state.cc2d = cc_s[1].get("days",30) if len(cc_s)>1 else 30
-                        st.session_state.cc2p = cc_s[1].get("pct",1.35) if len(cc_s)>1 else 1.35
-                        st.session_state.cc_gst = cx.get("cc_gst",5.0)
-                        st.session_state.cc_compound = "Applicable" if cx.get("cc_compound") else "Not Applicable"
+                        st.session_state["_pending_contract_edit"] = dict(cx)
                         st.rerun()
                     if cc_b2.button("🗑 Delete", key=f"dc{i}", use_container_width=True):
                         if st.session_state.edit_contract_idx == i:
@@ -1478,6 +1596,13 @@ with tab_results:
         st.markdown('<div class="sec-label">📊 GRN-Wise Detail</div>', unsafe_allow_html=True)
 
         disp = df.copy()
+        # Branch is shown immediately after Contract No.
+        if "Branch" in disp.columns:
+            _cols = list(disp.columns)
+            _cols.remove("Branch")
+            _pos = _cols.index("Contract_No") + 1 if "Contract_No" in _cols else 0
+            _cols.insert(_pos, "Branch")
+            disp = disp[_cols]
         # Build dynamic slab columns from _cc_slab_breakdown (same logic as Excel export)
         if "_cc_slab_breakdown" in disp.columns:
             max_slabs = disp["_cc_slab_breakdown"].apply(lambda x: len(x) if isinstance(x, list) else 0).max()
@@ -1493,25 +1618,47 @@ with tab_results:
         # Drop internal list column — PyArrow cannot serialize Python lists
         disp = disp.drop(columns=[c for c in disp.columns if c.startswith("_")], errors="ignore")
         for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CC_Free_End"]:
-            disp[col] = disp[col].apply(fmt_date)
+            if col in disp.columns:
+                disp[col] = disp[col].apply(fmt_date)
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
                     "Per_Bale_EMD","EMD_Allocated","Net_Amount","EMD_Interest",
                     "Cash_Discount","Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             disp[col] = disp[col].apply(lambda x: f"₹{x:,.2f}" if x else "—")
 
-        st.dataframe(disp, use_container_width=True, height=420, hide_index=True)
+        # Clear GRN detail totals row (all numeric amounts and bales).
+        detail_total = {c: "" for c in disp.columns}
+        detail_total["Contract_No"] = "GRAND TOTAL"
+        for c in ["Bales","Material_Amount","GST_On_Material","Total_Bill_Amount",
+                  "Payment_Amount","EMD_Allocated","EMD_Interest","Cash_Discount",
+                  "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
+            if c in disp.columns:
+                vals = pd.to_numeric(df[c], errors="coerce")
+                detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
+        disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
+        st.dataframe(disp, use_container_width=True, height=440, hide_index=True)
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">📋 Contract-wise Summary</div>', unsafe_allow_html=True)
         summary = df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Bales=("Bales","sum"),
             Material=("Material_Amount","sum"), GST=("GST_On_Material","sum"),
-            Total_Bill=("Total_Bill_Amount","sum"), Payment=("Payment_Amount","first"),
+            Total_Bill=("Total_Bill_Amount","sum"), Payment=("Payment_Amount","sum"),
             EMD_Alloc=("EMD_Allocated","sum"), EMD_Interest=("EMD_Interest","sum"),
             Cash_Disc=("Cash_Discount","sum"), LL_Chg=("Late_Lifting_Chg","sum"),
             LL_GST=("Late_Lifting_GST","sum"), CC_Chg=("Carry_Charges","sum"),
             CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        branch_map_ui = None
+        # Branch mapping is preserved with the uploaded PUR CONT DETAILS data.
+        if "Branch" in df.columns:
+            branch_map_ui = df.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
+            summary.insert(1, "Branch", summary["Contract_No"].map(branch_map_ui).fillna(""))
+        summary_total = {c: "" for c in summary.columns}
+        summary_total["Contract_No"] = "GRAND TOTAL"
+        for c in summary.columns:
+            if c not in ("Contract_No","Branch"):
+                summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
+        summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         st.dataframe(summary, use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
