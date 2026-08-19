@@ -61,33 +61,6 @@ LOGO_B64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABt
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 
-def render_executive_dashboard(master_df=None, result_df=None):
-    master_count = 0 if master_df is None else len(master_df)
-    result_count = 0 if result_df is None else len(result_df)
-    total_amount = 0.0
-    total_net = 0.0
-    if result_df is not None and not result_df.empty:
-        for col in ["Amount", "Principal"]:
-            if col in result_df.columns:
-                total_amount = float(pd.to_numeric(result_df[col], errors="coerce").fillna(0).sum())
-                break
-        if "Net_Payable" in result_df.columns:
-            total_net = float(pd.to_numeric(result_df["Net_Payable"], errors="coerce").fillna(0).sum())
-
-    st.markdown(f"""
-    <div class="executive-dashboard">
-      <h2>CCI Executive Dashboard</h2>
-      <p>Contract control, calculation status and financial overview</p>
-      <div class="exec-kpis">
-        <div class="exec-kpi"><div class="exec-kpi-label">Active Contracts</div><div class="exec-kpi-value">{master_count:,}</div></div>
-        <div class="exec-kpi"><div class="exec-kpi-label">Processed Rows</div><div class="exec-kpi-value">{result_count:,}</div></div>
-        <div class="exec-kpi"><div class="exec-kpi-label">Total Amount</div><div class="exec-kpi-value">₹ {total_amount:,.0f}</div></div>
-        <div class="exec-kpi"><div class="exec-kpi-label">Net Payable</div><div class="exec-kpi-value">₹ {total_net:,.0f}</div></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
 st.set_page_config(
     page_title="CCI Calculation Utility | Softview Technologies",
     page_icon="🧮",
@@ -677,15 +650,15 @@ st.markdown("""
 .basic-grid div { display:flex; justify-content:space-between; gap:10px; padding:6px 8px; background:#f8fafc; border-radius:7px; font-size:11px; }
 .basic-grid span { color:#64748b; }
 .basic-grid b { color:#111827; text-align:right; }
-.condition-grid { display:grid; grid-template-columns:1fr; gap:10px; }
-.condition-box { border:1px solid #e5e7eb; border-radius:10px; padding:10px; background:#fafafa; }
+.condition-grid { display:grid; grid-template-columns:1fr; gap:8px; }
+.condition-box { border:1px solid #e5e7eb; border-radius:9px; padding:8px 10px; background:#fafafa; overflow:hidden; }
 .condition-title { font-size:12px; font-weight:800; color:#9a3412; margin-bottom:3px; }
 .condition-sub { font-size:10px; color:#6b7280; margin-bottom:7px; }
-.slab-row { display:grid; grid-template-columns:70px 1fr 1fr; gap:8px; padding:5px 7px; margin-top:4px; background:#ffffff; border:1px solid #eef2f7; border-radius:6px; font-size:11px; }
+.slab-row { display:grid; grid-template-columns:70px minmax(0,1fr) minmax(0,1fr); gap:8px; padding:4px 7px; margin-top:3px; background:#ffffff; border:1px solid #eef2f7; border-radius:6px; font-size:11px; overflow:hidden; }
 .slab-row span { color:#6b7280; }
 .slab-row b { color:#374151; }
 .empty-slab { font-size:11px; color:#9ca3af; font-style:italic; padding:4px 0; }
-@media (min-width: 900px) { .condition-grid { grid-template-columns:1fr 1fr 1fr; } }
+@media (min-width: 900px) { .condition-grid { grid-template-columns:1fr; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -934,20 +907,51 @@ if not st.session_state.authenticated:
     margin-top:3px;
 }
 
+
+<style>
+/* FINAL UPLOAD BUTTON */
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] button[kind],
+[data-testid="stFileUploader"] [data-testid="baseButton-secondary"] {
+    background: #6b7280 !important;
+    background-image: none !important;
+    color: #ffffff !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 7px !important;
+    font-weight: 800 !important;
+    box-shadow: none !important;
+}
+[data-testid="stFileUploader"] button:hover,
+[data-testid="stFileUploader"] [data-testid="baseButton-secondary"]:hover {
+    background: #4b5563 !important;
+    color: #ffffff !important;
+}
+
+/* LOGIN: absolutely no outer card */
+.login-card,
+.login-page .login-card,
+.login-page [data-testid="stVerticalBlockBorderWrapper"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+</style>
 </style>
     """, unsafe_allow_html=True)
     _, col, _ = st.columns([1, 2, 1])
     with col:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown(f'<div style="text-align:center;margin-bottom:18px"><img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:transparent;padding:0;border-radius:10px;box-shadow:none;" alt="Softview Technologies"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="lt">🔐 CCI Utility Login</div><div style="text-align:center;font-size:11px;color:#64748b;margin-top:-2px;margin-bottom:16px;letter-spacing:.06em">SOFTVIEW TECHNOLOGIES</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ls">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="text-align:center;margin:35px 0 16px 0;background:transparent;border:0;box-shadow:none;">'
+            f'<img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:transparent;padding:0;border-radius:0;box-shadow:none;border:0;" alt="Softview Technologies"></div>',
+            unsafe_allow_html=True
+        )
+        st.markdown('<div class="lt" style="text-align:center">🔐 CCI Utility Login</div><div style="text-align:center;font-size:11px;color:#64748b;margin-top:-2px;margin-bottom:16px;letter-spacing:.06em">SOFTVIEW TECHNOLOGIES</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ls" style="text-align:center">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
         st.text_input("Username", key="_lu", placeholder="Enter username")
         st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
         st.button("🔓  Login", on_click=_do_login, type="primary", use_container_width=True)
         if st.session_state._login_error:
             st.markdown(f'<div class="le">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
@@ -1399,13 +1403,72 @@ with hc2:
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
-tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
+tab_dashboard, tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
+    "  🏢  Dashboard  ",
     "  📋  Masters  ",
     "  📤  Upload & Calculate  ",
     "  📊  Results  ",
     "  📖  Formula Guide  ",
     "  👤  User Master  "
 ])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE DASHBOARD
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_dashboard:
+    _contracts = st.session_state.masters.get("contracts", [])
+    _projects = st.session_state.masters.get("projects", [])
+    _results = st.session_state.get("result_df")
+    _grns = 0 if _results is None else len(_results)
+
+    _bill = float(pd.to_numeric(_results["Total_Bill_Amount"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Total_Bill_Amount" in _results.columns else 0.0
+    _emd = float(pd.to_numeric(_results["EMD_Interest"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "EMD_Interest" in _results.columns else 0.0
+    _ll = float(pd.to_numeric(_results["Late_Lifting_Chg"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Late_Lifting_Chg" in _results.columns else 0.0
+    _cc = float(pd.to_numeric(_results["Carry_Charges"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Carry_Charges" in _results.columns else 0.0
+
+    st.markdown("""
+    <div class="executive-dashboard">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:15px">
+        <div>
+          <h2>CCI Executive Dashboard</h2>
+          <p>Contract control • Calculation monitoring • Financial overview</p>
+        </div>
+        <div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);padding:8px 12px;border-radius:9px;color:#e2e8f0;font-size:11px;font-weight:800">
+          PREMIUM CONTROL CENTRE
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _d1,_d2,_d3,_d4 = st.columns(4)
+    _d1.metric("Active Contracts", f"{len(_contracts):,}")
+    _d2.metric("Projects", f"{len(_projects):,}")
+    _d3.metric("Processed GRNs", f"{_grns:,}")
+    _d4.metric("Total Bill Amount", f"₹{_bill:,.0f}")
+
+    st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+    _a,_b = st.columns([1.35, 1], gap="large")
+    with _a:
+        st.markdown('<div class="sec-label">📊 Financial Snapshot</div>', unsafe_allow_html=True)
+        _fin = pd.DataFrame({
+            "Component":["EMD Interest","Late Lifting","Carrying Charges","Total Bill"],
+            "Amount":[_emd,_ll,_cc,_bill]
+        })
+        _fin["Amount"] = _fin["Amount"].map(lambda x:f"₹{x:,.2f}")
+        st.dataframe(_fin, use_container_width=True, hide_index=True)
+    with _b:
+        st.markdown('<div class="sec-label">📋 Contract Register</div>', unsafe_allow_html=True)
+        if _contracts:
+            _reg = pd.DataFrame([{
+                "Contract No": c.get("contract_no",""),
+                "Party": c.get("party",""),
+                "Bales": c.get("bales",0),
+                "Effective": c.get("effective_date","")
+            } for c in _contracts])
+            st.dataframe(_reg, use_container_width=True, hide_index=True, height=260)
+        else:
+            st.info("No contracts saved yet.")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: MASTERS
