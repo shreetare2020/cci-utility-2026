@@ -1126,12 +1126,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         lift_date = row["Party_Bill_Date"]
         eff_date  = eff_date_map.get(cn, pd.NaT)
 
-        # CC Effective Date comes from the matched Contract Master.
-        # Keep the existing PUR CONT DETAILS Effective Date separately for
-        # the other calculations/result display.
-        cc_eff_date = pd.to_datetime(row_mc.get("effective_date"), errors="coerce")
-        if pd.isna(cc_eff_date):
-            cc_eff_date = eff_date
+        # CC Effective Date MUST come from PUR CONT DETAILS.
+        # Only CC Free Days comes from Contract Master.
+        cc_eff_date = eff_date
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
@@ -1272,7 +1269,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
         cc_free_end = pd.NaT
         # EXACT CC FREE-DAYS RULE:
-        # CC Free End = Contract Master Effective Date + Contract Master CC Free Days
+        # CC Free End = PUR CONT DETAILS Effective Date + Contract Master CC Free Days
         # Payment Date <= CC Free End -> CC Days = 0 and CC = 0
         # Payment Date >  CC Free End -> CC Days = Payment Date - CC Free End
         if not pd.isna(cc_eff_date):
