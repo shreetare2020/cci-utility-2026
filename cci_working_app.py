@@ -1606,7 +1606,7 @@ with tab_masters:
                     st.session_state.ll_gst = float(pending_edit.get("ll_gst", 5.0) or 5.0)
                     st.session_state.ll_compound = "Applicable" if pending_edit.get("ll_compound") else "Not Applicable"
 
-                    st.session_state.cc_free = int(pending_edit.get("cc_free_days", 60) or 60)
+                    st.session_state.cc_free = int(pending_edit.get("cc_free_days", 0) or 0)
                     cc_s = pending_edit.get("cc_slabs", []) or []
                     _cc_defaults = [(30, 1.25), (30, 1.35)]
                     for _n, (_dd, _pp) in enumerate(_cc_defaults, 1):
@@ -1675,8 +1675,8 @@ with tab_masters:
                 with st.expander("🚛 Carrying Charges (CC) Slabs — Click to expand/collapse", expanded=False):
                     st.caption("📐 CC Days = Payment Date − (Effective Date + Free Period Days)  |  CC Days > 0 → Charges apply")
                     cc_free = st.number_input("Total Lifting Free Period (Days from Effective Date)",
-                        key="cc_free", min_value=0, value=60,
-                        help="e.g. Effective 11-Apr + 60 days = 10-Jun → CC applies after 10-Jun")
+                        key="cc_free", min_value=0, value=0,
+                        help="CC free days are taken from this Contract Master value. CC applies only after Effective Date + these free days.")
                     cc1a,cc1b = st.columns(2)
                     cc1d = cc1a.number_input("Slab 1 Days", key="cc1d", min_value=0, value=30)
                     cc1p = cc1b.number_input("Slab 1 %/month", key="cc1p", min_value=0.0, value=1.25, step=0.01)
@@ -1931,7 +1931,7 @@ with tab_upload:
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:rgba(255,255,255,0.6)">
                 <span>📌 EMD Rate: <strong style="color:#86efac">{mc.get('emd_percent','—')}% p.a.</strong></span>
                 <span>🌾 Bales: <strong style="color:#fff">{mc.get('bales','—')}</strong></span>
-                <span>🚛 CC Free: <strong style="color:#86efac">{mc.get('cc_free_days',60)} days</strong></span>
+                <span>🚛 CC Free: <strong style="color:#86efac">{mc.get('cc_free_days',0)} days</strong></span>
                 <span>📅 Eff Date: <strong style="color:#fff">{mc.get('effective_date','—')}</strong></span>
               </div>
             </div>""", unsafe_allow_html=True)
