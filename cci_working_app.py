@@ -625,6 +625,32 @@ def _save_users(users_dict):
     except Exception as e:
         st.error(f"User save error: {e}")
 
+
+# ─── CLEAN CONTRACT CARD STYLES ──────────────────────────────────────────────
+st.markdown("""
+<style>
+.clean-contract-card { background:#ffffff !important; color:#111827 !important; border:1px solid #dbe3ea !important; border-radius:14px !important; padding:16px !important; margin:10px 0 8px !important; box-shadow:0 3px 12px rgba(15,23,42,.06) !important; }
+.clean-contract-card * { box-sizing:border-box; }
+.contract-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding-bottom:10px; border-bottom:1px solid #e5e7eb; }
+.contract-no { font-size:16px; font-weight:800; color:#111827; }
+.contract-party { margin-top:4px; font-size:12px; color:#4b5563; font-weight:600; }
+.contract-project { background:#ecfdf5; border:1px solid #bbf7d0; color:#166534; padding:5px 10px; border-radius:18px; font-size:11px; font-weight:700; max-width:52%; text-align:center; }
+.basic-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; padding:12px 0; }
+.basic-grid div { display:flex; justify-content:space-between; gap:10px; padding:6px 8px; background:#f8fafc; border-radius:7px; font-size:11px; }
+.basic-grid span { color:#64748b; }
+.basic-grid b { color:#111827; text-align:right; }
+.condition-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+.condition-box { border:1px solid #e5e7eb; border-radius:10px; padding:10px; background:#fafafa; }
+.condition-title { font-size:12px; font-weight:800; color:#9a3412; margin-bottom:3px; }
+.condition-sub { font-size:10px; color:#6b7280; margin-bottom:7px; }
+.slab-row { display:grid; grid-template-columns:70px 1fr 1fr; gap:8px; padding:5px 7px; margin-top:4px; background:#ffffff; border:1px solid #eef2f7; border-radius:6px; font-size:11px; }
+.slab-row span { color:#6b7280; }
+.slab-row b { color:#374151; }
+.empty-slab { font-size:11px; color:#9ca3af; font-style:italic; padding:4px 0; }
+@media (min-width: 900px) { .condition-grid { grid-template-columns:1fr 1fr 1fr; } }
+</style>
+""", unsafe_allow_html=True)
+
 # ─── LOGIN GATE ───────────────────────────────────────────────────────────────
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -701,6 +727,8 @@ if "cont_msg" not in st.session_state:
     st.session_state.cont_msg = ""
 if "edit_contract_idx" not in st.session_state:
     st.session_state.edit_contract_idx = None
+if "editing_contract_no" not in st.session_state:
+    st.session_state.editing_contract_no = None
 if "clear_contract_flag" not in st.session_state:
     st.session_state.clear_contract_flag = False
 
@@ -1087,52 +1115,56 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     return buf.getvalue()
 
 # ─── TOP HEADER ───────────────────────────────────────────────────────────────
-# Live clock + user info injected via auto-refresh component
+# Premium header + live clock with seconds + Logout button.
 import datetime as _dt
+import streamlit.components.v1 as components
+
 _now = _dt.datetime.now()
 _clock_str = _now.strftime("%d %b %Y  |  %H:%M:%S")
 _logged_user = st.session_state.get("_logged_user", "")
 
-st.markdown(f"""
-<div class="top-header">
-  <div class="top-header-left">
-    <img src="data:image/png;base64,{LOGO_B64}" class="logo-img" alt="Softview">
-    <div class="top-header-title">CCI Working Calculation Utility</div>
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-    <span class="top-header-badge">v2.0 PREMIUM</span>
-    <span style="font-size:11px;color:rgba(0,214,90,0.9);font-weight:600;letter-spacing:.04em">
-      👤 {_logged_user.upper()}
-    </span>
-    <span style="font-size:11px;color:rgba(255,255,255,0.55);font-family:monospace;letter-spacing:.04em">
-      Live clock
-    </span>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+hc1, hc2 = st.columns([4.6, 1.4])
+with hc1:
+    st.markdown(f"""
+    <div class="top-header">
+      <div class="top-header-left">
+        <img src="data:image/png;base64,{LOGO_B64}" class="logo-img" alt="Softview">
+        <div class="top-header-title">CCI Working Calculation Utility</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        <span class="top-header-badge">v2.0 PREMIUM</span>
+        <span style="font-size:11px;color:rgba(0,214,90,0.9);font-weight:600;letter-spacing:.04em">👤 {_logged_user.upper()}</span>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+with hc2:
+    components.html(f"""
+    <div style="background:#ffffff;border:1px solid #dbe3ea;border-radius:10px;padding:7px 10px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:5px">
+      <div style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Live Time</div>
+      <span id="clock" style="font:700 13px monospace;color:#166534">🕐 {_clock_str}</span>
+    </div>
+    <script>
+    (function(){{
+      function tick(){{
+        const n=new Date();
+        const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const p=x=>String(x).padStart(2,'0');
+        const el=document.getElementById('clock');
+        if(el) el.textContent='🕐 '+p(n.getDate())+' '+m[n.getMonth()]+' '+n.getFullYear()+' | '+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+      }}
+      tick(); setInterval(tick,1000);
+    }})();
+    </script>
+    """, height=48, scrolling=False)
+    if st.button("🚪 Logout", key="top_logout", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state._logged_user = ""
+        st.session_state._login_error = ""
+        st.session_state.edit_contract_idx = None
+        st.session_state.editing_contract_no = None
+        st.rerun()
 
-# The clock is rendered in the header HTML and refreshed by the browser.
-# A small self-contained iframe is used so Streamlit's DOM sandbox cannot block
-# the one-second JavaScript timer.
-import streamlit.components.v1 as components
-components.html(f"""
-<div style="font:600 11px monospace;color:#64748b;text-align:right;white-space:nowrap">
-  <span id="clock">🕐 {_clock_str}</span>
-</div>
-<script>
-(function(){{
-  function tick(){{
-    const n=new Date();
-    const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const p=x=>String(x).padStart(2,'0');
-    document.getElementById('clock').textContent =
-      '🕐 '+p(n.getDate())+' '+m[n.getMonth()]+' '+n.getFullYear()+
-      '  |  '+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
-  }}
-  tick(); setInterval(tick,1000);
-}})();
-</script>
-""", height=24, scrolling=False)
+st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
 tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
@@ -1371,14 +1403,49 @@ with tab_masters:
                                 "cc_compound": st.session_state.cc_compound == "Applicable",
                             }
                             if editing_idx is not None:
-                                st.session_state.masters["contracts"][editing_idx] = contract
-                                st.session_state.edit_contract_idx = None
-                                st.session_state.cont_msg = f"Contract '{st.session_state.cno}' updated!"
+                                # UPDATE THE SAME CONTRACT RECORD.
+                                # The original contract number is the stable identity,
+                                # so editing never creates a second record.
+                                original_no = st.session_state.get("editing_contract_no")
+                                target_idx = None
+                                for _i, _existing in enumerate(st.session_state.masters["contracts"]):
+                                    if str(_existing.get("contract_no", "")).strip().upper() == str(original_no or "").strip().upper():
+                                        target_idx = _i
+                                        break
+
+                                if target_idx is None:
+                                    st.error("❌ Original contract record was not found. No new contract was created.")
+                                else:
+                                    # Prevent changing an edited contract into another existing number.
+                                    new_no = str(contract.get("contract_no", "")).strip().upper()
+                                    duplicate = any(
+                                        _i != target_idx and
+                                        str(_existing.get("contract_no", "")).strip().upper() == new_no
+                                        for _i, _existing in enumerate(st.session_state.masters["contracts"])
+                                    )
+                                    if duplicate:
+                                        st.error(f"❌ Contract No '{new_no}' already exists. Use that contract's Edit button instead.")
+                                    else:
+                                        st.session_state.masters["contracts"][target_idx] = contract
+                                        st.session_state.edit_contract_idx = None
+                                        st.session_state.editing_contract_no = None
+                                        st.session_state.cont_msg = f"Contract '{contract['contract_no']}' updated successfully!"
+                                        persist()
+                                        st.rerun()
                             else:
-                                st.session_state.masters["contracts"].append(contract)
-                                st.session_state.cont_msg = f"Contract '{st.session_state.cno}' saved to Firebase!"
-                            persist()
-                            st.rerun()
+                                # NEW CONTRACT: never silently overwrite an existing record.
+                                new_no = str(contract.get("contract_no", "")).strip().upper()
+                                duplicate = any(
+                                    str(_existing.get("contract_no", "")).strip().upper() == new_no
+                                    for _existing in st.session_state.masters["contracts"]
+                                )
+                                if duplicate:
+                                    st.error(f"❌ Contract No '{new_no}' already exists. Click Edit on the existing contract to change it.")
+                                else:
+                                    st.session_state.masters["contracts"].append(contract)
+                                    st.session_state.cont_msg = f"Contract '{contract['contract_no']}' saved to Firebase!"
+                                    persist()
+                                    st.rerun()
                 with btn_col2:
                     if st.button("🗑️  Clear Fields", key="btn_clear_cont", use_container_width=True):
                         _saved_masters = st.session_state.masters
@@ -1391,6 +1458,7 @@ with tab_masters:
                         for k in clear_keys:
                             if k in st.session_state: del st.session_state[k]
                         st.session_state.edit_contract_idx = None
+                        st.session_state.editing_contract_no = None
                         st.session_state.masters = _saved_masters
                         st.rerun()
 
@@ -1436,48 +1504,72 @@ with tab_masters:
             st.caption("No contracts saved yet.")
         else:
             for i, c in enumerate(conts):
-                with st.container():
-                    # Build slab info strings
-                    _cd_slabs = c.get('cd_slabs',[])
-                    _cd_str = ' | '.join([f"D{s.get('days',0)}@{s.get('pct',0)}%" for s in _cd_slabs]) if _cd_slabs else '—'
-                    _ll_slabs = c.get('ll_slabs',[])
-                    _ll_str = ' | '.join([f"D{s.get('days',0)}@{s.get('pct',0)}%/m" for s in _ll_slabs]) if _ll_slabs else '—'
-                    _cc_slabs = c.get('cc_slabs',[])
-                    _cc_str = ' | '.join([f"D{s.get('days',0)}@{s.get('pct',0)}%/m" for s in _cc_slabs]) if _cc_slabs else '—'
-                    _ll_cpd = '✅ Yes' if c.get('ll_compound') else '❌ No'
-                    _cc_cpd = '✅ Yes' if c.get('cc_compound') else '❌ No'
-                    st.markdown(f"""
-                    <div class="contract-card">
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                        <span style="font-weight:700;color:#111827;font-size:14px">{c['contract_no']}</span>
-                        <span style="font-size:11px;background:rgba(26,122,26,0.15);color:#1a7a1a;padding:2px 10px;border-radius:20px;border:1px solid rgba(26,122,26,0.3);font-weight:600">{c['project']}</span>
-                      </div>
-                      <div style="font-size:12px;color:#374151;font-weight:600;margin-bottom:6px">{c.get('party','—')}</div>
-                      <div style="font-size:11px;color:#6b7280;display:grid;grid-template-columns:1fr 1fr;gap:4px;line-height:1.6">
-                        <span>📅 Contract Date: <b style="color:#374151">{c.get('contract_date','—')}</b></span>
-                        <span>📅 Effective Date: <b style="color:#374151">{c.get('effective_date','—')}</b></span>
-                        <span>🌾 Bales: <b style="color:#374151">{c.get('bales','—')}</b></span>
-                        <span>💰 EMD Rate: <b style="color:#1a7a1a">{c.get('emd_percent','—')}% p.a.</b></span>
-                        <span>🚛 CC Free Days: <b style="color:#374151">{c.get('cc_free_days',60)}</b></span>
-                        <span>📌 EMD Days: <b style="color:#374151">{c.get('emd_days',365)}</b></span>
-                        <span style="grid-column:1/-1">💸 CD Slabs: <b style="color:#374151;font-family:monospace">{_cd_str}</b> &nbsp;|&nbsp; GST: {c.get('cd_gst',18)}%</span>
-                        <span style="grid-column:1/-1">⏰ LL Slabs: <b style="color:#374151;font-family:monospace">{_ll_str}</b> &nbsp;|&nbsp; GST: {c.get('ll_gst',5)}% &nbsp;|&nbsp; Compound: {_ll_cpd}</span>
-                        <span style="grid-column:1/-1">🚛 CC Slabs: <b style="color:#374151;font-family:monospace">{_cc_str}</b> &nbsp;|&nbsp; GST: {c.get('cc_gst',5)}% &nbsp;|&nbsp; Compound: {_cc_cpd}</span>
-                      </div>
-                    </div>""", unsafe_allow_html=True)
-                    cc_b1, cc_b2 = st.columns(2)
-                    if cc_b1.button("✏️ Edit", key=f"ec{i}", use_container_width=True):
-                        # IMPORTANT: do not assign widget keys in the same run after widgets exist.
-                        # Store the contract as a pending payload, then apply it before widgets
-                        # are created on the next rerun. This avoids StreamlitAPIException.
-                        cx = st.session_state.masters["contracts"][i]
-                        st.session_state.edit_contract_idx = i
-                        st.session_state["_pending_contract_edit"] = dict(cx)
-                        st.rerun()
-                    if cc_b2.button("🗑 Delete", key=f"dc{i}", use_container_width=True):
-                        if st.session_state.edit_contract_idx == i:
-                            st.session_state.edit_contract_idx = None
-                        st.session_state.masters["contracts"].pop(i); persist(); st.rerun()
+                _cd_slabs = c.get('cd_slabs', []) or []
+                _ll_slabs = c.get('ll_slabs', []) or []
+                _cc_slabs = c.get('cc_slabs', []) or []
+
+                def _slab_rows(slabs, suffix=""):
+                    if not slabs:
+                        return "<div class=\"empty-slab\">No slab defined</div>"
+                    parts = []
+                    for n, slab in enumerate(slabs, 1):
+                        parts.append(f"<div class=\"slab-row\"><span>Slab {n}</span><b>{slab.get('days', 0)} Days</b><b>{slab.get('pct', 0)}%{suffix}</b></div>")
+                    return ''.join(parts)
+
+                _ll_cpd = 'Applicable' if c.get('ll_compound') else 'Not Applicable'
+                _cc_cpd = 'Applicable' if c.get('cc_compound') else 'Not Applicable'
+
+                st.markdown(f"""
+                <div class="contract-card clean-contract-card">
+                  <div class="contract-head">
+                    <div>
+                      <div class="contract-no">{c.get('contract_no','—')}</div>
+                      <div class="contract-party">{c.get('party','—')}</div>
+                    </div>
+                    <div class="contract-project">{c.get('project','—')}</div>
+                  </div>
+                  <div class="basic-grid">
+                    <div><span>📅 Contract Date</span><b>{c.get('contract_date','—')}</b></div>
+                    <div><span>📅 Effective Date</span><b>{c.get('effective_date','—')}</b></div>
+                    <div><span>🌾 Contracted Bales</span><b>{c.get('bales','—'):,}</b></div>
+                    <div><span>💰 EMD Rate</span><b>{c.get('emd_percent','—')}% p.a.</b></div>
+                    <div><span>📌 EMD Days</span><b>{c.get('emd_days','—')}</b></div>
+                    <div><span>🚛 CC Free Days</span><b>{c.get('cc_free_days',0)}</b></div>
+                  </div>
+                  <div class="condition-grid">
+                    <div class="condition-box">
+                      <div class="condition-title">💸 CASH DISCOUNT</div>
+                      <div class="condition-sub">GST: {c.get('cd_gst',0)}%</div>
+                      {_slab_rows(_cd_slabs, '')}
+                    </div>
+                    <div class="condition-box">
+                      <div class="condition-title">⏰ LATE LIFTING</div>
+                      <div class="condition-sub">GST: {c.get('ll_gst',0)}% &nbsp; | &nbsp; Compound: {_ll_cpd}</div>
+                      {_slab_rows(_ll_slabs, '/month')}
+                    </div>
+                    <div class="condition-box">
+                      <div class="condition-title">🚛 CARRYING CHARGES</div>
+                      <div class="condition-sub">Free Days: {c.get('cc_free_days',0)} &nbsp; | &nbsp; GST: {c.get('cc_gst',0)}% &nbsp; | &nbsp; Compound: {_cc_cpd}</div>
+                      {_slab_rows(_cc_slabs, '/month')}
+                    </div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                cc_b1, cc_b2 = st.columns(2)
+                if cc_b1.button("✏️ Edit Contract", key=f"ec{i}", use_container_width=True):
+                    cx = st.session_state.masters["contracts"][i]
+                    st.session_state.edit_contract_idx = i
+                    st.session_state.editing_contract_no = str(cx.get("contract_no", "")).strip()
+                    st.session_state["_pending_contract_edit"] = dict(cx)
+                    st.rerun()
+                if cc_b2.button("🗑 Delete Contract", key=f"dc{i}", use_container_width=True):
+                    if st.session_state.edit_contract_idx == i:
+                        st.session_state.edit_contract_idx = None
+                        st.session_state.editing_contract_no = None
+                    st.session_state.masters["contracts"].pop(i)
+                    persist()
+                    st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2: UPLOAD & CALCULATE
