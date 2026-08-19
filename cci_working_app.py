@@ -1105,7 +1105,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
-        cc_free_days   = int(sf(row_mc.get("cc_free_days"), 60))
+        cc_free_days   = int(sf(row_mc.get("cc_free_days"), 0))
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
         # ───────────────────────────────────────────────────────────────────
