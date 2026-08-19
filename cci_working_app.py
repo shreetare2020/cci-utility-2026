@@ -2061,7 +2061,7 @@ with tab_help:
             ("💹 EMD Interest",
              "EMD Interest  =  EMD Allocated  ×  (EMD Rate % p.a. ÷ 365)\n             ×  (Payment Date − EMD Date)\n\nEMD Date    = Latest voucher date of EMD utilised\nPayment Date = Latest payment voucher date applied"),
             ("💸 Cash Discount",
-             "Diff Days  =  Lifting Date  −  Payment Date\n\nCD Amount  =  Material Amount  ×  CD %  ×  (Diff Days ÷ 365)\n\nNote: Highest applicable CD slab is used.\n      CD is only applied when payment precedes lifting."),
+             "CD Due Date  =  Effective Date + Free Days for CD\n\nCD Eligibility:\n  If Payment Date ≤ CD Due Date → Cash Discount applies\n  If Payment Date > CD Due Date → Cash Discount = 0\n\nDifference Days  =  Payment Date − Effective Date\n\nCD Amount  =  Material Amount × CD % × (Difference Days ÷ 365)\n\nFor a SPECIFIC Sauda/Contract:\n  Effective Date = Effective Date from Contract Master\n\nFor DEFAULT Sauda:\n  Effective Date = Effective Date supplied in the uploaded Excel\n\nImportant: Free Days only decides whether CD is applicable.\nThe CD amount days are always counted from Effective Date to Payment Date."),
             ("🧾 Bill Amounts",
              "GST on Material   =  IGST column from GRN Booking sheet\nTotal Bill Amount  =  Material Amount + GST on Material\nPayment Amount    =  Total final payments for the contract\nNet Amount        =  Payment Amount − EMD Allocated"),
         ]:
