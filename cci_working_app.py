@@ -1106,17 +1106,10 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
 
-        # CC FREE DAYS MUST COME ONLY FROM THE SAME CONTRACT MASTER RECORD.
-        # Do NOT inherit it from DEFAULT/another contract.
-        cc_master = {}
-        if _contracts_list is not None:
-            cn_key = str(cn).strip().upper()
-            for _c in _contracts_list:
-                if str(_c.get("contract_no", "")).strip().upper() == cn_key:
-                    cc_master = _c
-                    break
-        else:
-            cc_master = _single_mc or {}
+        # CC FREE DAYS MUST COME FROM THE MATCHED CONTRACT MASTER.
+        # _mc(cn) applies exact Contract No first, then DEFAULT fallback.
+        # Therefore CC Free Days and CC slabs use the same master condition.
+        cc_master = row_mc or {}
         cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
@@ -1132,6 +1125,13 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
         eff_date  = eff_date_map.get(cn, pd.NaT)
+
+        # CC Effective Date comes from the matched Contract Master.
+        # Keep the existing PUR CONT DETAILS Effective Date separately for
+        # the other calculations/result display.
+        cc_eff_date = pd.to_datetime(row_mc.get("effective_date"), errors="coerce")
+        if pd.isna(cc_eff_date):
+            cc_eff_date = eff_date
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
@@ -1271,45 +1271,47 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
         cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
         cc_free_end = pd.NaT
-        if not pd.isna(eff_date):
-            cc_free_end = eff_date + pd.Timedelta(days=cc_free_days)
-            if not pd.isna(pay_date):
-                cc_days_raw = (pay_date - cc_free_end).days
-                if cc_days_raw > 0:
-                    cc_days = cc_days_raw
-                    s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
-                    s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
+        # EXACT CC FREE-DAYS RULE:
+        # CC Free End = Contract Master Effective Date + Contract Master CC Free Days
+        # Payment Date <= CC Free End -> CC Days = 0 and CC = 0
+        # Payment Date >  CC Free End -> CC Days = Payment Date - CC Free End
+        if not pd.isna(cc_eff_date):
+            cc_free_end = cc_eff_date + pd.Timedelta(days=cc_free_days)
+            if not pd.isna(pay_date) and pay_date > cc_free_end:
+                cc_days = (pay_date - cc_free_end).days
+                s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
+                s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
 
-                    rem     = cc_days
-                    running = mat       # running = principal + accumulated charges
-                    total   = 0.0
-                    slab_n  = 0         # slab counter (0-based)
+                rem     = cc_days
+                running = mat       # running = principal + accumulated charges
+                total   = 0.0
+                slab_n  = 0         # slab counter (0-based)
 
-                    while rem > 0:
-                        slab_n += 1
-                        if slab_n == 1:
-                            rate     = s1c["pct"] / 100
-                            slab_days = s1c["days"]
-                        else:
-                            rate     = s2c["pct"] / 100
-                            slab_days = s2c["days"]
+                while rem > 0:
+                    slab_n += 1
+                    if slab_n == 1:
+                        rate     = s1c["pct"] / 100
+                        slab_days = s1c["days"]
+                    else:
+                        rate     = s2c["pct"] / 100
+                        slab_days = s2c["days"]
 
-                        d        = min(rem, slab_days)
-                        charge   = running * rate * (d / 30)
-                        rounded  = round(charge, 2)
+                    d        = min(rem, slab_days)
+                    charge   = running * rate * (d / 30)
+                    rounded  = round(charge, 2)
 
-                        # label: "1-30", "31-60", "61-90", "91-120", ...
-                        day_from = (slab_n - 1) * 30 + 1
-                        day_to   = day_from + d - 1
-                        label    = f"{day_from}-{day_to}"
-                        cc_slab_breakdown.append((label, rounded))
+                    # label: "1-30", "31-60", "61-90", "91-120", ...
+                    day_from = (slab_n - 1) * 30 + 1
+                    day_to   = day_from + d - 1
+                    label    = f"{day_from}-{day_to}"
+                    cc_slab_breakdown.append((label, rounded))
 
-                        running += charge
-                        total   += charge
-                        rem     -= d
+                    running += charge
+                    total   += charge
+                    rem     -= d
 
-                    cc_charges = round(total, 2)
-                    cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
+                cc_charges = round(total, 2)
+                cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
 
         results.append({
             "Contract_No":cn, "GRN_No":row["GRN_No"], "Branch": branch,
