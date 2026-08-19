@@ -1105,7 +1105,20 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
-        cc_free_days   = int(sf(row_mc.get("cc_free_days"), 0))
+
+        # CC FREE DAYS MUST COME ONLY FROM THE SAME CONTRACT MASTER RECORD.
+        # Do NOT inherit it from DEFAULT/another contract.
+        cc_master = {}
+        if _contracts_list is not None:
+            cn_key = str(cn).strip().upper()
+            for _c in _contracts_list:
+                if str(_c.get("contract_no", "")).strip().upper() == cn_key:
+                    cc_master = _c
+                    break
+        else:
+            cc_master = _single_mc or {}
+        cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
+
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
         # ───────────────────────────────────────────────────────────────────
@@ -1674,9 +1687,9 @@ with tab_masters:
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 with st.expander("🚛 Carrying Charges (CC) Slabs — Click to expand/collapse", expanded=False):
                     st.caption("📐 CC Days = Payment Date − (Effective Date + Free Period Days)  |  CC Days > 0 → Charges apply")
-                    cc_free = st.number_input("Total Lifting Free Period (Days from Effective Date)",
+                    cc_free = st.number_input("CC Free Days — Contract Master",
                         key="cc_free", min_value=0, value=0,
-                        help="CC free days are taken from this Contract Master value. CC applies only after Effective Date + these free days.")
+                        help="This value is saved in this Contract Master and CC calculation uses this contract's value only. No DEFAULT/60-day fallback is used.")
                     cc1a,cc1b = st.columns(2)
                     cc1d = cc1a.number_input("Slab 1 Days", key="cc1d", min_value=0, value=30)
                     cc1p = cc1b.number_input("Slab 1 %/month", key="cc1p", min_value=0.0, value=1.25, step=0.01)
