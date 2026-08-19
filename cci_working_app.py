@@ -1057,7 +1057,16 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     _ = mc_dummy  # suppress unused warning
 
     total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
+
+    # IMPORTANT:
+    # Effective Date for CC MUST come from the uploaded PUR CONT DETAILS sheet.
+    # Normalize Contract No on both sides so Excel values like 123 / "123" / " 123 "
+    # still match the same contract.
+    eff_date_map = {
+        str(k).strip().upper(): v
+        for k, v in cont.set_index("Contract_No")["Effective_Date"].to_dict().items()
+    }
+
     pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
     per_bale_emd  = {}
     for _, r in cont.iterrows():
@@ -1075,7 +1084,16 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
 
     total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
+
+    # IMPORTANT:
+    # Effective Date for CC MUST come from the uploaded PUR CONT DETAILS sheet.
+    # Normalize Contract No on both sides so Excel values like 123 / "123" / " 123 "
+    # still match the same contract.
+    eff_date_map = {
+        str(k).strip().upper(): v
+        for k, v in cont.set_index("Contract_No")["Effective_Date"].to_dict().items()
+    }
+
     pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
     per_bale_emd  = {}
     for _, r in cont.iterrows():
@@ -1110,6 +1128,8 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # _mc(cn) applies exact Contract No first, then DEFAULT fallback.
         # Therefore CC Free Days and CC slabs use the same master condition.
         cc_master = row_mc or {}
+        # This is the FREE DAYS entered in Contract Master -> Carrying Charges.
+        # It is NOT the CC slab duration (e.g. 30 days) and NOT a hard-coded value.
         cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
@@ -1124,11 +1144,13 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
-        eff_date  = eff_date_map.get(cn, pd.NaT)
-
-        # CC Effective Date MUST come from PUR CONT DETAILS.
-        # Only CC Free Days comes from Contract Master.
-        cc_eff_date = eff_date
+        # ── CC DATE SOURCES ──────────────────────────────────────────────────
+        # Effective Date  -> ONLY from uploaded PUR CONT DETAILS sheet.
+        # CC Free Days    -> ONLY from matched Contract Master Carrying Charges.
+        # CC Free End     -> Effective Date + Contract Master CC Free Days.
+        #
+        # Do NOT use Contract Master Effective Date for CC.
+        cc_eff_date = eff_date_map.get(str(cn).strip().upper(), pd.NaT)
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
@@ -1269,9 +1291,12 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
         cc_free_end = pd.NaT
         # EXACT CC FREE-DAYS RULE:
-        # CC Free End = PUR CONT DETAILS Effective Date + Contract Master CC Free Days
-        # Payment Date <= CC Free End -> CC Days = 0 and CC = 0
-        # Payment Date >  CC Free End -> CC Days = Payment Date - CC Free End
+        # 1) Effective Date is taken from uploaded PUR CONT DETAILS.
+        # 2) Free Days are taken from the matched Contract Master's
+        #    Carrying Charges (CC) Free Days field.
+        # 3) CC Free End = Effective Date + CC Free Days.
+        # 4) Payment Date <= CC Free End -> CC Days = 0, CC = 0.
+        # 5) Payment Date > CC Free End -> CC Days = Payment Date - CC Free End.
         if not pd.isna(cc_eff_date):
             cc_free_end = cc_eff_date + pd.Timedelta(days=cc_free_days)
             if not pd.isna(pay_date) and pay_date > cc_free_end:
