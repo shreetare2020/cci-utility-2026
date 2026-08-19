@@ -589,6 +589,16 @@ div[data-testid="stFileUploader"] button {
     background:linear-gradient(135deg,#176b35,#22a832) !important;
 }
 
+
+/* UPLOAD BUTTON HIGH CONTRAST */
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] [role="button"] { background:linear-gradient(135deg,#f59e0b,#ea580c)!important; color:#fff!important; border:2px solid #c2410c!important; font-weight:800!important; text-shadow:0 1px 1px rgba(0,0,0,.25)!important; }
+[data-testid="stFileUploader"] button:hover,
+[data-testid="stFileUploader"] [role="button"]:hover { background:linear-gradient(135deg,#ea580c,#c2410c)!important; color:#fff!important; }
+/* LOGIN EMPTY BOX */
+.login-page .empty-box,.login-page .logo-placeholder,.login-page .top-placeholder,.login-page .blank-box {display:none!important;}
+.login-page .login-card {background:transparent!important;border:none!important;box-shadow:none!important;}
+
 </style>
 """, unsafe_allow_html=True)
 
