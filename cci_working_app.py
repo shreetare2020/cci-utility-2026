@@ -1159,15 +1159,59 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             emd_days     = (pay_date - emd_date).days
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
 
+        # ── CASH DISCOUNT ─────────────────────────────────────────────────────
+        # Eligibility:
+        #   Payment Date <= CD Due Date -> Cash Discount applies
+        #   Payment Date >  CD Due Date -> Cash Discount = 0
+        #
+        # The CD master stores CD days in its slab configuration and does not
+        # have a separate CD Free Days field. Therefore the largest configured
+        # positive CD slab-days is used as the CD due-day limit.
+        #
+        # CD amount days are ALWAYS counted from Effective Date to Payment Date.
+        # Party Bill / Lifting Date is NOT used for CD calculation.
         cd_amount, cd_days_used, cd_pct_used = 0.0, 0, 0.0
-        if cd_slabs and not pd.isna(pay_date) and not pd.isna(lift_date):
-            diff_days = (lift_date - pay_date).days
-            for slab in sorted(cd_slabs, key=lambda x: -x["days"]):
-                if diff_days >= slab["days"] > 0:
-                    cd_pct_used  = slab["pct"]
-                    cd_days_used = diff_days
-                    cd_amount    = round((mat * cd_pct_used / 100) * (diff_days / 365), 2)
-                    break
+        cd_due_date = pd.NaT
+        cd_due_days = 0
+
+        if cd_slabs and not pd.isna(eff_date):
+            valid_cd_days = [
+                int(sf(s.get("days"), 0))
+                for s in cd_slabs
+                if sf(s.get("days"), 0) > 0
+            ]
+            cd_due_days = max(valid_cd_days, default=0)
+            cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
+
+            if not pd.isna(pay_date) and pay_date <= cd_due_date:
+                # Difference Days = Payment Date - Effective Date
+                diff_days = max((pay_date - eff_date).days, 0)
+
+                # Highest qualifying CD threshold wins.
+                for slab in sorted(cd_slabs, key=lambda x: -sf(x.get("days"), 0)):
+                    slab_days = sf(slab.get("days"), 0)
+                    if slab_days > 0 and diff_days >= slab_days:
+                        cd_pct_used = sf(slab.get("pct"), 0)
+                        break
+
+                # If payment is before the first positive threshold, use a
+                # configured 0-day slab when one exists.
+                if cd_pct_used == 0:
+                    zero_day_slabs = [
+                        s for s in cd_slabs if sf(s.get("days"), 0) == 0
+                    ]
+                    if zero_day_slabs:
+                        cd_pct_used = sf(zero_day_slabs[0].get("pct"), 0)
+
+                cd_days_used = diff_days
+                cd_amount = round(
+                    (mat * cd_pct_used / 100) * (diff_days / 365), 2
+                )
+            else:
+                # Payment after CD Due Date -> no discount.
+                cd_days_used = 0
+                cd_pct_used = 0.0
+                cd_amount = 0.0
 
         ll_charges, ll_gst_amt, late_lift_days = 0.0, 0.0, 0
         if not pd.isna(pay_date) and not pd.isna(lift_date):
@@ -1263,7 +1307,8 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "Per_Bale_EMD":round(pbe,2), "EMD_Allocated":round(emd_alloc,2),
             "EMD_Date":emd_date, "Net_Amount":round(net_amt,2),
             "Payment_Date":pay_date, "EMD_Days":emd_days, "EMD_Interest":emd_interest,
-            "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "Cash_Discount":cd_amount,
+            "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "CD_Due_Date":cd_due_date,
+            "Cash_Discount":cd_amount,
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
             "Late_Lifting_GST":ll_gst_amt, "CC_Free_End":cc_free_end,
             "CC_Days":cc_days, "Carry_Charges":cc_charges, "Carry_GST":cc_gst_amt,
@@ -1303,7 +1348,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             "Contract_No","GRN_No","Branch","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
             "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
-            "EMD_Days","EMD_Interest","CD_Days","CD_Pct","Cash_Discount",
+            "EMD_Days","EMD_Interest","CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
@@ -2004,7 +2049,7 @@ with tab_results:
                 )
         # Drop internal list column — PyArrow cannot serialize Python lists
         disp = disp.drop(columns=[c for c in disp.columns if c.startswith("_")], errors="ignore")
-        for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CC_Free_End"]:
+        for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CD_Due_Date","CC_Free_End"]:
             if col in disp.columns:
                 disp[col] = disp[col].apply(fmt_date)
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
