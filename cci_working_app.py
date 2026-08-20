@@ -1088,10 +1088,6 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         key = str(r["Contract_No"]).strip().upper()
         eff_date_map[key] = r["Effective_Date"]
 
-    pay_total_map = {}
-    for cn_raw, amt in pay.groupby("Contract_No")["Payment_Amount"].sum().items():
-        pay_total_map[str(cn_raw).strip().upper()] = amt
-
     per_bale_emd = {}
     for _, r in cont.iterrows():
         key = str(r["Contract_No"]).strip().upper()
@@ -1150,7 +1146,6 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
-        payment_amt = pay_total_map.get(cn_key, 0)
 
         emd_need = round(pbe * bales, 2)
         emd_alloc, emd_date = 0.0, pd.NaT
@@ -1343,7 +1338,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
-            "Payment_Amount":round(payment_amt,2),
+            "Payment_Amount":round(pay_alloc,2),
             "Per_Bale_EMD":round(pbe,2), "EMD_Allocated":round(emd_alloc,2),
             "EMD_Date":emd_date, "Net_Amount":round(net_amt,2),
             "Payment_Date":pay_date, "Payment_Mode":pay_mode,
