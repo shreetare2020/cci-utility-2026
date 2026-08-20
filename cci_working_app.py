@@ -1056,43 +1056,46 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     # We read slabs PER ROW now; the dummy is used only as a fallback reference
     _ = mc_dummy  # suppress unused warning
 
-    total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
-    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
-    per_bale_emd  = {}
+    # ── PRE-COMPUTE MAPS (all keys normalized: str + strip + upper) ──────────
+    # This ensures Excel values like 123 / "123" / " RAY-110 " all match correctly.
+
+    total_emd_map = {}
+    for cn_raw, amt in emd.groupby("Contract_No")["EMD_Amount"].sum().items():
+        total_emd_map[str(cn_raw).strip().upper()] = amt
+
+    # Effective Date MAP: source = PUR CONT DETAILS sheet (uploaded Excel).
+    # CC_Free_End = Effective_Date (this map) + cc_free_days (Contract Master).
+    eff_date_map = {}
     for _, r in cont.iterrows():
-        cn = r["Contract_No"]; b = r["Bales"] if r["Bales"] > 0 else 1
-        per_bale_emd[cn] = total_emd_map.get(cn, 0) / b
+        key = str(r["Contract_No"]).strip().upper()
+        eff_date_map[key] = r["Effective_Date"]
+
+    pay_total_map = {}
+    for cn_raw, amt in pay.groupby("Contract_No")["Payment_Amount"].sum().items():
+        pay_total_map[str(cn_raw).strip().upper()] = amt
+
+    per_bale_emd = {}
+    for _, r in cont.iterrows():
+        key = str(r["Contract_No"]).strip().upper()
+        b = r["Bales"] if pd.notna(r["Bales"]) and r["Bales"] > 0 else 1
+        per_bale_emd[key] = total_emd_map.get(key, 0) / b
 
     emd_pool = {}
-    for cn, g in emd.groupby("Contract_No"):
-        emd_pool[cn] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
-        emd_pool[cn]["Remaining"] = emd_pool[cn]["EMD_Amount"].astype(float)
+    for cn_raw, g in emd.groupby("Contract_No"):
+        key = str(cn_raw).strip().upper()
+        emd_pool[key] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
+        emd_pool[key]["Remaining"] = emd_pool[key]["EMD_Amount"].astype(float)
 
     pay_pool = {}
-    for cn, g in pay.groupby("Contract_No"):
-        pay_pool[cn] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
-        pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
+    for cn_raw, g in pay.groupby("Contract_No"):
+        key = str(cn_raw).strip().upper()
+        pay_pool[key] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
+        pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
 
-    total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
-    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
-    per_bale_emd  = {}
-    for _, r in cont.iterrows():
-        cn = r["Contract_No"]; b = r["Bales"] if r["Bales"] > 0 else 1
-        per_bale_emd[cn] = total_emd_map.get(cn, 0) / b
-
-    emd_pool = {}
-    for cn, g in emd.groupby("Contract_No"):
-        emd_pool[cn] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
-        emd_pool[cn]["Remaining"] = emd_pool[cn]["EMD_Amount"].astype(float)
-
-    pay_pool = {}
-    for cn, g in pay.groupby("Contract_No"):
-        pay_pool[cn] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
-        pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
-
-    branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
+    branch_map = {}
+    for _, r in cont.drop_duplicates("Contract_No").iterrows():
+        key = str(r["Contract_No"]).strip().upper()
+        branch_map[key] = str(r.get("Branch", "") or "")
     results = []
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
@@ -1123,23 +1126,26 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_compound      = bool(row_mc.get("cc_compound", False))
         # ───────────────────────────────────────────────────────────────────
 
+        cn_key = str(cn).strip().upper()   # normalized key for all map lookups
+
         bales = row["Accepted_Qty_AUM"]
-        pbe   = per_bale_emd.get(cn, 0)
+        pbe   = per_bale_emd.get(cn_key, 0)
         mat   = row["Material_Amount"]
-        # Branch comes from PUR CONT DETAILS and is carried into every result row.
-        branch = branch_map.get(cn, "")
+        # Branch comes from PUR CONT DETAILS (uploaded Excel).
+        branch = branch_map.get(cn_key, "")
 
         igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
-        eff_date  = eff_date_map.get(cn, pd.NaT)
+        # Effective Date: ALWAYS from uploaded PUR CONT DETAILS sheet.
+        eff_date  = eff_date_map.get(cn_key, pd.NaT)
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
-        payment_amt = pay_total_map.get(cn, 0)
+        payment_amt = pay_total_map.get(cn_key, 0)
 
         emd_need = round(pbe * bales, 2)
         emd_alloc, emd_date = 0.0, pd.NaT
-        pool = emd_pool.get(cn)
+        pool = emd_pool.get(cn_key)
         if pool is not None and emd_need > 0:
             rem = emd_need
             for idx in pool.index:
@@ -1154,7 +1160,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         net_amt = round(mat - emd_alloc, 2)
         pay_alloc, pay_date = 0.0, pd.NaT
-        ppool = pay_pool.get(cn)
+        ppool = pay_pool.get(cn_key)
         if ppool is not None and net_amt > 0:
             rem = net_amt
             for idx in ppool.index:
@@ -1268,108 +1274,51 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         #   Slab 4 (day 91–120): (running) × 1.35% × (days_in_slab / 30)
         #   ... and so on every 30 days until all remaining days are consumed.
         #   Each slab charges on the RUNNING amount (principal + all prior slab charges).
+        # ── CARRYING CHARGES ────────────────────────────────────────────────
+        # Rule:
+        #   CC_Free_End  = Effective_Date (from uploaded PUR CONT DETAILS)
+        #                  + cc_free_days (from Contract Master CC section)
+        #   CC_Days      = Payment_Date - CC_Free_End   (if > 0, else 0)
+        #   CC_Days <= 0 → No charges
+        #   CC_Days >  0 → Compound prorata across unlimited 30-day slabs
+        # ─────────────────────────────────────────────────────────────────────
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
-        cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
-        # CC Free End = last free day (CC Free Days are inclusive; Effective Date = Day 1)
-        cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
-        if cc_free_days_int > 0:
-            # CC Free End = last free day; Effective Date is Day 1.
-            cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
+        cc_slab_breakdown = []
+        cc_free_end = pd.NaT
 
-        # =========================================================
-        # EFFECTIVE DATE — FINAL SOURCE LOGIC
-        # =========================================================
-        # Upload "cont details" sheet uses the exact column name:
-        #     Effective_Date
-        #
-        # Specific Sauda:
-        #     Effective Date comes from Contract Master.
-        #
-        # DEFAULT Sauda:
-        #     Effective Date comes from uploaded cont details sheet
-        #     column "Effective_Date".
-        # =========================================================
-        if "Effective_Date" in row.index:
-            _upload_effective_date = row.get("Effective_Date")
-        else:
-            _upload_effective_date = None
-
-        if pd.notna(_upload_effective_date):
-            effective_date = pd.to_datetime(
-                _upload_effective_date, dayfirst=True, errors="coerce"
-            )
-        else:
-            effective_date = pd.NaT
-
-        # Master effective date should already be available for a specific
-        # contract. Use it when the selected contract is SPECIFIC.
-        if mode == "SPECIFIC":
-            _master_effective_value = (
-                m.get("Effective_Date")
-                if "Effective_Date" in m.index
-                else m.get("Interest_Effective_Date")
-            )
-            _master_effective = pd.to_datetime(
-                _master_effective_value, dayfirst=True, errors="coerce"
-            )
-            if pd.notna(_master_effective):
-                effective_date = _master_effective
-
-        if pd.isna(effective_date):
-            raise ValueError(
-                "Effective_Date is missing/invalid in uploaded cont details "
-                "and no valid Contract Master Effective Date is available."
-            )
-
-            # CC Free End: Effective Date is Day 1, so Free Days - 1 is added.
-
-            cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
-
-            cc_free_end = effective_date + pd.Timedelta(days=max(cc_free_days_int - 1, 0))
-        else:
-            cc_free_end = eff_date_map
         if not pd.isna(eff_date):
-            # CC Free End is the LAST FREE DAY (inclusive).
-            # Example: Effective Date 02-04-2025 + 45 free days
-            # means free period is 02-04-2025 through 16-05-2025.
-            # Therefore Free End = Effective Date + Free Days - 1.
-            if cc_free_days > 0:
-                cc_free_end = effective_date + pd.Timedelta(days=cc_free_days)
-            else:
-                cc_free_end = effective_date - pd.Timedelta(days=1)
+            # CC_Free_End = Effective Date + CC Free Days (from Contract Master)
+            cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
+            cc_free_end = eff_date + pd.Timedelta(days=cc_free_days_int)
 
             if not pd.isna(pay_date):
-                # Keep CC Days consistent with the inclusive free period.
-                # Chargeable days = elapsed days from Effective Date - free days.
-                cc_days_raw = (pay_date - eff_date).days - cc_free_days
+                cc_days_raw = (pay_date - cc_free_end).days
                 if cc_days_raw > 0:
                     cc_days = cc_days_raw
                     s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
                     s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
 
                     rem     = cc_days
-                    running = mat       # running = principal + accumulated charges
+                    running = mat
                     total   = 0.0
-                    slab_n  = 0         # slab counter (0-based)
+                    slab_n  = 0
 
                     while rem > 0:
                         slab_n += 1
                         if slab_n == 1:
-                            rate     = s1c["pct"] / 100
-                            slab_days = s1c["days"]
+                            rate      = s1c["pct"] / 100
+                            slab_days = int(s1c["days"]) if s1c["days"] > 0 else 30
                         else:
-                            rate     = s2c["pct"] / 100
-                            slab_days = s2c["days"]
+                            rate      = s2c["pct"] / 100
+                            slab_days = int(s2c["days"]) if s2c["days"] > 0 else 30
 
-                        d        = min(rem, slab_days)
-                        charge   = running * rate * (d / 30)
-                        rounded  = round(charge, 2)
+                        d       = min(rem, slab_days)
+                        charge  = running * rate * (d / 30)
 
-                        # label: "1-30", "31-60", "61-90", "91-120", ...
                         day_from = (slab_n - 1) * 30 + 1
                         day_to   = day_from + d - 1
                         label    = f"{day_from}-{day_to}"
-                        cc_slab_breakdown.append((label, rounded))
+                        cc_slab_breakdown.append((label, round(charge, 2)))
 
                         running += charge
                         total   += charge
