@@ -184,6 +184,7 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
 .metric-card.teal::before   { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .metric-card.red::before    { background: linear-gradient(90deg, #dc2626, #ef4444); }
 .metric-card.orange::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
+.metric-card.purple::before { background: linear-gradient(90deg, #7e22ce, #a855f7); }
 .metric-val { font-size: 22px; font-weight: 700; color: #111827; margin-bottom: 4px; letter-spacing: -0.5px; }
 .metric-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
 .metric-icon { font-size: 21px; margin-bottom: 8px; }
@@ -995,12 +996,14 @@ def parse_excel(file_bytes):
     emd["EMD_Date"]   = pd.to_datetime(emd["EMD_Date"], errors="coerce")
     emd["EMD_Amount"] = pd.to_numeric(emd["EMD_Amount"], errors="coerce")
     emd = emd.dropna(subset=["EMD_Amount"]).reset_index(drop=True)
-    pay = raw2.iloc[1:,[4,5,6]].copy()
-    pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
+    # Columns: Contract No | Mode of Transaction | Payment Date | Payment Amount
+    pay = raw2.iloc[1:,[4,5,6,7]].copy()
+    pay.columns = ["Contract_No","Mode_Of_Transaction","Payment_Date","Payment_Amount"]
     pay = pay.dropna(subset=["Contract_No","Payment_Amount"])
     pay = pay[~pay["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
     pay["Payment_Date"]   = pd.to_datetime(pay["Payment_Date"], errors="coerce")
     pay["Payment_Amount"] = pd.to_numeric(pay["Payment_Amount"], errors="coerce")
+    pay["Mode_Of_Transaction"] = pay["Mode_Of_Transaction"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
     pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
@@ -1089,7 +1092,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     pay_pool = {}
     for cn_raw, g in pay.groupby("Contract_No"):
         key = str(cn_raw).strip().upper()
-        pay_pool[key] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
+        pay_pool[key] = g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy().reset_index(drop=True)
         pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
 
     branch_map = {}
@@ -1150,7 +1153,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
         net_amt = round(mat - emd_alloc, 2)
-        pay_alloc, pay_date = 0.0, pd.NaT
+        pay_alloc, pay_date, pay_mode = 0.0, pd.NaT, ""
         ppool = pay_pool.get(cn_key)
         if ppool is not None and net_amt > 0:
             rem = net_amt
@@ -1162,7 +1165,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 ppool.at[idx,"Remaining"] -= take
                 pay_alloc += take; rem -= take
                 d = ppool.at[idx,"Payment_Date"]
-                if pd.isna(pay_date) or d > pay_date: pay_date = d
+                if pd.isna(pay_date) or d > pay_date:
+                    pay_date = d
+                    pay_mode = ppool.at[idx,"Mode_Of_Transaction"]
 
         emd_days, emd_interest = 0, 0.0
         if not pd.isna(emd_date) and not pd.isna(pay_date) and emd_alloc > 0:
@@ -1326,7 +1331,8 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "Payment_Amount":round(payment_amt,2),
             "Per_Bale_EMD":round(pbe,2), "EMD_Allocated":round(emd_alloc,2),
             "EMD_Date":emd_date, "Net_Amount":round(net_amt,2),
-            "Payment_Date":pay_date, "EMD_Days":emd_days, "EMD_Interest":emd_interest,
+            "Payment_Date":pay_date, "Payment_Mode":pay_mode,
+            "EMD_Days":emd_days, "EMD_Interest":emd_interest,
             "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "CD_Due_Date":cd_due_date,
             "Cash_Discount":cd_amount,
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
@@ -1367,7 +1373,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         base_cols = [
             "Contract_No","GRN_No","Branch","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
-            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
+            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date","Payment_Mode",
             "EMD_Days","EMD_Interest","CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
@@ -1468,72 +1474,13 @@ with hc2:
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
-tab_dashboard, tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
-    "  🏢  Dashboard  ",
+tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
     "  📋  Masters  ",
     "  📤  Upload & Calculate  ",
     "  📊  Results  ",
     "  📖  Formula Guide  ",
     "  👤  User Master  "
 ])
-
-# ══════════════════════════════════════════════════════════════════════════════
-# EXECUTIVE DASHBOARD
-# ══════════════════════════════════════════════════════════════════════════════
-with tab_dashboard:
-    _contracts = st.session_state.masters.get("contracts", [])
-    _projects = st.session_state.masters.get("projects", [])
-    _results = st.session_state.get("result_df")
-    _grns = 0 if _results is None else len(_results)
-
-    _bill = float(pd.to_numeric(_results["Total_Bill_Amount"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Total_Bill_Amount" in _results.columns else 0.0
-    _emd = float(pd.to_numeric(_results["EMD_Interest"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "EMD_Interest" in _results.columns else 0.0
-    _ll = float(pd.to_numeric(_results["Late_Lifting_Chg"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Late_Lifting_Chg" in _results.columns else 0.0
-    _cc = float(pd.to_numeric(_results["Carry_Charges"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Carry_Charges" in _results.columns else 0.0
-
-    st.markdown("""
-    <div class="executive-dashboard">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:15px">
-        <div>
-          <h2>CCI Executive Dashboard</h2>
-          <p>Contract control • Calculation monitoring • Financial overview</p>
-        </div>
-        <div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);padding:8px 12px;border-radius:9px;color:#e2e8f0;font-size:11px;font-weight:800">
-          PREMIUM CONTROL CENTRE
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    _d1,_d2,_d3,_d4 = st.columns(4)
-    _d1.metric("Active Contracts", f"{len(_contracts):,}")
-    _d2.metric("Projects", f"{len(_projects):,}")
-    _d3.metric("Processed GRNs", f"{_grns:,}")
-    _d4.metric("Total Bill Amount", f"₹{_bill:,.0f}")
-
-    st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
-    _a,_b = st.columns([1.35, 1], gap="large")
-    with _a:
-        st.markdown('<div class="sec-label">📊 Financial Snapshot</div>', unsafe_allow_html=True)
-        _fin = pd.DataFrame({
-            "Component":["EMD Interest","Late Lifting","Carrying Charges","Total Bill"],
-            "Amount":[_emd,_ll,_cc,_bill]
-        })
-        _fin["Amount"] = _fin["Amount"].map(lambda x:f"₹{x:,.2f}")
-        st.dataframe(_fin, use_container_width=True, hide_index=True)
-    with _b:
-        st.markdown('<div class="sec-label">📋 Contract Register</div>', unsafe_allow_html=True)
-        if _contracts:
-            _reg = pd.DataFrame([{
-                "Contract No": c.get("contract_no",""),
-                "Party": c.get("party",""),
-                "Bales": c.get("bales",0),
-                "Effective": c.get("effective_date","")
-            } for c in _contracts])
-            st.dataframe(_reg, use_container_width=True, hide_index=True, height=260)
-        else:
-            st.info("No contracts saved yet.")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: MASTERS
@@ -1982,7 +1929,7 @@ with tab_upload:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
             ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI"),
-            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | PAYMENT DATE | PAYMENT AMOUNT"),
+            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
             st.markdown(f"""
@@ -2001,6 +1948,7 @@ with tab_results:
         df = st.session_state["result_df"]
         tot_bill = df["Total_Bill_Amount"].sum()
         tot_emd  = df["EMD_Interest"].sum()
+        tot_cd   = df["Cash_Discount"].sum()
         tot_ll   = df["Late_Lifting_Chg"].sum()
         tot_cc   = df["Carry_Charges"].sum()
         tot_grns = len(df)
@@ -2021,6 +1969,11 @@ with tab_results:
             <div class="metric-icon">📈</div>
             <div class="metric-val">₹{tot_emd:,.0f}</div>
             <div class="metric-lbl">EMD Interest</div>
+          </div>
+          <div class="metric-card purple">
+            <div class="metric-icon">💸</div>
+            <div class="metric-val">₹{tot_cd:,.0f}</div>
+            <div class="metric-lbl">Cash Discount</div>
           </div>
           <div class="metric-card red">
             <div class="metric-icon">⏰</div>
