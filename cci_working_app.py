@@ -1334,9 +1334,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             # means free period is 02-04-2025 through 16-05-2025.
             # Therefore Free End = Effective Date + Free Days - 1.
             if cc_free_days > 0:
-                cc_free_end = eff_date + pd.Timedelta(days=cc_free_days - 1)
+                cc_free_end = effective_date + pd.Timedelta(days=cc_free_days)
             else:
-                cc_free_end = eff_date - pd.Timedelta(days=1)
+                cc_free_end = effective_date - pd.Timedelta(days=1)
 
             if not pd.isna(pay_date):
                 # Keep CC Days consistent with the inclusive free period.
