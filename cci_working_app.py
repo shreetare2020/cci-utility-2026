@@ -1017,23 +1017,30 @@ def parse_excel(file_bytes):
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
+def _norm_contract_no(value):
+    """Normalize Excel/master contract numbers for reliable matching."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    text = str(value).strip().upper()
+    # Excel can turn numeric-looking contract numbers into e.g. 123.0.
+    if text.endswith(".0") and text[:-2].replace(".", "", 1).isdigit():
+        text = text[:-2]
+    return text
+
+
 def _get_mc_for_contract(cn, all_contracts):
     """
-    EITHER/OR master lookup:
-    1. Check if a contract master exists whose contract_no matches cn exactly.
-    2. If found → use that master's conditions.
-    3. If NOT found → fall back to DEFAULT contract master.
+    Return the contract-specific master first. DEFAULT is only a fallback for
+    legacy non-CC settings; CC Free Days are independently resolved below and
+    NEVER taken from DEFAULT when a contract-specific value is absent.
     """
-    cn_str = str(cn).strip().upper()
-    # First pass: exact match on contract_no (case-insensitive)
+    cn_str = _norm_contract_no(cn)
     for c in all_contracts:
-        if str(c.get("contract_no", "")).strip().upper() == cn_str:
+        if _norm_contract_no(c.get("contract_no", "")) == cn_str and cn_str:
             return c
-    # Second pass: DEFAULT fallback
     for c in all_contracts:
-        if str(c.get("contract_no", "")).strip().upper() == "DEFAULT":
+        if _norm_contract_no(c.get("contract_no", "")) == "DEFAULT":
             return c
-    # Last resort: return first available master
     return all_contracts[0] if all_contracts else {}
 
 
@@ -1063,7 +1070,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     # Normalize Contract No on both sides so Excel values like 123 / "123" / " 123 "
     # still match the same contract.
     eff_date_map = {
-        str(k).strip().upper(): v
+        _norm_contract_no(k): v
         for k, v in cont.set_index("Contract_No")["Effective_Date"].to_dict().items()
     }
 
@@ -1090,7 +1097,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     # Normalize Contract No on both sides so Excel values like 123 / "123" / " 123 "
     # still match the same contract.
     eff_date_map = {
-        str(k).strip().upper(): v
+        _norm_contract_no(k): v
         for k, v in cont.set_index("Contract_No")["Effective_Date"].to_dict().items()
     }
 
@@ -1130,7 +1137,19 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_master = row_mc or {}
         # This is the FREE DAYS entered in Contract Master -> Carrying Charges.
         # It is NOT the CC slab duration (e.g. 30 days) and NOT a hard-coded value.
-        cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
+        # IMPORTANT: CC Free Days are contract-specific. Never use DEFAULT/first
+        # master as a CC free-days fallback. If the uploaded contract has no
+        # matching Contract Master, CC Free Days is 0 rather than silently using
+        # another contract's value (e.g. 60).
+        cc_free_days = 0
+        if _contracts_list is not None:
+            cn_norm = _norm_contract_no(cn)
+            for _cm in _contracts_list:
+                if _norm_contract_no(_cm.get("contract_no", "")) == cn_norm and cn_norm:
+                    cc_free_days = int(sf(_cm.get("cc_free_days"), 0))
+                    break
+        else:
+            cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
@@ -1150,15 +1169,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # CC Free End     -> Effective Date + Contract Master CC Free Days.
         #
         # Do NOT use Contract Master Effective Date for CC.
-        # IMPORTANT: CC Effective Date MUST be taken row-by-row from
-        # PUR CONT DETAILS using Contract_No.  Contract Master effective_date
-        # is NEVER used for CC.
-        _cn_key = str(cn).strip().upper()
-        cc_eff_date = pd.to_datetime(eff_date_map.get(_cn_key, pd.NaT), errors="coerce")
-        if not pd.isna(cc_eff_date):
-            cc_eff_date = pd.Timestamp(cc_eff_date).normalize()
-
-        # Use the same PUR CONT DETAILS Effective Date for CD/output.
+        cc_eff_date = eff_date_map.get(_norm_contract_no(cn), pd.NaT)
+        # Use the PUR CONT DETAILS Effective Date consistently for all calculations
+        # that require the transaction Effective Date (including CD and output).
         eff_date = cc_eff_date
 
         gst_on_mat  = round(igst, 2)
@@ -1307,10 +1320,6 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # 4) Payment Date <= CC Free End -> CC Days = 0, CC = 0.
         # 5) Payment Date > CC Free End -> CC Days = Payment Date - CC Free End.
         if not pd.isna(cc_eff_date):
-            # EXACT BUSINESS RULE:
-            # CC Free End = PUR CONT DETAILS Effective Date +
-            #               Contract Master Carrying Charges Free Days.
-            # Example: 13-Mar-2026 + 30 = 12-Apr-2026.
             cc_free_end = pd.Timestamp(cc_eff_date).normalize() + pd.Timedelta(days=cc_free_days)
             if not pd.isna(pay_date) and pay_date > cc_free_end:
                 cc_days = (pay_date - cc_free_end).days
