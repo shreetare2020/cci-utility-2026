@@ -4,7 +4,7 @@ Softview Technologies | Streamlit + Firebase
 Run: streamlit run cci_working_app.py
 """
 
-import io, json, os, re, base64 as b64lib
+import io, json, os, base64 as b64lib
 from datetime import date
 import pandas as pd
 import streamlit as st
@@ -1017,30 +1017,23 @@ def parse_excel(file_bytes):
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
-def _norm_contract_no(value):
-    """Normalize Excel/master contract numbers for reliable matching."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return ""
-    text = str(value).strip().upper()
-    # Excel can turn numeric-looking contract numbers into e.g. 123.0.
-    if text.endswith(".0") and text[:-2].replace(".", "", 1).isdigit():
-        text = text[:-2]
-    return text
-
-
 def _get_mc_for_contract(cn, all_contracts):
     """
-    Return the contract-specific master first. DEFAULT is only a fallback for
-    legacy non-CC settings; CC Free Days are independently resolved below and
-    NEVER taken from DEFAULT when a contract-specific value is absent.
+    EITHER/OR master lookup:
+    1. Check if a contract master exists whose contract_no matches cn exactly.
+    2. If found → use that master's conditions.
+    3. If NOT found → fall back to DEFAULT contract master.
     """
-    cn_str = _norm_contract_no(cn)
+    cn_str = str(cn).strip().upper()
+    # First pass: exact match on contract_no (case-insensitive)
     for c in all_contracts:
-        if _norm_contract_no(c.get("contract_no", "")) == cn_str and cn_str:
+        if str(c.get("contract_no", "")).strip().upper() == cn_str:
             return c
+    # Second pass: DEFAULT fallback
     for c in all_contracts:
-        if _norm_contract_no(c.get("contract_no", "")) == "DEFAULT":
+        if str(c.get("contract_no", "")).strip().upper() == "DEFAULT":
             return c
+    # Last resort: return first available master
     return all_contracts[0] if all_contracts else {}
 
 
@@ -1064,16 +1057,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     _ = mc_dummy  # suppress unused warning
 
     total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-
-    # IMPORTANT:
-    # Effective Date for CC MUST come from the uploaded PUR CONT DETAILS sheet.
-    # Normalize Contract No on both sides so Excel values like 123 / "123" / " 123 "
-    # still match the same contract.
-    eff_date_map = {
-        _norm_contract_no(k): v
-        for k, v in cont.set_index("Contract_No")["Effective_Date"].to_dict().items()
-    }
-
+    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
     pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
     per_bale_emd  = {}
     for _, r in cont.iterrows():
@@ -1091,16 +1075,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
 
     total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
-
-    # IMPORTANT:
-    # Effective Date for CC MUST come from the uploaded PUR CONT DETAILS sheet.
-    # Normalize Contract No on both sides so Excel values like 123 / "123" / " 123 "
-    # still match the same contract.
-    eff_date_map = {
-        _norm_contract_no(k): v
-        for k, v in cont.set_index("Contract_No")["Effective_Date"].to_dict().items()
-    }
-
+    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
     pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
     per_bale_emd  = {}
     for _, r in cont.iterrows():
@@ -1131,70 +1106,18 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
 
-        # ── CONTRACT-SPECIFIC CC FREE DAYS ───────────────────────────────────
-        # CC Free Days MUST come from the SAME Contract Master record as this
-        # GRN Contract No.  Never use slab days, DEFAULT, first record, or 0
-        # when the matching master record actually contains a value.
-        #
-        # Canonical contract matching removes all non-alphanumeric characters,
-        # so Excel values such as "VC25Y-00001", " VC25Y-00001 ",
-        # "vc25y00001" still identify the same contract.
-        def _contract_key(v):
-            if v is None or (isinstance(v, float) and pd.isna(v)):
-                return ""
-            return re.sub(r"[^A-Z0-9]", "", str(v).strip().upper())
-
-        def _master_contract_no(m):
-            if not isinstance(m, dict):
-                return ""
-            for k in ("contract_no", "Contract_No", "CONTRACT_NO", "cno", "Contract No"):
-                v = m.get(k)
-                if v not in (None, ""):
-                    return v
-            return ""
-
-        def _master_cc_free_days(m):
-            if not isinstance(m, dict):
-                return 0
-            # Current saved field
-            for k in (
-                "cc_free_days", "CC_Free_Days", "CC FREE DAYS",
-                "CC Free Days", "CC_FREE_DAYS", "cc_free"
-            ):
-                if k in m and m.get(k) not in (None, ""):
-                    return int(sf(m.get(k), 0))
-            # Also support a nested Carrying Charges object if present in
-            # older master records.
-            for parent_key in ("carrying_charges", "Carrying Charges", "carryingCharges"):
-                parent = m.get(parent_key)
-                if isinstance(parent, dict):
-                    for k in ("cc_free_days", "CC_Free_Days", "CC FREE DAYS",
-                              "CC Free Days", "CC_FREE_DAYS", "free_days", "Free Days"):
-                        if k in parent and parent.get(k) not in (None, ""):
-                            return int(sf(parent.get(k), 0))
-            return 0
-
-        cc_free_days = 0
-        _cc_master_exact = None
-        _cn_key = _contract_key(cn)
-
-        # ALWAYS search the complete Contract Master list for the exact
-        # contract. Do not rely on _mc()/DEFAULT for this field.
-        if isinstance(_contracts_list, list):
-            for _cm in _contracts_list:
-                if _contract_key(_master_contract_no(_cm)) == _cn_key and _cn_key:
-                    _cc_master_exact = _cm
+        # CC FREE DAYS MUST COME ONLY FROM THE SAME CONTRACT MASTER RECORD.
+        # Do NOT inherit it from DEFAULT/another contract.
+        cc_master = {}
+        if _contracts_list is not None:
+            cn_key = str(cn).strip().upper()
+            for _c in _contracts_list:
+                if str(_c.get("contract_no", "")).strip().upper() == cn_key:
+                    cc_master = _c
                     break
-        elif isinstance(_single_mc, dict):
-            if _contract_key(_master_contract_no(_single_mc)) == _cn_key and _cn_key:
-                _cc_master_exact = _single_mc
-
-        if _cc_master_exact is not None:
-            cc_free_days = _master_cc_free_days(_cc_master_exact)
-
-        # IMPORTANT: if an exact Contract Master exists with CC Free Days=0,
-        # 0 is the correct value. Never fall back to another contract.
-        # ───────────────────────────────────────────────────────────────────
+        else:
+            cc_master = _single_mc or {}
+        cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
@@ -1208,16 +1131,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
-        # ── CC DATE SOURCES ──────────────────────────────────────────────────
-        # Effective Date  -> ONLY from uploaded PUR CONT DETAILS sheet.
-        # CC Free Days    -> ONLY from matched Contract Master Carrying Charges.
-        # CC Free End     -> Effective Date + Contract Master CC Free Days.
-        #
-        # Do NOT use Contract Master Effective Date for CC.
-        cc_eff_date = eff_date_map.get(_norm_contract_no(cn), pd.NaT)
-        # Use the PUR CONT DETAILS Effective Date consistently for all calculations
-        # that require the transaction Effective Date (including CD and output).
-        eff_date = cc_eff_date
+        eff_date  = eff_date_map.get(cn, pd.NaT)
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
@@ -1356,51 +1270,61 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         #   Each slab charges on the RUNNING amount (principal + all prior slab charges).
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
         cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
-        cc_free_end = pd.NaT
-        # EXACT CC FREE-DAYS RULE:
-        # 1) Effective Date is taken from uploaded PUR CONT DETAILS.
-        # 2) Free Days are taken from the matched Contract Master's
-        #    Carrying Charges (CC) Free Days field.
-        # 3) CC Free End = Effective Date + CC Free Days.
-        # 4) Payment Date <= CC Free End -> CC Days = 0, CC = 0.
-        # 5) Payment Date > CC Free End -> CC Days = Payment Date - CC Free End.
-        if not pd.isna(cc_eff_date):
-            cc_free_end = pd.Timestamp(cc_eff_date).normalize() + pd.Timedelta(days=cc_free_days)
-            if not pd.isna(pay_date) and pay_date > cc_free_end:
-                cc_days = (pay_date - cc_free_end).days
-                s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
-                s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
+        # CC Free End = last free day (CC Free Days are inclusive; Effective Date = Day 1)
+        cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
+        if cc_free_days_int > 0:
+            cc_free_end = effective_dt + pd.Timedelta(days=cc_free_days_int - 1)
+        else:
+            cc_free_end = effective_dt
+        if not pd.isna(eff_date):
+            # CC Free End is the LAST FREE DAY (inclusive).
+            # Example: Effective Date 02-04-2025 + 45 free days
+            # means free period is 02-04-2025 through 16-05-2025.
+            # Therefore Free End = Effective Date + Free Days - 1.
+            if cc_free_days > 0:
+                cc_free_end = eff_date + pd.Timedelta(days=cc_free_days - 1)
+            else:
+                cc_free_end = eff_date - pd.Timedelta(days=1)
 
-                rem     = cc_days
-                running = mat       # running = principal + accumulated charges
-                total   = 0.0
-                slab_n  = 0         # slab counter (0-based)
+            if not pd.isna(pay_date):
+                # Keep CC Days consistent with the inclusive free period.
+                # Chargeable days = elapsed days from Effective Date - free days.
+                cc_days_raw = (pay_date - eff_date).days - cc_free_days
+                if cc_days_raw > 0:
+                    cc_days = cc_days_raw
+                    s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
+                    s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
 
-                while rem > 0:
-                    slab_n += 1
-                    if slab_n == 1:
-                        rate     = s1c["pct"] / 100
-                        slab_days = s1c["days"]
-                    else:
-                        rate     = s2c["pct"] / 100
-                        slab_days = s2c["days"]
+                    rem     = cc_days
+                    running = mat       # running = principal + accumulated charges
+                    total   = 0.0
+                    slab_n  = 0         # slab counter (0-based)
 
-                    d        = min(rem, slab_days)
-                    charge   = running * rate * (d / 30)
-                    rounded  = round(charge, 2)
+                    while rem > 0:
+                        slab_n += 1
+                        if slab_n == 1:
+                            rate     = s1c["pct"] / 100
+                            slab_days = s1c["days"]
+                        else:
+                            rate     = s2c["pct"] / 100
+                            slab_days = s2c["days"]
 
-                    # label: "1-30", "31-60", "61-90", "91-120", ...
-                    day_from = (slab_n - 1) * 30 + 1
-                    day_to   = day_from + d - 1
-                    label    = f"{day_from}-{day_to}"
-                    cc_slab_breakdown.append((label, rounded))
+                        d        = min(rem, slab_days)
+                        charge   = running * rate * (d / 30)
+                        rounded  = round(charge, 2)
 
-                    running += charge
-                    total   += charge
-                    rem     -= d
+                        # label: "1-30", "31-60", "61-90", "91-120", ...
+                        day_from = (slab_n - 1) * 30 + 1
+                        day_to   = day_from + d - 1
+                        label    = f"{day_from}-{day_to}"
+                        cc_slab_breakdown.append((label, rounded))
 
-                cc_charges = round(total, 2)
-                cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
+                        running += charge
+                        total   += charge
+                        rem     -= d
+
+                    cc_charges = round(total, 2)
+                    cc_gst_amt = round(cc_charges * cc_gst / 100, 2)
 
         results.append({
             "Contract_No":cn, "GRN_No":row["GRN_No"], "Branch": branch,
