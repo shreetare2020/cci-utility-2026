@@ -4,7 +4,7 @@ Softview Technologies | Streamlit + Firebase
 Run: streamlit run cci_working_app.py
 """
 
-import io, json, os, base64 as b64lib
+import io, json, os, re, base64 as b64lib
 from datetime import date
 import pandas as pd
 import streamlit as st
@@ -1141,15 +1141,52 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # master as a CC free-days fallback. If the uploaded contract has no
         # matching Contract Master, CC Free Days is 0 rather than silently using
         # another contract's value (e.g. 60).
+        # Resolve CC Free Days from THIS CONTRACT MASTER record only.
+        # Never use the selected/default master and never use slab days.
         cc_free_days = 0
-        if _contracts_list is not None:
-            cn_norm = _norm_contract_no(cn)
+        _cc_master_exact = None
+
+        if isinstance(_contracts_list, list):
+            _cn_norm = _norm_contract_no(cn)
+            _cn_key = re.sub(r"[^A-Z0-9]", "", _cn_norm)
+
             for _cm in _contracts_list:
-                if _norm_contract_no(_cm.get("contract_no", "")) == cn_norm and cn_norm:
-                    cc_free_days = int(sf(_cm.get("cc_free_days"), 0))
+                if not isinstance(_cm, dict):
+                    continue
+
+                # Support old/new master field names.
+                _cm_no = (
+                    _cm.get("contract_no")
+                    if _cm.get("contract_no") not in (None, "")
+                    else _cm.get("Contract_No", _cm.get("cno", ""))
+                )
+                _cm_norm = _norm_contract_no(_cm_no)
+                _cm_key = re.sub(r"[^A-Z0-9]", "", _cm_norm)
+
+                # First preference: exact normalized Contract No.
+                if _cn_norm and _cm_norm == _cn_norm:
+                    _cc_master_exact = _cm
                     break
-        else:
-            cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
+
+                # Second preference: same contract after removing spaces/hyphens.
+                if _cn_key and _cm_key == _cn_key:
+                    _cc_master_exact = _cm
+                    break
+
+        elif isinstance(_single_mc, dict):
+            _single_no = _norm_contract_no(
+                _single_mc.get("contract_no", _single_mc.get("Contract_No", ""))
+            )
+            if _single_no == _norm_contract_no(cn):
+                _cc_master_exact = _single_mc
+
+        if _cc_master_exact is not None:
+            # This is ONLY Contract Master -> Carrying Charges -> CC Free Days.
+            cc_free_days = int(sf(
+                _cc_master_exact.get("cc_free_days",
+                    _cc_master_exact.get("CC_Free_Days", 0)),
+                0
+            ))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
