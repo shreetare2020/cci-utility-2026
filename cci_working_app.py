@@ -1364,6 +1364,106 @@ def fmt_date(v):
     except:
         return "—"
 
+# ─── COLUMN LABEL PRETTIFIER ───────────────────────────────────────────────
+# Converts internal snake_case column names into clean, human-readable
+# headers for both the on-screen tables and the exported Excel sheets.
+_PRETTY_COL_MAP = {
+    "Contract_No": "Contract No",
+    "GRN_No": "GRN No",
+    "Branch": "Branch",
+    "Effective_Date": "Effective Date",
+    "Party_Bill_Date": "Party Bill Date",
+    "Bales": "Bales",
+    "Material_Amount": "Material Amount",
+    "GST_On_Material": "GST On Material",
+    "Total_Bill_Amount": "Total Bill Amount",
+    "Payment_Amount": "Payment Amount",
+    "Per_Bale_EMD": "Per Bale EMD",
+    "EMD_Allocated": "EMD Allocated",
+    "EMD_Date": "EMD Date",
+    "Net_Amount": "Net Amount",
+    "Payment_Date": "Payment Date",
+    "Payment_Mode": "Mode Of Transaction",
+    "EMD_Days": "EMD Days",
+    "EMD_Interest": "EMD Interest",
+    "CD_Days": "CD Days",
+    "CD_Pct": "CD %",
+    "CD_Due_Date": "CD Due Date",
+    "Cash_Discount": "Cash Discount",
+    "Late_Lift_Days": "Late Lift Days",
+    "Late_Lifting_Chg": "Late Lifting Charges",
+    "Late_Lifting_GST": "Late Lifting GST",
+    "CC_Free_End": "CC Free End",
+    "CC_Days": "CC Days",
+    "Carry_Charges": "Carrying Charges",
+    "Carry_GST": "Carrying GST",
+    # Contract-wise / Branch-wise summary aggregate names
+    "GRNs": "GRNs",
+    "Contracts": "Contracts",
+    "Total_Bales": "Total Bales",
+    "Total_Material": "Total Material",
+    "Total_GST": "Total GST",
+    "Total_Bill": "Total Bill",
+    "Total_Payment": "Total Payment",
+    "Total_EMD": "Total EMD Allocated",
+    "Total_EMD_Interest": "Total EMD Interest",
+    "Total_Cash_Disc": "Total Cash Discount",
+    "Total_LL": "Total Late Lifting",
+    "Total_LL_GST": "Total Late Lifting GST",
+    "Total_CC": "Total Carrying Charges",
+    "Total_CC_GST": "Total Carrying GST",
+    "Material": "Material",
+    "GST": "GST",
+    "Payment": "Payment",
+    "EMD_Alloc": "EMD Allocated",
+    "Cash_Disc": "Cash Discount",
+    "LL_Chg": "Late Lifting Charges",
+    "LL_GST": "Late Lifting GST",
+    "CC_Chg": "Carrying Charges",
+    "CC_GST": "Carrying GST",
+}
+
+import re as _re
+def pretty_col(col):
+    """Map one internal column name to a clean display label."""
+    m = _re.match(r"^CC_Slab(\d+)_(.+)$", col)
+    if m:
+        return f"CC Slab {m.group(1)} ({m.group(2)})"
+    if col in _PRETTY_COL_MAP:
+        return _PRETTY_COL_MAP[col]
+    return col.replace("_", " ")
+
+def pretty_columns(df):
+    """Return a copy of df with human-readable column headers."""
+    return df.rename(columns={c: pretty_col(c) for c in df.columns})
+
+def branch_wise_summary(result_df):
+    """Aggregate the GRN-wise result into a Branch-level summary."""
+    if "Branch" not in result_df.columns:
+        return pd.DataFrame()
+    bs = result_df.groupby("Branch").agg(
+        Contracts=("Contract_No","nunique"),
+        GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
+        Total_Material=("Material_Amount","sum"),
+        Total_GST=("GST_On_Material","sum"),
+        Total_Bill=("Total_Bill_Amount","sum"),
+        Total_Payment=("Payment_Amount","sum"),
+        Total_EMD=("EMD_Allocated","sum"),
+        Total_EMD_Interest=("EMD_Interest","sum"),
+        Total_Cash_Disc=("Cash_Discount","sum"),
+        Total_LL=("Late_Lifting_Chg","sum"),
+        Total_LL_GST=("Late_Lifting_GST","sum"),
+        Total_CC=("Carry_Charges","sum"),
+        Total_CC_GST=("Carry_GST","sum"),
+    ).reset_index()
+    bs_total = {c: "" for c in bs.columns}
+    bs_total["Branch"] = "GRAND TOTAL"
+    for c in bs.columns:
+        if c != "Branch":
+            bs_total[c] = pd.to_numeric(bs[c], errors="coerce").sum()
+    bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
+    return bs
+
 def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
@@ -1404,7 +1504,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c in detail_export.columns:
                 detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
         detail_export = pd.concat([detail_export, pd.DataFrame([detail_total])], ignore_index=True)
-        detail_export.to_excel(w, sheet_name="GRN Calculation", index=False)
+        pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
             Total_Material=("Material_Amount","sum"),
@@ -1428,7 +1528,13 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c != "Contract_No" and c != "Branch":
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        summary.to_excel(w, sheet_name="Summary", index=False)
+        pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
+
+        # ── Branch-wise Summary ──────────────────────────────────────────────
+        branch_summary = branch_wise_summary(result_df)
+        if not branch_summary.empty:
+            pretty_columns(branch_summary).to_excel(w, sheet_name="Branch Summary", index=False)
+
         cont.to_excel(w, sheet_name="PUR CONT", index=False)
         emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
@@ -2055,7 +2161,7 @@ with tab_results:
                 vals = pd.to_numeric(df[c], errors="coerce")
                 detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
         disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
-        st.dataframe(disp, use_container_width=True, height=440, hide_index=True)
+        st.dataframe(pretty_columns(disp), use_container_width=True, height=440, hide_index=True)
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">📋 Contract-wise Summary</div>', unsafe_allow_html=True)
@@ -2079,7 +2185,15 @@ with tab_results:
             if c not in ("Contract_No","Branch"):
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        st.dataframe(summary, use_container_width=True, hide_index=True)
+        st.dataframe(pretty_columns(summary), use_container_width=True, hide_index=True)
+
+        st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
+        branch_summary_ui = branch_wise_summary(df)
+        if not branch_summary_ui.empty:
+            st.dataframe(pretty_columns(branch_summary_ui), use_container_width=True, hide_index=True)
+        else:
+            st.info("Branch data not available for this upload.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 4: FORMULA GUIDE
