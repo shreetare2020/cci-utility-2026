@@ -1152,11 +1152,6 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # Do NOT use Contract Master Effective Date for CC.
         cc_eff_date = eff_date_map.get(str(cn).strip().upper(), pd.NaT)
 
-        # Effective Date used by the calculation/result is the date from
-        # uploaded PUR CONT DETAILS.  This also prevents the CD block and
-        # result row from referencing an undefined `eff_date`.
-        eff_date = cc_eff_date
-
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
         payment_amt = pay_total_map.get(cn, 0)
