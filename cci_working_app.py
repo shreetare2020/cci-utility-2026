@@ -997,8 +997,16 @@ def parse_excel(file_bytes):
     emd["EMD_Amount"] = pd.to_numeric(emd["EMD_Amount"], errors="coerce")
     emd = emd.dropna(subset=["EMD_Amount"]).reset_index(drop=True)
     # Columns: Contract No | Mode of Transaction | Payment Date | Payment Amount
-    pay = raw2.iloc[1:,[4,5,6,7]].copy()
-    pay.columns = ["Contract_No","Mode_Of_Transaction","Payment_Date","Payment_Amount"]
+    # (Backward compatible: if the sheet doesn't yet have the Mode of
+    # Transaction column (col H), fall back to the old 3-column layout
+    # Contract No | Payment Date | Payment Amount and leave mode blank.)
+    if raw2.shape[1] >= 8:
+        pay = raw2.iloc[1:,[4,5,6,7]].copy()
+        pay.columns = ["Contract_No","Mode_Of_Transaction","Payment_Date","Payment_Amount"]
+    else:
+        pay = raw2.iloc[1:,[4,5,6]].copy()
+        pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
+        pay["Mode_Of_Transaction"] = ""
     pay = pay.dropna(subset=["Contract_No","Payment_Amount"])
     pay = pay[~pay["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
     pay["Payment_Date"]   = pd.to_datetime(pay["Payment_Date"], errors="coerce")
