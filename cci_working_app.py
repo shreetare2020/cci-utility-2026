@@ -1131,62 +1131,70 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
 
-        # CC FREE DAYS MUST COME FROM THE MATCHED CONTRACT MASTER.
-        # _mc(cn) applies exact Contract No first, then DEFAULT fallback.
-        # Therefore CC Free Days and CC slabs use the same master condition.
-        cc_master = row_mc or {}
-        # This is the FREE DAYS entered in Contract Master -> Carrying Charges.
-        # It is NOT the CC slab duration (e.g. 30 days) and NOT a hard-coded value.
-        # IMPORTANT: CC Free Days are contract-specific. Never use DEFAULT/first
-        # master as a CC free-days fallback. If the uploaded contract has no
-        # matching Contract Master, CC Free Days is 0 rather than silently using
-        # another contract's value (e.g. 60).
-        # Resolve CC Free Days from THIS CONTRACT MASTER record only.
-        # Never use the selected/default master and never use slab days.
+        # ── CONTRACT-SPECIFIC CC FREE DAYS ───────────────────────────────────
+        # CC Free Days MUST come from the SAME Contract Master record as this
+        # GRN Contract No.  Never use slab days, DEFAULT, first record, or 0
+        # when the matching master record actually contains a value.
+        #
+        # Canonical contract matching removes all non-alphanumeric characters,
+        # so Excel values such as "VC25Y-00001", " VC25Y-00001 ",
+        # "vc25y00001" still identify the same contract.
+        def _contract_key(v):
+            if v is None or (isinstance(v, float) and pd.isna(v)):
+                return ""
+            return re.sub(r"[^A-Z0-9]", "", str(v).strip().upper())
+
+        def _master_contract_no(m):
+            if not isinstance(m, dict):
+                return ""
+            for k in ("contract_no", "Contract_No", "CONTRACT_NO", "cno", "Contract No"):
+                v = m.get(k)
+                if v not in (None, ""):
+                    return v
+            return ""
+
+        def _master_cc_free_days(m):
+            if not isinstance(m, dict):
+                return 0
+            # Current saved field
+            for k in (
+                "cc_free_days", "CC_Free_Days", "CC FREE DAYS",
+                "CC Free Days", "CC_FREE_DAYS", "cc_free"
+            ):
+                if k in m and m.get(k) not in (None, ""):
+                    return int(sf(m.get(k), 0))
+            # Also support a nested Carrying Charges object if present in
+            # older master records.
+            for parent_key in ("carrying_charges", "Carrying Charges", "carryingCharges"):
+                parent = m.get(parent_key)
+                if isinstance(parent, dict):
+                    for k in ("cc_free_days", "CC_Free_Days", "CC FREE DAYS",
+                              "CC Free Days", "CC_FREE_DAYS", "free_days", "Free Days"):
+                        if k in parent and parent.get(k) not in (None, ""):
+                            return int(sf(parent.get(k), 0))
+            return 0
+
         cc_free_days = 0
         _cc_master_exact = None
+        _cn_key = _contract_key(cn)
 
+        # ALWAYS search the complete Contract Master list for the exact
+        # contract. Do not rely on _mc()/DEFAULT for this field.
         if isinstance(_contracts_list, list):
-            _cn_norm = _norm_contract_no(cn)
-            _cn_key = re.sub(r"[^A-Z0-9]", "", _cn_norm)
-
             for _cm in _contracts_list:
-                if not isinstance(_cm, dict):
-                    continue
-
-                # Support old/new master field names.
-                _cm_no = (
-                    _cm.get("contract_no")
-                    if _cm.get("contract_no") not in (None, "")
-                    else _cm.get("Contract_No", _cm.get("cno", ""))
-                )
-                _cm_norm = _norm_contract_no(_cm_no)
-                _cm_key = re.sub(r"[^A-Z0-9]", "", _cm_norm)
-
-                # First preference: exact normalized Contract No.
-                if _cn_norm and _cm_norm == _cn_norm:
+                if _contract_key(_master_contract_no(_cm)) == _cn_key and _cn_key:
                     _cc_master_exact = _cm
                     break
-
-                # Second preference: same contract after removing spaces/hyphens.
-                if _cn_key and _cm_key == _cn_key:
-                    _cc_master_exact = _cm
-                    break
-
         elif isinstance(_single_mc, dict):
-            _single_no = _norm_contract_no(
-                _single_mc.get("contract_no", _single_mc.get("Contract_No", ""))
-            )
-            if _single_no == _norm_contract_no(cn):
+            if _contract_key(_master_contract_no(_single_mc)) == _cn_key and _cn_key:
                 _cc_master_exact = _single_mc
 
         if _cc_master_exact is not None:
-            # This is ONLY Contract Master -> Carrying Charges -> CC Free Days.
-            cc_free_days = int(sf(
-                _cc_master_exact.get("cc_free_days",
-                    _cc_master_exact.get("CC_Free_Days", 0)),
-                0
-            ))
+            cc_free_days = _master_cc_free_days(_cc_master_exact)
+
+        # IMPORTANT: if an exact Contract Master exists with CC Free Days=0,
+        # 0 is the correct value. Never fall back to another contract.
+        # ───────────────────────────────────────────────────────────────────
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
