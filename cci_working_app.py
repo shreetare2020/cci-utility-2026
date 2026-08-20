@@ -168,7 +168,7 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
 }
 
 /* ── METRIC CARDS ── */
-.metric-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 .metric-card {
     background: #ffffff; border: 1px solid #e5e7eb;
     border-radius: 14px; padding: 18px 14px; text-align: center;
@@ -2086,38 +2086,26 @@ with tab_results:
         tot_bill = df["Total_Bill_Amount"].sum()
         tot_emd  = df["EMD_Interest"].sum()
         tot_ll   = df["Late_Lifting_Chg"].sum()
+        tot_cd   = df["Cash_Discount"].sum() if "Cash_Discount" in df.columns else 0.0
         tot_cc   = df["Carry_Charges"].sum()
         tot_grns = len(df)
 
-        st.markdown(f"""
-        <div class="metric-row">
-          <div class="metric-card blue">
-            <div class="metric-icon">📋</div>
-            <div class="metric-val">{tot_grns}</div>
-            <div class="metric-lbl">Total GRNs</div>
-          </div>
-          <div class="metric-card green">
-            <div class="metric-icon">💰</div>
-            <div class="metric-val">₹{tot_bill:,.0f}</div>
-            <div class="metric-lbl">Total Bill Amt</div>
-          </div>
-          <div class="metric-card teal">
-            <div class="metric-icon">📈</div>
-            <div class="metric-val">₹{tot_emd:,.0f}</div>
-            <div class="metric-lbl">EMD Interest</div>
-          </div>
-          <div class="metric-card red">
-            <div class="metric-icon">⏰</div>
-            <div class="metric-val">₹{tot_ll:,.0f}</div>
-            <div class="metric-lbl">Late Lifting</div>
-          </div>
-          <div class="metric-card orange">
-            <div class="metric-icon">🚛</div>
-            <div class="metric-val">₹{tot_cc:,.0f}</div>
-            <div class="metric-lbl">Carry Charges</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # ── TOP SUMMARY METRICS ──────────────────────────────────────────────
+        # Use native Streamlit metric columns so every summary box is rendered
+        # reliably (including Cash Discount), instead of relying on HTML cards.
+        _m1, _m2, _m3, _m4, _m5, _m6 = st.columns(6, gap="small")
+        with _m1:
+            st.metric("📋 Total GRNs", f"{tot_grns:,}")
+        with _m2:
+            st.metric("💰 Total Bill Amt", f"₹{tot_bill:,.0f}")
+        with _m3:
+            st.metric("📈 EMD Interest", f"₹{tot_emd:,.0f}")
+        with _m4:
+            st.metric("⏰ Late Lifting", f"₹{tot_ll:,.0f}")
+        with _m5:
+            st.metric("💸 Cash Discount", f"₹{tot_cd:,.0f}")
+        with _m6:
+            st.metric("🚛 Carry Charges", f"₹{tot_cc:,.0f}")
 
         if "excel_bytes" in st.session_state:
             st.download_button(
