@@ -1273,9 +1273,61 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # CC Free End = last free day (CC Free Days are inclusive; Effective Date = Day 1)
         cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
         if cc_free_days_int > 0:
-            cc_free_end = effective_dt + pd.Timedelta(days=cc_free_days_int - 1)
+            # CC Free End = last free day; Effective Date is Day 1.
+            cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
+
+        # =========================================================
+        # EFFECTIVE DATE — FINAL SOURCE LOGIC
+        # =========================================================
+        # Upload "cont details" sheet uses the exact column name:
+        #     Effective_Date
+        #
+        # Specific Sauda:
+        #     Effective Date comes from Contract Master.
+        #
+        # DEFAULT Sauda:
+        #     Effective Date comes from uploaded cont details sheet
+        #     column "Effective_Date".
+        # =========================================================
+        if "Effective_Date" in row.index:
+            _upload_effective_date = row.get("Effective_Date")
         else:
-            cc_free_end = effective_dt
+            _upload_effective_date = None
+
+        if pd.notna(_upload_effective_date):
+            effective_date = pd.to_datetime(
+                _upload_effective_date, dayfirst=True, errors="coerce"
+            )
+        else:
+            effective_date = pd.NaT
+
+        # Master effective date should already be available for a specific
+        # contract. Use it when the selected contract is SPECIFIC.
+        if mode == "SPECIFIC":
+            _master_effective_value = (
+                m.get("Effective_Date")
+                if "Effective_Date" in m.index
+                else m.get("Interest_Effective_Date")
+            )
+            _master_effective = pd.to_datetime(
+                _master_effective_value, dayfirst=True, errors="coerce"
+            )
+            if pd.notna(_master_effective):
+                effective_date = _master_effective
+
+        if pd.isna(effective_date):
+            raise ValueError(
+                "Effective_Date is missing/invalid in uploaded cont details "
+                "and no valid Contract Master Effective Date is available."
+            )
+
+            # CC Free End: Effective Date is Day 1, so Free Days - 1 is added.
+
+            cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
+
+            cc_free_end = effective_date + pd.Timedelta(days=max(cc_free_days_int - 1, 0))
+        else:
+            cc_free_end = eff_date_map
         if not pd.isna(eff_date):
             # CC Free End is the LAST FREE DAY (inclusive).
             # Example: Effective Date 02-04-2025 + 45 free days
