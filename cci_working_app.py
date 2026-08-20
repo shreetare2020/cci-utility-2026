@@ -1150,9 +1150,15 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # CC Free End     -> Effective Date + Contract Master CC Free Days.
         #
         # Do NOT use Contract Master Effective Date for CC.
-        cc_eff_date = eff_date_map.get(str(cn).strip().upper(), pd.NaT)
-        # Use the PUR CONT DETAILS Effective Date consistently for all calculations
-        # that require the transaction Effective Date (including CD and output).
+        # IMPORTANT: CC Effective Date MUST be taken row-by-row from
+        # PUR CONT DETAILS using Contract_No.  Contract Master effective_date
+        # is NEVER used for CC.
+        _cn_key = str(cn).strip().upper()
+        cc_eff_date = pd.to_datetime(eff_date_map.get(_cn_key, pd.NaT), errors="coerce")
+        if not pd.isna(cc_eff_date):
+            cc_eff_date = pd.Timestamp(cc_eff_date).normalize()
+
+        # Use the same PUR CONT DETAILS Effective Date for CD/output.
         eff_date = cc_eff_date
 
         gst_on_mat  = round(igst, 2)
@@ -1301,7 +1307,11 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         # 4) Payment Date <= CC Free End -> CC Days = 0, CC = 0.
         # 5) Payment Date > CC Free End -> CC Days = Payment Date - CC Free End.
         if not pd.isna(cc_eff_date):
-            cc_free_end = cc_eff_date + pd.Timedelta(days=cc_free_days)
+            # EXACT BUSINESS RULE:
+            # CC Free End = PUR CONT DETAILS Effective Date +
+            #               Contract Master Carrying Charges Free Days.
+            # Example: 13-Mar-2026 + 30 = 12-Apr-2026.
+            cc_free_end = pd.Timestamp(cc_eff_date).normalize() + pd.Timedelta(days=cc_free_days)
             if not pd.isna(pay_date) and pay_date > cc_free_end:
                 cc_days = (pay_date - cc_free_end).days
                 s1c = cc_slabs[0] if len(cc_slabs) > 0 else {"days": 30, "pct": 1.25}
