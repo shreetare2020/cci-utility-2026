@@ -660,35 +660,128 @@ def _do_login():
         st.session_state._login_error = "❌ Invalid username or password."
 
 if not st.session_state.authenticated:
+    # ─── LOGIN PAGE ONLY ─────────────────────────────────────────────────────
+    # IMPORTANT: Only the login UI is changed here. Authentication, Firebase,
+    # calculations and all application logic below remain untouched.
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@700;800;900&display=swap');
-    *{box-sizing:border-box}
-    [data-testid="stHeader"],footer,[data-testid="stToolbar"]{display:none!important}
-    [data-testid="stAppViewContainer"]{background:#fff!important;min-height:100vh!important}
-    .main .block-container{padding:0!important;max-width:100%!important;height:100vh!important;overflow:hidden!important}
-    .login-brand{height:100vh;padding:38px 48px 32px;background:linear-gradient(155deg,#f97316 0%,#ea580c 38%,#c2410c 70%,#9a3412 100%);color:#fff;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;font-family:Inter,sans-serif}
-    .login-brand:before{content:"";position:absolute;width:430px;height:430px;right:-150px;top:-160px;border-radius:50%;background:rgba(255,255,255,.10)}
-    .login-brand:after{content:"";position:absolute;width:340px;height:340px;left:-180px;bottom:-160px;border-radius:50%;background:rgba(255,255,255,.07)}
-    .brand-content,.brand-footer{position:relative;z-index:2}.brand-top{display:flex;align-items:center;gap:14px}.brand-logo{width:108px;height:60px;background:#fff;border-radius:12px;padding:7px;object-fit:contain;box-shadow:0 7px 18px rgba(0,0,0,.16)}.brand-company{font-size:14px;font-weight:900;letter-spacing:.08em}.brand-title{font-family:Poppins,sans-serif;font-size:42px;line-height:1.02;font-weight:900;margin-top:12px}.brand-subtitle{font-size:14px;font-weight:800;margin-top:24px;color:#fff0d9}.brand-copy{font-size:15px;line-height:1.6;max-width:530px;margin-top:14px;color:rgba(255,255,255,.92)}
-    .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:30px;max-width:590px}.feature{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.10);border-radius:14px;padding:16px}.feature-icon{font-size:20px;margin-bottom:8px}.feature-title{font-size:13px;font-weight:900}.feature-text{font-size:11px;margin-top:5px;color:rgba(255,255,255,.82);line-height:1.4}.brand-footer{font-size:10px;color:rgba(255,255,255,.8)}
-    .login-panel{height:100vh;display:flex;align-items:center;justify-content:center;padding:28px 60px;background:#fff;font-family:Inter,sans-serif}.login-content{width:100%;max-width:440px}.login-eyebrow{display:flex;align-items:center;gap:10px;justify-content:center;color:#f05a16;font-size:11px;font-weight:900;letter-spacing:.14em;margin-bottom:18px}.login-eyebrow:before,.login-eyebrow:after{content:"";height:1px;background:#f7b08c;flex:1}.login-heading{font-family:Poppins,sans-serif;font-size:34px;line-height:1.1;font-weight:900;color:#111827;text-align:center}.login-subheading{text-align:center;color:#6b7280;font-size:14px;margin:10px 0 25px}.login-form-label{font-size:12px;font-weight:800;color:#374151;margin:0 0 6px 2px}.login-panel div[data-testid="stTextInput"]{margin-bottom:10px!important}.login-panel div[data-testid="stTextInput"] input{height:48px!important;border:1.5px solid #e5e7eb!important;border-radius:10px!important;background:#fafafa!important;color:#111827!important;font-size:14px!important}.login-panel div[data-testid="stTextInput"] label{display:none!important}.login-panel div[data-testid="stButton"] button{height:48px!important;border:0!important;border-radius:10px!important;background:linear-gradient(135deg,#ea580c,#f97316)!important;color:#fff!important;font-weight:900!important;font-size:14px!important;box-shadow:0 8px 18px rgba(234,88,12,.22)!important;margin-top:5px!important}.login-error{color:#dc2626;background:#fff1f2;border:1px solid #fecdd3;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700;margin-top:10px;text-align:center}.login-note{text-align:center;color:#9ca3af;font-size:10px;margin-top:16px}
-    @media(max-width:900px){.login-brand{display:none}.login-panel{width:100%;padding:30px 24px}.main .block-container{height:auto!important;overflow:auto!important}}
+    html, body, [data-testid="stAppViewContainer"] { overflow: hidden !important; }
+    [data-testid="stHeader"] { background: transparent !important; }
+    .block-container { padding: 0 !important; max-width: 100% !important; }
+    .login-page {
+        min-height: 100vh;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 55% 45%;
+        background: #ffffff;
+        overflow: hidden;
+    }
+    .login-left {
+        min-height: 100vh;
+        box-sizing: border-box;
+        padding: 38px 48px 30px;
+        color: #ffffff;
+        background: linear-gradient(145deg, #f4511e 0%, #ef5b18 42%, #c83d0d 100%);
+        position: relative;
+        overflow: hidden;
+    }
+    .login-left:after {
+        content: "";
+        position: absolute;
+        width: 420px; height: 420px;
+        border-radius: 50%;
+        right: -190px; bottom: -220px;
+        background: rgba(255,255,255,.07);
+    }
+    .brand-row { display:flex; align-items:center; gap:14px; position:relative; z-index:2; }
+    .brand-logo {
+        width:108px; height:58px; object-fit:contain; background:#fff;
+        border-radius:12px; padding:6px; box-sizing:border-box;
+    }
+    .brand-name { font-size:15px; font-weight:900; letter-spacing:.12em; }
+    .hero-title { font-size:40px; line-height:1; font-weight:950; margin:16px 0 24px; position:relative; z-index:2; }
+    .hero-tag { font-size:15px; font-weight:850; color:#ffe4bd; margin-bottom:12px; position:relative; z-index:2; }
+    .hero-copy { max-width:600px; font-size:15px; line-height:1.55; color:#fff5ef; position:relative; z-index:2; margin-bottom:24px; }
+    .feature-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; position:relative; z-index:2; }
+    .feature {
+        border:1px solid rgba(255,255,255,.28); border-radius:15px;
+        background:rgba(255,255,255,.10); padding:16px 15px 13px;
+        min-height:82px; box-sizing:border-box;
+    }
+    .feature-icon { font-size:22px; margin-bottom:7px; }
+    .feature-title { font-size:13px; font-weight:900; color:#ffe6ad; }
+    .feature-text { font-size:11px; line-height:1.35; color:#fff3eb; margin-top:3px; }
+    .trust-row { margin-top:8px; font-size:10px; color:#ffe7d8; position:relative; z-index:2; }
+    .login-right {
+        min-height:100vh; box-sizing:border-box; padding:0 70px;
+        display:flex; align-items:center; justify-content:center;
+        background:#fff;
+    }
+    .login-panel { width:100%; max-width:470px; margin-top:-8px; }
+    .login-kicker { text-align:center; color:#f4511e; font-size:11px; font-weight:900; letter-spacing:.15em; margin-bottom:20px; }
+    .login-kicker:before, .login-kicker:after { content:""; display:inline-block; vertical-align:middle; width:56px; height:1px; background:#f7a080; margin:0 10px; }
+    .welcome { font-size:36px; line-height:1.05; font-weight:950; color:#0b0b0c; text-align:left; margin:0; }
+    .welcome-sub { color:#667085; font-size:14px; margin:10px 0 22px; }
+    .login-form-box { width:100%; }
+    .login-form-box [data-testid="stTextInput"] { margin-bottom:12px !important; }
+    .login-form-box [data-testid="stTextInput"] label { color:#1f2937 !important; font-weight:700 !important; font-size:13px !important; }
+    .login-form-box [data-testid="stTextInput"] input {
+        height:48px !important; box-sizing:border-box !important;
+        background:#fff !important; color:#111827 !important;
+        border:1.5px solid #d9dde3 !important; border-radius:10px !important;
+    }
+    .login-form-box [data-testid="stTextInput"] input:focus { border-color:#f4511e !important; box-shadow:0 0 0 3px rgba(244,81,30,.12) !important; }
+    .login-form-box [data-testid="stButton"] button {
+        height:48px !important; margin-top:5px !important; border-radius:10px !important;
+        background:linear-gradient(135deg,#f4511e,#e34b14) !important;
+        color:#fff !important; border:0 !important; font-weight:900 !important;
+        box-shadow:0 8px 18px rgba(244,81,30,.22) !important;
+    }
+    .login-error { margin-top:10px; color:#b42318; background:#fff1f0; border:1px solid #ffd4d0; border-radius:9px; padding:9px 12px; font-size:12px; }
+    .login-footer { text-align:center; margin-top:18px; color:#98a2b3; font-size:10px; }
+    @media (max-width: 900px) {
+        html, body, [data-testid="stAppViewContainer"] { overflow:auto !important; }
+        .login-page { grid-template-columns:1fr; }
+        .login-left { min-height:auto; padding:28px 28px 24px; }
+        .login-right { min-height:auto; padding:45px 28px; }
+        .hero-title { font-size:34px; }
+    }
     </style>
     """, unsafe_allow_html=True)
-    left, right = st.columns([1.1, 0.9], gap="small")
-    with left:
-        st.markdown('<div class="login-brand"><div class="brand-content"><div class="brand-top"><img class="brand-logo" src="data:image/png;base64,' + LOGO_B64 + '" alt="SoftView Technologies"><div class="brand-company">SOFTVIEW TECHNOLOGIES</div></div><div class="brand-title">Smart software.</div><div class="brand-subtitle">Built for business.</div><div class="brand-copy">SoftView Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams and drive business growth.</div><div class="feature-grid"><div class="feature"><div class="feature-icon">🏢</div><div class="feature-title">Enterprise Ready</div><div class="feature-text">Structured workflows and business controls.</div></div><div class="feature"><div class="feature-icon">📊</div><div class="feature-title">Data Driven</div><div class="feature-text">Clear calculations, reports and insights.</div></div><div class="feature"><div class="feature-icon">🔒</div><div class="feature-title">Secure Access</div><div class="feature-text">Authorised user login and role-based access.</div></div><div class="feature"><div class="feature-icon">💎</div><div class="feature-title">Executive Experience</div><div class="feature-text">Clean, premium and easy-to-use interface.</div></div></div></div><div class="brand-footer">🛡 Secure. Reliable. Scalable. &nbsp;&nbsp;&nbsp; 👥 Trusted by Professionals. &nbsp;&nbsp;&nbsp; 🏆 Excellence in Every Solution.</div></div>', unsafe_allow_html=True)
-    with right:
-        st.markdown('<div class="login-panel"><div class="login-content"><div class="login-eyebrow">CCI WORKING CALCULATION UTILITY</div><div class="login-heading">Welcome Back</div><div class="login-subheading">Sign in to continue to your secure workspace.</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-form-label">Username</div>', unsafe_allow_html=True)
-        st.text_input("Username", key="_lu", placeholder="Enter username")
-        st.markdown('<div class="login-form-label">Password</div>', unsafe_allow_html=True)
-        st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
-        st.button("🔓  Sign In", on_click=_do_login, type="primary", use_container_width=True)
-        if st.session_state._login_error:
-            st.markdown('<div class="login-error">' + st.session_state._login_error + '</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-note">Authorised access only • SoftView Technologies</div></div></div>', unsafe_allow_html=True)
+
+    # HTML shell: the actual Streamlit login inputs are rendered inside the right panel.
+    st.markdown(f"""
+    <div class="login-page">
+      <div class="login-left">
+        <div class="brand-row">
+          <img class="brand-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview Technologies">
+          <div class="brand-name">SOFTVIEW TECHNOLOGIES</div>
+        </div>
+        <div class="hero-title">Smart software.</div>
+        <div class="hero-tag">Built for business.</div>
+        <div class="hero-copy">SoftView Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams and drive business growth.</div>
+        <div class="feature-grid">
+          <div class="feature"><div class="feature-icon">🏢</div><div class="feature-title">Enterprise Ready</div><div class="feature-text">Structured workflows and business controls.</div></div>
+          <div class="feature"><div class="feature-icon">📊</div><div class="feature-title">Data Driven</div><div class="feature-text">Clear calculations, reports and insights.</div></div>
+          <div class="feature"><div class="feature-icon">🔒</div><div class="feature-title">Secure Access</div><div class="feature-text">Authorised user login and role-based access.</div></div>
+          <div class="feature"><div class="feature-icon">💎</div><div class="feature-title">Executive Experience</div><div class="feature-text">Clean, premium and easy-to-use interface.</div></div>
+        </div>
+        <div class="trust-row">🛡 Secure. Reliable. Scalable. &nbsp;&nbsp;&nbsp; 👥 Trusted by Professionals. &nbsp;&nbsp;&nbsp; 🏆 Excellence in Every Solution.</div>
+      </div>
+      <div class="login-right"><div class="login-panel">
+        <div class="login-kicker">CCI WORKING CALCULATION UTILITY</div>
+        <div class="welcome">Welcome Back</div>
+        <div class="welcome-sub">Sign in to continue to your secure workspace.</div>
+        <div class="login-form-box" id="login-form-anchor"></div>
+    """, unsafe_allow_html=True)
+
+    # These controls are the only functional part of the login page.
+    st.text_input("Username", key="_lu", placeholder="Enter username")
+    st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
+    st.button("🔓  Sign In", on_click=_do_login, type="primary", use_container_width=True)
+    if st.session_state._login_error:
+        st.markdown(f'<div class="login-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-footer">Authorised Access Only • SoftView Technologies</div></div></div></div>', unsafe_allow_html=True)
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
