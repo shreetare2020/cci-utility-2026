@@ -799,261 +799,325 @@ def _do_login():
         st.session_state._login_error = "❌ Invalid username or password."
 
 if not st.session_state.authenticated:
+    # ─── PREMIUM ABOLI EXECUTIVE LOGIN ────────────────────────────────────────
     st.markdown("""
     <style>
-    .login-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 40px 36px 36px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-        max-width: 420px;
-        margin: 80px auto 0;
+    /* Full-screen executive login background */
+    [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(circle at 12% 8%, rgba(255,255,255,.14), transparent 26%),
+            radial-gradient(circle at 88% 92%, rgba(181,138,58,.12), transparent 24%),
+            linear-gradient(135deg,#4E2032 0%,#7D3450 42%,#C86A8A 100%) !important;
+        min-height:100vh !important;
     }
-    .lt { font-size:22px; font-weight:700; color:#111827; margin-bottom:4px; }
-    .ls { font-size:13px; color:#6b7280; margin-bottom:24px; }
-    .le { color:#dc2626; font-size:13px; margin-top:8px; font-weight:500; }
-    .login-card .stTextInput input { background:#f9fafb !important; border:1.5px solid #d1d5db !important; color:#111827 !important; }
-    .login-card .stTextInput label { color:#374151 !important; }
-    
-/* =========================================================
-   FINAL UI FIXES
-   ========================================================= */
-
-/* 1) LOGIN: remove blank placeholder above logo / empty blocks */
-.login-page .empty-box,
-.login-page .logo-placeholder,
-.login-page .top-placeholder,
-.login-page .blank-box,
-.login-page .spacer-box {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-.login-page div:empty {
-    display: none !important;
-}
-
-/* Remove generic bordered/filled empty blocks around login logo */
-.login-page [data-testid="stVerticalBlockBorderWrapper"]:has(div:empty) {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-/* 3) FILE UPLOAD: neutral gray button with strong contrast */
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] [role="button"] {
-    background: #4b5563 !important;
-    color: #ffffff !important;
-    border: 1px solid #374151 !important;
-    border-radius: 8px !important;
-    font-weight: 800 !important;
-    text-shadow: none !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,.12) !important;
-}
-[data-testid="stFileUploader"] button:hover,
-[data-testid="stFileUploader"] [role="button"]:hover {
-    background: #374151 !important;
-    color: #ffffff !important;
-}
-
-/* 2) CONTRACT PREVIEW: compact executive card */
-.contract-preview-card {
-    width: 100%;
-    box-sizing: border-box;
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin: 8px 0 12px 0;
-    box-shadow: 0 3px 12px rgba(15,23,42,.08);
-    overflow: hidden;
-}
-.contract-preview-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:12px;
-    padding-bottom:10px;
-    border-bottom:1px solid #e5e7eb;
-}
-.contract-preview-title {
-    font-size:18px;
-    font-weight:900;
-    color:#111827;
-}
-.contract-preview-party {
-    font-size:13px;
-    font-weight:700;
-    color:#6b7280;
-    text-align:right;
-}
-.contract-preview-meta {
-    display:grid;
-    grid-template-columns:repeat(4, minmax(0,1fr));
-    gap:8px;
-    margin:10px 0;
-}
-.contract-preview-meta-item {
-    background:#f8fafc;
-    border:1px solid #e5e7eb;
-    border-radius:8px;
-    padding:7px 9px;
-}
-.contract-preview-label {
-    font-size:10px;
-    font-weight:700;
-    color:#6b7280;
-    text-transform:uppercase;
-}
-.contract-preview-value {
-    font-size:13px;
-    font-weight:800;
-    color:#111827;
-    margin-top:2px;
-}
-.contract-preview-sections {
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0,1fr));
-    gap:10px;
-}
-.contract-preview-section {
-    border:1px solid #e5e7eb;
-    border-radius:9px;
-    padding:9px 10px;
-    background:#fafafa;
-    min-width:0;
-}
-.contract-preview-section h4 {
-    margin:0 0 7px 0;
-    font-size:12px;
-    font-weight:900;
-    color:#1f2937;
-}
-.contract-preview-row {
-    display:flex;
-    justify-content:space-between;
-    gap:8px;
-    padding:4px 0;
-    border-bottom:1px dashed #e5e7eb;
-    font-size:11px;
-}
-.contract-preview-row:last-child {
-    border-bottom:none;
-}
-.contract-preview-row span:first-child {
-    color:#6b7280;
-}
-.contract-preview-row span:last-child {
-    color:#111827;
-    font-weight:800;
-    text-align:right;
-    white-space:nowrap;
-}
-.contract-preview-actions {
-    display:flex;
-    gap:8px;
-    margin-top:10px;
-}
-@media (max-width: 900px) {
-    .contract-preview-meta,
-    .contract-preview-sections {
-        grid-template-columns:1fr;
+    [data-testid="stHeader"] { background:transparent !important; }
+    [data-testid="stToolbar"] { display:none !important; }
+    .main .block-container {
+        max-width:1280px !important;
+        padding:2.4rem 2.4rem 2rem !important;
     }
-}
 
-/* 4) EXECUTIVE DASHBOARD */
-.executive-dashboard {
-    background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
-    border-radius:16px;
-    padding:20px 22px;
-    margin:8px 0 18px 0;
-    box-shadow:0 8px 25px rgba(15,23,42,.18);
-}
-.executive-dashboard h2 {
-    color:#ffffff;
-    margin:0;
-    font-size:25px;
-    font-weight:900;
-}
-.executive-dashboard p {
-    color:#cbd5e1;
-    margin:4px 0 0 0;
-    font-size:13px;
-}
-.exec-kpis {
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:10px;
-    margin-top:15px;
-}
-.exec-kpi {
-    background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.12);
-    border-radius:11px;
-    padding:12px;
-}
-.exec-kpi-label {
-    color:#cbd5e1;
-    font-size:10px;
-    font-weight:800;
-    text-transform:uppercase;
-}
-.exec-kpi-value {
-    color:#ffffff;
-    font-size:22px;
-    font-weight:900;
-    margin-top:3px;
-}
+    .sv-login-shell {
+        min-height: calc(100vh - 4.4rem);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+    }
+    .sv-login-wrap {
+        width:100%;
+        max-width:1160px;
+        min-height:620px;
+        display:grid;
+        grid-template-columns:1.08fr .92fr;
+        border-radius:28px;
+        overflow:hidden;
+        background:rgba(255,255,255,.98);
+        box-shadow:0 28px 70px rgba(55,17,31,.35), 0 0 0 1px rgba(255,255,255,.20);
+    }
 
+    /* Brand / company introduction */
+    .sv-brand-panel {
+        position:relative;
+        padding:56px 58px;
+        color:#fff;
+        background:
+            radial-gradient(circle at 86% 18%, rgba(255,255,255,.14), transparent 25%),
+            radial-gradient(circle at 20% 86%, rgba(181,138,58,.14), transparent 28%),
+            linear-gradient(145deg,#4B1D2E 0%,#7D3450 48%,#B95477 100%);
+        overflow:hidden;
+        display:flex;
+        flex-direction:column;
+        justify-content:space-between;
+    }
+    .sv-brand-panel:before {
+        content:"";
+        position:absolute;
+        width:300px;height:300px;
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:50%;
+        right:-120px;bottom:-120px;
+    }
+    .sv-brand-panel:after {
+        content:"";
+        position:absolute;
+        width:180px;height:180px;
+        border:1px solid rgba(255,255,255,.10);
+        border-radius:50%;
+        right:20px;bottom:20px;
+    }
+    .sv-brand-top,.sv-brand-bottom { position:relative; z-index:2; }
 
-<style>
-/* FINAL UPLOAD BUTTON */
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] button[kind],
-[data-testid="stFileUploader"] [data-testid="baseButton-secondary"] {
-    background: #6b7280 !important;
-    background-image: none !important;
-    color: #ffffff !important;
-    border: 1px solid #4b5563 !important;
-    border-radius: 7px !important;
-    font-weight: 800 !important;
-    box-shadow: none !important;
-}
-[data-testid="stFileUploader"] button:hover,
-[data-testid="stFileUploader"] [data-testid="baseButton-secondary"]:hover {
-    background: #4b5563 !important;
-    color: #ffffff !important;
-}
+    .sv-logo-box {
+        width:74px;height:74px;
+        border-radius:20px;
+        display:flex;align-items:center;justify-content:center;
+        background:rgba(255,255,255,.12);
+        border:1px solid rgba(255,255,255,.20);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 25px rgba(35,9,19,.15);
+        margin-bottom:28px;
+    }
+    .sv-logo-box img {
+        max-width:54px;max-height:54px;
+        object-fit:contain;
+    }
+    .sv-eyebrow {
+        font-size:11px;
+        font-weight:800;
+        letter-spacing:.18em;
+        text-transform:uppercase;
+        color:#F6DDE6;
+        margin-bottom:9px;
+    }
+    .sv-brand-title {
+        font-size:36px;
+        line-height:1.08;
+        font-weight:900;
+        letter-spacing:-.8px;
+        margin:0 0 10px;
+    }
+    .sv-brand-subtitle {
+        font-size:15px;
+        line-height:1.7;
+        color:rgba(255,255,255,.78);
+        max-width:510px;
+        margin-bottom:26px;
+    }
+    .sv-intro {
+        max-width:525px;
+        font-size:13px;
+        line-height:1.75;
+        color:rgba(255,255,255,.88);
+        padding:17px 18px;
+        border:1px solid rgba(255,255,255,.13);
+        border-left:3px solid #D7AD62;
+        border-radius:12px;
+        background:rgba(255,255,255,.065);
+        backdrop-filter:blur(4px);
+    }
+    .sv-feature-grid {
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        margin-top:22px;
+        max-width:540px;
+    }
+    .sv-feature {
+        padding:12px 13px;
+        border-radius:11px;
+        background:rgba(255,255,255,.065);
+        border:1px solid rgba(255,255,255,.10);
+        font-size:11.5px;
+        color:rgba(255,255,255,.90);
+    }
+    .sv-feature b {
+        display:block;
+        font-size:12px;
+        color:#fff;
+        margin-bottom:3px;
+    }
+    .sv-footer {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        font-size:10.5px;
+        color:rgba(255,255,255,.52);
+        letter-spacing:.03em;
+        margin-top:30px;
+    }
+    .sv-secure-badge {
+        border:1px solid rgba(255,255,255,.16);
+        background:rgba(255,255,255,.07);
+        padding:6px 10px;
+        border-radius:30px;
+        color:rgba(255,255,255,.76);
+    }
 
-/* LOGIN: absolutely no outer card */
-.login-card,
-.login-page .login-card,
-.login-page [data-testid="stVerticalBlockBorderWrapper"] {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-}
-</style>
-</style>
+    /* Login form panel */
+    .sv-form-panel {
+        padding:54px 62px 44px;
+        display:flex;
+        align-items:center;
+        background:linear-gradient(180deg,#FFFFFF 0%,#FFF9FB 100%);
+    }
+    .sv-form-inner { width:100%; max-width:410px; margin:auto; }
+    .sv-form-kicker {
+        color:#A34E6D;
+        font-size:10.5px;
+        font-weight:800;
+        letter-spacing:.16em;
+        text-transform:uppercase;
+        margin-bottom:10px;
+    }
+    .sv-form-title {
+        font-size:31px;
+        line-height:1.15;
+        font-weight:900;
+        color:#321824;
+        letter-spacing:-.5px;
+        margin:0 0 8px;
+    }
+    .sv-form-sub {
+        font-size:13px;
+        color:#81717A;
+        margin:0 0 30px;
+    }
+    .sv-form-panel div[data-testid="stTextInput"] {
+        margin-bottom:12px;
+    }
+    .sv-form-panel div[data-testid="stTextInput"] label {
+        color:#4B3740 !important;
+        font-weight:700 !important;
+        font-size:12px !important;
+    }
+    .sv-form-panel div[data-testid="stTextInput"] input {
+        height:48px !important;
+        background:#FFFDFE !important;
+        border:1px solid #E3CDD6 !important;
+        border-radius:11px !important;
+        color:#34242B !important;
+        font-size:13px !important;
+        padding-left:14px !important;
+    }
+    .sv-form-panel div[data-testid="stTextInput"] input:focus {
+        border-color:#C86A8A !important;
+        box-shadow:0 0 0 3px rgba(200,106,138,.13) !important;
+    }
+    .sv-login-btn button {
+        height:50px !important;
+        border-radius:11px !important;
+        background:linear-gradient(135deg,#7D3450,#C86A8A) !important;
+        border:0 !important;
+        color:#fff !important;
+        font-size:14px !important;
+        font-weight:800 !important;
+        box-shadow:0 8px 18px rgba(125,52,80,.22) !important;
+    }
+    .sv-login-btn button:hover {
+        background:linear-gradient(135deg,#5F263C,#A84C6C) !important;
+        box-shadow:0 10px 22px rgba(125,52,80,.28) !important;
+    }
+    .sv-error {
+        margin-top:12px;
+        padding:10px 12px;
+        border-radius:9px;
+        color:#9B2847;
+        background:#FFF0F4;
+        border:1px solid #F1C8D5;
+        font-size:12px;
+        font-weight:700;
+    }
+    .sv-form-bottom {
+        text-align:center;
+        margin-top:27px;
+        padding-top:18px;
+        border-top:1px solid #F0E2E7;
+        color:#9A8790;
+        font-size:10.5px;
+        line-height:1.6;
+    }
+    .sv-form-bottom b { color:#6F4B59; }
+
+    @media (max-width: 850px) {
+        .main .block-container { padding:1rem !important; }
+        .sv-login-wrap { grid-template-columns:1fr; min-height:auto; border-radius:22px; }
+        .sv-brand-panel { padding:36px 30px; }
+        .sv-form-panel { padding:38px 30px; }
+        .sv-brand-title { font-size:30px; }
+        .sv-feature-grid { grid-template-columns:1fr; }
+        .sv-footer { margin-top:24px; }
+    }
+    </style>
     """, unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 2, 1])
-    with col:
-        st.markdown(
-            f'<div style="text-align:center;margin:35px 0 16px 0;background:transparent;border:0;box-shadow:none;">'
-            f'<img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:transparent;padding:0;border-radius:0;box-shadow:none;border:0;" alt="Softview Technologies"></div>',
-            unsafe_allow_html=True
-        )
-        st.markdown('<div class="lt" style="text-align:center">🔐 CCI Utility Login</div><div style="text-align:center;font-size:11px;color:#64748b;margin-top:-2px;margin-bottom:16px;letter-spacing:.06em">SOFTVIEW TECHNOLOGIES</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ls" style="text-align:center">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
-        st.text_input("Username", key="_lu", placeholder="Enter username")
-        st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
-        st.button("🔓  Login", on_click=_do_login, type="primary", use_container_width=True)
+
+    # One premium two-panel login surface.
+    st.markdown('<div class="sv-login-shell"><div class="sv-login-wrap">', unsafe_allow_html=True)
+
+    left, right = st.columns([1.08, .92], gap="small")
+
+    with left:
+        st.markdown(f"""
+        <div class="sv-brand-panel">
+          <div class="sv-brand-top">
+            <div class="sv-logo-box">
+              <img src="data:image/png;base64,{LOGO_B64}" alt="SoftView Technologies">
+            </div>
+            <div class="sv-eyebrow">SoftView Technologies</div>
+            <div class="sv-brand-title">Smart software.<br>Built for business.</div>
+            <div class="sv-brand-subtitle">
+              Enterprise-focused digital solutions designed to make business processes
+              simpler, faster and more controlled.
+            </div>
+            <div class="sv-intro">
+              <b>About SoftView Technologies</b><br>
+              SoftView Technologies focuses on modern business applications that bring
+              operational workflows, data, reporting and user access together in one
+              professional digital environment.
+            </div>
+            <div class="sv-feature-grid">
+              <div class="sv-feature"><b>✦ Enterprise Ready</b>Structured workflows and business controls.</div>
+              <div class="sv-feature"><b>✦ Data Driven</b>Clear calculations, reports and insights.</div>
+              <div class="sv-feature"><b>✦ Secure Access</b>Authorised user login and controlled access.</div>
+              <div class="sv-feature"><b>✦ Executive Experience</b>Clean, premium and easy-to-use interface.</div>
+            </div>
+          </div>
+          <div class="sv-brand-bottom">
+            <div class="sv-footer">
+              <span>© 2026 SoftView Technologies</span>
+              <span class="sv-secure-badge">🔒 Authorised Enterprise Access</span>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with right:
+        st.markdown('<div class="sv-form-panel"><div class="sv-form-inner">', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="sv-form-kicker">CCI Working Calculation Utility</div>
+        <div class="sv-form-title">Welcome Back</div>
+        <div class="sv-form-sub">Sign in to continue to your secure workspace.</div>
+        """, unsafe_allow_html=True)
+
+        st.text_input("Username", key="_lu", placeholder="Enter your username")
+        st.text_input("Password", key="_lp", type="password", placeholder="Enter your password")
+
+        st.markdown('<div class="sv-login-btn">', unsafe_allow_html=True)
+        st.button("🔐  Sign In", on_click=_do_login, type="primary", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
         if st.session_state._login_error:
-            st.markdown(f'<div class="le">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sv-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="sv-form-bottom">
+          <b>SoftView Technologies</b><br>
+          CCI Working Calculation Utility &nbsp;•&nbsp; Premium Enterprise Edition<br>
+          Secure access for authorised users only
+        </div>
+        </div></div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
