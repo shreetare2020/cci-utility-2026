@@ -611,6 +611,100 @@ div[data-testid="stFileUploader"] button {
 </style>
 """, unsafe_allow_html=True)
 
+# ─── PREMIUM ABOLI EXECUTIVE THEME ─────────────────────────────────────────────
+st.markdown("""
+<style>
+:root {
+    --aboli: #C86A8A; --aboli-dark: #8F3F5B; --aboli-deep: #5B2639;
+    --aboli-soft: #F8E7EE; --gold: #B58A3A; --line: #E9D7DF;
+}
+[data-testid="stAppViewContainer"] {
+    background:
+        radial-gradient(circle at 8% 0%, rgba(200,106,138,.10), transparent 28%),
+        radial-gradient(circle at 95% 12%, rgba(181,138,58,.08), transparent 24%),
+        linear-gradient(180deg,#FFF9FB 0%,#F7F2F5 48%,#F4EFF2 100%) !important;
+}
+.main .block-container { max-width:1480px !important; padding:.75rem 1.25rem 2.5rem !important; }
+
+.top-header {
+    background:linear-gradient(110deg,#5B2639 0%,#8F3F5B 48%,#C86A8A 100%) !important;
+    border:1px solid rgba(255,255,255,.18) !important;
+    border-radius:18px !important; min-height:82px !important;
+    box-shadow:0 10px 28px rgba(91,38,57,.22),inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+.top-header-title { font-size:22px !important; }
+.top-header-badge { background:rgba(255,255,255,.15) !important; border:1px solid rgba(255,255,255,.22) !important; }
+
+div[data-testid="stTabs"] {
+    background:rgba(255,255,255,.90) !important; border:1px solid var(--line) !important;
+    border-radius:15px !important; padding:5px !important;
+    box-shadow:0 5px 18px rgba(91,38,57,.08) !important;
+}
+div[data-testid="stTabs"] button { color:#6E5260 !important; font-weight:700 !important; border-radius:10px !important; }
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color:#fff !important; background:linear-gradient(135deg,#8F3F5B,#C86A8A) !important;
+    box-shadow:0 4px 12px rgba(143,63,91,.24) !important;
+}
+
+.sec-label {
+    color:var(--aboli-dark) !important; font-weight:800 !important; letter-spacing:.09em !important;
+    border-left:4px solid var(--aboli) !important; padding-left:9px !important;
+}
+.contract-card,.clean-contract-card {
+    border:1px solid var(--line) !important; border-radius:15px !important;
+    background:rgba(255,255,255,.96) !important; box-shadow:0 7px 20px rgba(91,38,57,.075) !important;
+}
+.contract-card:hover,.clean-contract-card:hover {
+    border-color:rgba(200,106,138,.55) !important; box-shadow:0 9px 24px rgba(91,38,57,.11) !important;
+}
+.basic-grid div { background:#FFF8FA !important; border:1px solid #F2E2E8 !important; }
+.condition-box { background:linear-gradient(180deg,#FFF8FA,#FFFFFF) !important; border-color:#EBD5DF !important; }
+.condition-title { color:var(--aboli-dark) !important; }
+.contract-project { background:var(--aboli-soft) !important; border-color:#E5B7C8 !important; color:var(--aboli-deep) !important; }
+
+div[data-testid="stTextInput"] input,div[data-testid="stNumberInput"] input,
+div[data-testid="stDateInput"] input,div[data-testid="stTextArea"] textarea,
+div[data-baseweb="select"] > div {
+    border:1px solid #DDC8D1 !important; border-radius:9px !important;
+}
+div[data-testid="stTextInput"] input:focus,div[data-testid="stNumberInput"] input:focus,
+div[data-testid="stDateInput"] input:focus {
+    border-color:var(--aboli) !important; box-shadow:0 0 0 2px rgba(200,106,138,.13) !important;
+}
+div[data-testid="stButton"] button[kind="primary"] {
+    background:linear-gradient(135deg,#7B314D,#C86A8A) !important; border:none !important;
+    box-shadow:0 5px 13px rgba(123,49,77,.18) !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover { background:linear-gradient(135deg,#5B2639,#A94E70) !important; }
+div[data-testid="stDownloadButton"] button {
+    background:linear-gradient(135deg,#9C6D2E,#C89B4C) !important; border:none !important;
+}
+[data-testid="stFileUploader"] { border-color:#D79BB0 !important; background:#FFF8FA !important; }
+
+.metric-row { grid-template-columns:repeat(6,minmax(145px,1fr)) !important; gap:12px !important; margin:12px 0 22px !important; }
+.metric-card {
+    min-height:112px !important; border-radius:16px !important; padding:13px 10px !important;
+    background:linear-gradient(145deg,#FFFFFF 0%,#FFF6F9 100%) !important;
+    border:1px solid #E9D4DE !important; box-shadow:0 8px 20px rgba(91,38,57,.08) !important;
+}
+.metric-card::before { background:linear-gradient(90deg,#C86A8A,#B58A3A) !important; opacity:1 !important; }
+.metric-val { color:#4C2635 !important; font-size:18px !important; font-weight:850 !important; }
+.metric-lbl { color:#806A74 !important; }
+
+div[data-testid="stDataFrame"] {
+    border:1px solid #E6D3DC !important; border-radius:14px !important;
+    overflow:hidden !important; box-shadow:0 8px 22px rgba(91,38,57,.07) !important; background:#fff !important;
+}
+div[data-testid="stExpander"] summary { border:1px solid #E8D5DE !important; border-radius:10px !important; background:#FFF8FA !important; }
+div[data-testid="stExpander"] details[open] > summary { color:var(--aboli-dark) !important; background:var(--aboli-soft) !important; }
+div[data-testid="stAlert"] { border-radius:11px !important; border-left:4px solid var(--aboli) !important; }
+.sv-divider { height:1px !important; background:linear-gradient(90deg,transparent,#D9B6C4,#E9D7DF,transparent) !important; }
+
+@media (max-width:1100px){ .metric-row{grid-template-columns:repeat(3,1fr) !important;} }
+@media (max-width:600px){ .metric-row{grid-template-columns:repeat(2,1fr) !important;} }
+</style>
+""", unsafe_allow_html=True)
+
 # ─── LOGIN CREDENTIALS (Firebase-backed) ─────────────────────────────────────
 _DEFAULT_USERS = {"admin": "cci@2025", "softview": "sv@admin"}
 
@@ -1359,6 +1453,33 @@ def fmt_date(v):
     except:
         return "—"
 
+def fmt_indian_number(value, decimals=2):
+    """Indian grouping: 2536263.72 -> 25,36,263.72"""
+    try:
+        if value is None or pd.isna(value):
+            return "—"
+        x = abs(float(value))
+        sign = "-" if float(value) < 0 else ""
+        s = f"{x:.{decimals}f}"
+        whole, frac = s.split(".")
+        if len(whole) > 3:
+            last3 = whole[-3:]
+            rest = whole[:-3]
+            groups = []
+            while len(rest) > 2:
+                groups.insert(0, rest[-2:])
+                rest = rest[:-2]
+            if rest:
+                groups.insert(0, rest)
+            whole = ",".join(groups + [last3])
+        return f"{sign}{whole}.{frac}"
+    except Exception:
+        return "—"
+
+def fmt_inr(value, decimals=2):
+    result = fmt_indian_number(value, decimals)
+    return f"₹{result}" if result != "—" else result
+
 # ─── COLUMN LABEL PRETTIFIER ───────────────────────────────────────────────
 # Converts internal snake_case column names into clean, human-readable
 # headers for both the on-screen tables and the exported Excel sheets.
@@ -2078,27 +2199,27 @@ with tab_results:
           </div>
           <div class="metric-card green">
             <div class="metric-icon">💰</div>
-            <div class="metric-val">₹{tot_bill:,.0f}</div>
+            <div class="metric-val">₹{fmt_indian_number(tot_bill, 2)}</div>
             <div class="metric-lbl">Total Bill Amt</div>
           </div>
           <div class="metric-card teal">
             <div class="metric-icon">📈</div>
-            <div class="metric-val">₹{tot_emd:,.0f}</div>
+            <div class="metric-val">₹{fmt_indian_number(tot_emd, 2)}</div>
             <div class="metric-lbl">EMD Interest</div>
           </div>
           <div class="metric-card purple">
             <div class="metric-icon">💸</div>
-            <div class="metric-val">₹{tot_cd:,.0f}</div>
+            <div class="metric-val">₹{fmt_indian_number(tot_cd, 2)}</div>
             <div class="metric-lbl">Cash Discount</div>
           </div>
           <div class="metric-card red">
             <div class="metric-icon">⏰</div>
-            <div class="metric-val">₹{tot_ll:,.0f}</div>
+            <div class="metric-val">₹{fmt_indian_number(tot_ll, 2)}</div>
             <div class="metric-lbl">Late Lifting</div>
           </div>
           <div class="metric-card orange">
             <div class="metric-icon">🚛</div>
-            <div class="metric-val">₹{tot_cc:,.0f}</div>
+            <div class="metric-val">₹{fmt_indian_number(tot_cc, 2)}</div>
             <div class="metric-lbl">Carry Charges</div>
           </div>
         </div>
@@ -2144,7 +2265,8 @@ with tab_results:
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
                     "Per_Bale_EMD","EMD_Allocated","Net_Amount","EMD_Interest",
                     "Cash_Discount","Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
-            disp[col] = disp[col].apply(lambda x: f"₹{x:,.2f}" if x else "—")
+            if col in disp.columns:
+                disp[col] = disp[col].apply(lambda x: fmt_inr(x, 2) if pd.notna(x) and float(x) != 0 else "—")
 
         # Clear GRN detail totals row (all numeric amounts and bales).
         detail_total = {c: "" for c in disp.columns}
@@ -2154,7 +2276,7 @@ with tab_results:
                   "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             if c in disp.columns:
                 vals = pd.to_numeric(df[c], errors="coerce")
-                detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
+                detail_total[c] = fmt_inr(vals.sum(), 2) if c != "Bales" else int(vals.sum())
         disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
         st.dataframe(pretty_columns(disp), use_container_width=True, height=440, hide_index=True)
 
