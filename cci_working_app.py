@@ -1185,49 +1185,55 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
 
         # ── CASH DISCOUNT ─────────────────────────────────────────────────────
-        # Correct CD logic only. All other calculations remain unchanged.
-        # CD Due Date = Effective Date + Free Days For CD
-        # Payment Date <= CD Due Date -> CD applies
-        # Payment Date >  CD Due Date -> CD = 0
-        # CD Amount = Material Amount * CD % / 365 * (Payment Date - Effective Date)
+        # Eligibility:
+        #   Payment Date <= CD Due Date -> Cash Discount applies
+        #   Payment Date >  CD Due Date -> Cash Discount = 0
+        #
+        # The CD master stores CD days in its slab configuration and does not
+        # have a separate CD Free Days field. Therefore the largest configured
+        # positive CD slab-days is used as the CD due-day limit.
+        #
+        # CD amount days are ALWAYS counted from Effective Date to Payment Date.
+        # Party Bill / Lifting Date is NOT used for CD calculation.
         cd_amount, cd_days_used, cd_pct_used = 0.0, 0, 0.0
         cd_due_date = pd.NaT
         cd_due_days = 0
 
-        if not pd.isna(eff_date):
-            # Prefer dedicated Contract Master fields when available.
-            # In this file's existing master structure, fall back to the
-            # first configured CD slab (days = free days, pct = CD %).
-            _master_cd_free = row_mc.get("cd_free_days", None)
-            _master_cd_pct = row_mc.get("cd_pct", None)
-
-            if _master_cd_free is not None and str(_master_cd_free).strip() != "":
-                cd_due_days = max(int(sf(_master_cd_free, 0)), 0)
-            else:
-                _positive_cd_slabs = [
-                    s for s in cd_slabs if sf(s.get("days"), 0) > 0
-                ]
-                cd_due_days = int(sf(_positive_cd_slabs[0].get("days"), 0)) if _positive_cd_slabs else 0
-
-            if _master_cd_pct is not None and str(_master_cd_pct).strip() != "":
-                cd_pct_used = sf(_master_cd_pct, 0)
-            else:
-                _positive_cd_slabs = [
-                    s for s in cd_slabs if sf(s.get("days"), 0) > 0
-                ]
-                cd_pct_used = sf(_positive_cd_slabs[0].get("pct"), 0) if _positive_cd_slabs else 0.0
-
+        if cd_slabs and not pd.isna(eff_date):
+            valid_cd_days = [
+                int(sf(s.get("days"), 0))
+                for s in cd_slabs
+                if sf(s.get("days"), 0) > 0
+            ]
+            cd_due_days = max(valid_cd_days, default=0)
             cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
 
             if not pd.isna(pay_date) and pay_date <= cd_due_date:
                 # Difference Days = Payment Date - Effective Date
                 diff_days = max((pay_date - eff_date).days, 0)
+
+                # Highest qualifying CD threshold wins.
+                for slab in sorted(cd_slabs, key=lambda x: -sf(x.get("days"), 0)):
+                    slab_days = sf(slab.get("days"), 0)
+                    if slab_days > 0 and diff_days >= slab_days:
+                        cd_pct_used = sf(slab.get("pct"), 0)
+                        break
+
+                # If payment is before the first positive threshold, use a
+                # configured 0-day slab when one exists.
+                if cd_pct_used == 0:
+                    zero_day_slabs = [
+                        s for s in cd_slabs if sf(s.get("days"), 0) == 0
+                    ]
+                    if zero_day_slabs:
+                        cd_pct_used = sf(zero_day_slabs[0].get("pct"), 0)
+
                 cd_days_used = diff_days
                 cd_amount = round(
                     (mat * cd_pct_used / 100) * (diff_days / 365), 2
                 )
             else:
-                # Payment after CD Due Date -> no Cash Discount.
+                # Payment after CD Due Date -> no discount.
                 cd_days_used = 0
                 cd_pct_used = 0.0
                 cd_amount = 0.0
