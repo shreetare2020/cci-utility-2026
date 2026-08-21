@@ -1169,7 +1169,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 d = pool.at[idx,"EMD_Date"]
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
-        net_amt = round(mat - emd_alloc, 2)
+        net_amt = round(total_bill - emd_alloc, 2)
         pay_alloc, pay_date, pay_mode = 0.0, pd.NaT, ""
         ppool = pay_pool.get(cn_key)
         if ppool is not None and net_amt > 0:
