@@ -168,33 +168,25 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
 }
 
 /* ── METRIC CARDS ── */
-.metric-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+.metric-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
 .metric-card {
     background: #ffffff; border: 1px solid #e5e7eb;
-    border-radius: 12px; padding: 14px 8px; text-align: center;
+    border-radius: 14px; padding: 18px 14px; text-align: center;
     position: relative; overflow: hidden;
     box-shadow: 0 1px 6px rgba(0,0,0,0.06);
 }
 .metric-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 3px; border-radius: 12px 12px 0 0;
+    height: 3px; border-radius: 14px 14px 0 0;
 }
 .metric-card.green::before  { background: linear-gradient(90deg, #1a7a1a, #39FF14); }
 .metric-card.blue::before   { background: linear-gradient(90deg, #1a56db, #3b82f6); }
 .metric-card.teal::before   { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .metric-card.red::before    { background: linear-gradient(90deg, #dc2626, #ef4444); }
 .metric-card.orange::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
-.metric-card.purple::before { background: linear-gradient(90deg, #7e22ce, #a855f7); }
-.metric-val { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 3px; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.metric-lbl { font-size: 9.5px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.metric-icon { font-size: 16px; margin-bottom: 5px; }
-
-@media (max-width: 900px) {
-    .metric-row { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 560px) {
-    .metric-row { grid-template-columns: repeat(2, 1fr); }
-}
+.metric-val { font-size: 22px; font-weight: 700; color: #111827; margin-bottom: 4px; letter-spacing: -0.5px; }
+.metric-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.metric-icon { font-size: 21px; margin-bottom: 8px; }
 
 /* ── FORM ELEMENTS ── */
 div[data-testid="stTextInput"] input,
@@ -705,268 +697,77 @@ def _do_login():
         st.session_state._login_error = "❌ Invalid username or password."
 
 if not st.session_state.authenticated:
-    st.markdown("""
+    # LOGIN PAGE — credentials are directly below Welcome Back and fit in one viewport.
+    st.markdown('''
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
-    * { font-family:'Inter',sans-serif; box-sizing:border-box; margin:0; padding:0; }
-
-    /* Full viewport login */
-    [data-testid="stAppViewContainer"] {
-        background: #fdf0e6 !important;
-        min-height: 100vh;
-    }
-    [data-testid="stHeader"] { display:none !important; }
-    .main .block-container {
-        padding: 0 !important; max-width: 100% !important;
-        height: 100vh; overflow: hidden;
-    }
-    /* Hide default streamlit chrome */
-    header[data-testid="stHeader"], footer { display:none !important; }
-    [data-testid="stToolbar"] { display:none !important; }
-
-    /* ── SPLIT LAYOUT ── */
-    .login-outer {
-        display: flex; height: 100vh; width: 100%;
-        font-family: 'Inter', sans-serif;
-    }
-
-    /* LEFT PANEL – warm orange gradient with floral feel */
-    .login-left {
-        flex: 1.1;
-        background: linear-gradient(160deg, #f97316 0%, #ea580c 35%, #c2410c 65%, #9a3412 100%);
-        display: flex; flex-direction: column;
-        justify-content: space-between;
-        padding: 50px 48px 40px;
-        position: relative; overflow: hidden;
-    }
-    .login-left::before {
-        content:'';
-        position:absolute; top:-80px; right:-80px;
-        width:400px; height:400px;
-        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
-        border-radius:50%;
-    }
-    .login-left::after {
-        content:'';
-        position:absolute; bottom:-120px; left:-60px;
-        width:500px; height:500px;
-        background: radial-gradient(circle, rgba(255,200,100,0.15) 0%, transparent 65%);
-        border-radius:50%;
-    }
-
-    .ll-logo { display:flex; align-items:center; gap:14px; z-index:1; position:relative; }
-    .ll-logo img { height:60px; width:auto; border-radius:12px; background:rgba(255,255,255,0.95); padding:7px 12px; box-shadow:0 6px 24px rgba(0,0,0,0.25); }
-    .ll-brand { color:#ffffff; font-size:13px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; opacity:0.9; }
-
-    .ll-main { z-index:1; position:relative; }
-    .ll-headline {
-        font-family:'Poppins',sans-serif;
-        font-size:40px; font-weight:900; color:#ffffff;
-        line-height:1.15; margin-bottom:12px;
-        text-shadow:0 2px 12px rgba(0,0,0,0.2);
-    }
-    .ll-headline span { color:#fde68a; }
-    .ll-tagline { font-size:15px; color:rgba(255,255,255,0.80); line-height:1.6; max-width:340px; margin-bottom:36px; }
-    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .ll-feat {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.20);
-        border-radius: 14px; padding: 14px 16px;
-        backdrop-filter: blur(8px);
-    }
-    .ll-feat-icon { font-size:20px; margin-bottom:6px; }
-    .ll-feat-title { font-size:12px; font-weight:800; color:#fde68a; margin-bottom:3px; }
-    .ll-feat-desc { font-size:11px; color:rgba(255,255,255,0.70); line-height:1.4; }
-
-    .ll-footer { z-index:1; position:relative; display:flex; gap:24px; align-items:center; }
-    .ll-footer span { font-size:11px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:5px; }
-
-    /* RIGHT PANEL – clean white form */
-    .login-right {
-        flex: 0.9;
-        background: #ffffff;
-        display: flex; flex-direction: column;
-        justify-content: center; align-items: center;
-        padding: 60px 56px;
-        box-shadow: -12px 0 40px rgba(0,0,0,0.10);
-        position: relative;
-    }
-    .login-right-inner { width: 100%; max-width: 380px; }
-
-    .lr-eyebrow {
-        display:flex; align-items:center; gap:10px; margin-bottom:18px;
-        font-size:11px; font-weight:800; color:#ea580c;
-        text-transform:uppercase; letter-spacing:.14em;
-    }
-    .lr-eyebrow::before, .lr-eyebrow::after {
-        content:''; flex:1; height:1px; background:#f97316; opacity:0.4;
-    }
-    .lr-title {
-        font-family:'Poppins',sans-serif;
-        font-size:34px; font-weight:900; color:#1c1917;
-        line-height:1.1; margin-bottom:6px;
-    }
-    .lr-sub { font-size:14px; color:#78716c; margin-bottom:32px; }
-    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 26px; }
-    .lr-divider::before { content:'◆'; color:#f97316; font-size:14px; }
-
-    /* Form fields - light clean */
-    .login-right div[data-testid="stTextInput"] label {
-        font-size:13px !important; font-weight:700 !important;
-        color:#1c1917 !important; margin-bottom:4px !important;
-        letter-spacing:.02em !important;
-    }
-    .login-right div[data-testid="stTextInput"] input {
-        background:#fafaf9 !important;
-        border:1.5px solid #e7e5e4 !important;
-        border-radius:12px !important;
-        color:#1c1917 !important;
-        font-size:14px !important;
-        padding:13px 16px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
-    }
-    .login-right div[data-testid="stTextInput"] input:focus {
-        border-color:#f97316 !important;
-        box-shadow:0 0 0 3px rgba(249,115,22,0.18) !important;
-        background:#ffffff !important;
-    }
-    .login-right div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
-
-    /* Primary button – orange */
-    .login-right div[data-testid="stButton"] button[kind="primary"] {
-        background: linear-gradient(135deg,#ea580c,#f97316) !important;
-        color:#ffffff !important; border:none !important;
-        border-radius:14px !important; font-size:16px !important;
-        font-weight:800 !important; padding:16px !important;
-        box-shadow:0 8px 24px rgba(234,88,12,0.40) !important;
-        letter-spacing:.02em !important;
-        transition:all 0.25s !important;
-    }
-    .login-right div[data-testid="stButton"] button[kind="primary"]:hover {
-        background:linear-gradient(135deg,#c2410c,#ea580c) !important;
-        box-shadow:0 12px 32px rgba(234,88,12,0.55) !important;
-        transform:translateY(-2px) !important;
-    }
-
-    /* Bottom branding */
-    .lr-bottom {
-        text-align:center; margin-top:36px;
-        padding-top:28px; border-top:1px solid #f5f5f4;
-    }
-    .lr-bottom-brand { font-size:15px; font-weight:800; color:#ea580c; margin-bottom:4px; }
-    .lr-bottom-desc { font-size:12px; color:#a8a29e; margin-bottom:6px; }
-    .lr-bottom-secure { font-size:11px; font-weight:700; color:#ea580c; }
-
-    /* Error msg */
-    .login-err {
-        background:#fff7f5; border:1.5px solid #fca5a5;
-        border-radius:10px; padding:11px 14px;
-        color:#dc2626; font-size:13px; font-weight:600;
-        margin-top:12px; text-align:center;
-    }
+    [data-testid="stAppViewContainer"] { background:#ffffff !important; }
+    [data-testid="stHeader"], footer, [data-testid="stToolbar"] { display:none !important; }
+    .main .block-container { padding:0 !important; max-width:100% !important; }
+    .login-shell { min-height:100vh; height:100vh; width:100%; display:flex; overflow:hidden; font-family:Inter,Arial,sans-serif; }
+    .login-left { width:55%; min-width:0; position:relative; overflow:hidden; background:linear-gradient(155deg,#f97316 0%,#ea580c 34%,#c2410c 68%,#9a3412 100%); color:#fff; padding:36px 48px 30px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; }
+    .login-left:before { content:""; position:absolute; width:460px; height:460px; right:-180px; top:-190px; background:radial-gradient(circle,rgba(255,255,255,.14),transparent 68%); pointer-events:none; }
+    .login-left:after { content:""; position:absolute; width:360px; height:360px; left:-180px; bottom:-200px; background:radial-gradient(circle,rgba(255,255,255,.08),transparent 68%); pointer-events:none; }
+    .brand-row { display:flex; align-items:center; gap:14px; position:relative; z-index:2; }
+    .brand-logo { width:108px; height:58px; border-radius:14px; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 7px 20px rgba(0,0,0,.16); }
+    .brand-logo img { max-width:88px; max-height:48px; object-fit:contain; }
+    .brand-name { font-size:15px; font-weight:900; letter-spacing:.08em; }
+    .hero-copy { position:relative; z-index:2; max-width:590px; margin-top:10px; }
+    .hero-copy h1 { margin:0; font-size:40px; line-height:1.05; font-weight:900; letter-spacing:-.03em; }
+    .hero-copy h3 { margin:18px 0 10px; font-size:15px; font-weight:900; }
+    .hero-copy p { margin:0; font-size:15px; line-height:1.6; color:rgba(255,255,255,.92); max-width:560px; }
+    .feature-grid { position:relative; z-index:2; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:22px; }
+    .feature-box { border:1px solid rgba(255,255,255,.28); background:rgba(255,255,255,.10); border-radius:14px; padding:12px 14px; min-height:72px; }
+    .feature-icon { font-size:20px; margin-bottom:5px; }
+    .feature-title { font-size:12px; font-weight:900; }
+    .feature-text { font-size:10px; line-height:1.35; color:rgba(255,255,255,.82); margin-top:3px; }
+    .left-footer { position:relative; z-index:2; display:flex; gap:18px; flex-wrap:wrap; font-size:10px; color:rgba(255,255,255,.82); }
+    .login-right { width:45%; min-width:0; background:#fff; display:flex; align-items:center; justify-content:center; padding:28px 48px; box-sizing:border-box; }
+    .login-panel { width:100%; max-width:440px; }
+    .login-kicker { text-align:center; color:#f05a16; font-size:11px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; margin-bottom:14px; }
+    .login-kicker:before,.login-kicker:after { content:""; display:inline-block; vertical-align:middle; width:54px; height:1px; background:#f6a07a; margin:0 10px; }
+    .welcome { font-size:34px; line-height:1.05; font-weight:900; color:#111827; text-align:center; margin:0; letter-spacing:-.025em; }
+    .welcome-sub { text-align:center; color:#6b7280; font-size:13px; margin:9px 0 18px; }
+    .login-form { margin-top:0; }
+    .login-label { display:block; font-size:12px; font-weight:800; color:#374151; margin:0 0 5px; }
+    .login-error { background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:9px; padding:8px 10px; font-size:12px; font-weight:700; margin:8px 0; }
+    .login-note { text-align:center; color:#9ca3af; font-size:10px; margin-top:13px; }
+    div[data-testid="stTextInput"] { margin-bottom:8px !important; }
+    div[data-testid="stTextInput"] input { height:42px !important; min-height:42px !important; border-radius:9px !important; border:1px solid #d1d5db !important; background:#fff !important; color:#111827 !important; padding:0 12px !important; font-size:13px !important; box-shadow:none !important; }
+    div[data-testid="stTextInput"] input:focus { border-color:#f97316 !important; box-shadow:0 0 0 3px rgba(249,115,22,.12) !important; }
+    div[data-testid="stTextInput"] label { display:none !important; }
+    div[data-testid="stButton"] { margin-top:4px !important; }
+    div[data-testid="stButton"] button[kind="primary"] { width:100% !important; height:43px !important; border-radius:9px !important; background:linear-gradient(135deg,#f97316,#ea580c) !important; color:#fff !important; border:none !important; font-weight:900 !important; box-shadow:0 7px 16px rgba(234,88,12,.22) !important; }
+    @media (max-width:900px) { .login-shell{height:auto;min-height:100vh;overflow:auto;} .login-left{display:none;} .login-right{width:100%;min-height:100vh;padding:28px 22px;} }
     </style>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
-    # ── Build the full-width login layout via HTML + st columns for form ──
-    left_col, right_col = st.columns([1.1, 0.9])
+    st.markdown('<div class="login-shell"><div class="login-left">', unsafe_allow_html=True)
+    st.markdown(f'''<div class="brand-row"><div class="brand-logo"><img src="data:image/png;base64,{LOGO_B64}" alt="Softview"></div><div class="brand-name">SOFTVIEW TECHNOLOGIES</div></div>''', unsafe_allow_html=True)
+    st.markdown('''
+    <div class="hero-copy">
+      <h1>Smart software.</h1><h3>Built for business.</h3>
+      <p>SoftView Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams and drive business growth.</p>
+      <div class="feature-grid">
+        <div class="feature-box"><div class="feature-icon">🏢</div><div class="feature-title">Enterprise Ready</div><div class="feature-text">Structured workflows and business controls.</div></div>
+        <div class="feature-box"><div class="feature-icon">📊</div><div class="feature-title">Data Driven</div><div class="feature-text">Clear calculations, reports and insights.</div></div>
+        <div class="feature-box"><div class="feature-icon">🔒</div><div class="feature-title">Secure Access</div><div class="feature-text">Authorised user login and role-based access.</div></div>
+        <div class="feature-box"><div class="feature-icon">💎</div><div class="feature-title">Executive Experience</div><div class="feature-text">Clean, premium and easy-to-use interface.</div></div>
+      </div>
+    </div>
+    <div class="left-footer"><span>🛡 Secure. Reliable. Scalable.</span><span>👥 Trusted by Professionals.</span><span>🏆 Excellence in Every Solution.</span></div></div>
+    ''', unsafe_allow_html=True)
 
-    with left_col:
-        st.markdown(f"""
-        <div class="login-left" style="min-height:100vh;">
-          <div class="ll-logo">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Softview">
-            <span class="ll-brand">Softview Technologies</span>
-          </div>
-
-          <div class="ll-main">
-            <div class="ll-headline">Smart software.<br><span>Built for business.</span></div>
-            <div class="ll-tagline">SoftView Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams and drive business growth.</div>
-            <div class="ll-features">
-              <div class="ll-feat">
-                <div class="ll-feat-icon">🏢</div>
-                <div class="ll-feat-title">Enterprise Ready</div>
-                <div class="ll-feat-desc">Structured workflows and business controls.</div>
-              </div>
-              <div class="ll-feat">
-                <div class="ll-feat-icon">📊</div>
-                <div class="ll-feat-title">Data Driven</div>
-                <div class="ll-feat-desc">Clear calculations, reports and insights.</div>
-              </div>
-              <div class="ll-feat">
-                <div class="ll-feat-icon">🔒</div>
-                <div class="ll-feat-title">Secure Access</div>
-                <div class="ll-feat-desc">Authorised user login and role-based access.</div>
-              </div>
-              <div class="ll-feat">
-                <div class="ll-feat-icon">💎</div>
-                <div class="ll-feat-title">Executive Experience</div>
-                <div class="ll-feat-desc">Clean, premium and easy-to-use interface.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="ll-footer">
-            <span>🛡️ Secure. Reliable. Scalable.</span>
-            <span>👥 Trusted by Professionals.</span>
-            <span>🏆 Excellence in Every Solution.</span>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with right_col:
-        # Wrap the entire right side in a styled div
-        st.markdown("""
-        <div class="login-right" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 48px;">
-          <div class="login-right-inner" style="max-width:380px;margin:0 auto;width:100%;">
-            <div class="lr-eyebrow">CCI Working Calculation Utility</div>
-            <div class="lr-title">Welcome Back</div>
-            <div class="lr-sub">Sign in to continue to your secure workspace.</div>
-            <div class="lr-divider"></div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Spacer to push form down
-        st.markdown("<div style='height:15vh'></div>", unsafe_allow_html=True)
-
-        # Center content
-        _, fc, _ = st.columns([0.15, 0.70, 0.15])
-        with fc:
-            st.markdown('<div class="login-right">', unsafe_allow_html=True)
-            st.markdown("""
-            <div style="text-align:center;margin-bottom:8px">
-              <div style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:.14em;display:flex;align-items:center;gap:8px;justify-content:center">
-                <span style="flex:1;height:1px;background:#f97316;opacity:0.4;display:inline-block"></span>
-                CCI Working Calculation Utility
-                <span style="flex:1;height:1px;background:#f97316;opacity:0.4;display:inline-block"></span>
-              </div>
-              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:#1c1917;margin:10px 0 4px">Welcome Back</div>
-              <div style="font-size:13px;color:#78716c;margin-bottom:4px">Sign in to continue to your secure workspace.</div>
-              <div style="color:#f97316;font-size:16px;margin:8px 0 24px">◆</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:4px">Username</p>', unsafe_allow_html=True)
-            st.text_input("", key="_lu", placeholder="👤  Enter your username", label_visibility="collapsed")
-
-            st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:4px">Password</p>', unsafe_allow_html=True)
-            st.text_input("", key="_lp", type="password", placeholder="🔒  Enter your password", label_visibility="collapsed")
-
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-            st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
-
-            if st.session_state._login_error:
-                st.markdown(f'<div class="login-err">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-
-            st.markdown("""
-            <div class="lr-bottom">
-              <div class="lr-bottom-brand">SoftView Technologies</div>
-              <div class="lr-bottom-desc">CCI Working Calculation Utility &nbsp;·&nbsp; Premium Enterprise Edition</div>
-              <div class="lr-bottom-secure">🛡️ Secure access for authorised users only.</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="login-right"><div class="login-panel">', unsafe_allow_html=True)
+    st.markdown('''<div class="login-kicker">CCI WORKING CALCULATION UTILITY</div><div class="welcome">Welcome Back</div><div class="welcome-sub">Sign in to continue to your secure workspace.</div>''', unsafe_allow_html=True)
+    st.markdown('<div class="login-form">', unsafe_allow_html=True)
+    st.markdown('<span class="login-label">Username</span>', unsafe_allow_html=True)
+    st.text_input("", key="_lu", placeholder="Enter your username", label_visibility="collapsed")
+    st.markdown('<span class="login-label">Password</span>', unsafe_allow_html=True)
+    st.text_input("", key="_lp", type="password", placeholder="Enter your password", label_visibility="collapsed")
+    st.button("🔐  Sign In", on_click=_do_login, type="primary", use_container_width=True)
+    if st.session_state._login_error:
+        st.markdown(f'<div class="login-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-note">SoftView Technologies &nbsp;·&nbsp; CCI Working Calculation Utility &nbsp;·&nbsp; Secure authorised access</div></div></div></div>', unsafe_allow_html=True)
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
@@ -1010,22 +811,12 @@ def parse_excel(file_bytes):
     emd["EMD_Date"]   = pd.to_datetime(emd["EMD_Date"], errors="coerce")
     emd["EMD_Amount"] = pd.to_numeric(emd["EMD_Amount"], errors="coerce")
     emd = emd.dropna(subset=["EMD_Amount"]).reset_index(drop=True)
-    # Columns: Contract No | Mode of Transaction | Payment Date | Payment Amount
-    # (Backward compatible: if the sheet doesn't yet have the Mode of
-    # Transaction column (col H), fall back to the old 3-column layout
-    # Contract No | Payment Date | Payment Amount and leave mode blank.)
-    if raw2.shape[1] >= 8:
-        pay = raw2.iloc[1:,[4,5,6,7]].copy()
-        pay.columns = ["Contract_No","Mode_Of_Transaction","Payment_Date","Payment_Amount"]
-    else:
-        pay = raw2.iloc[1:,[4,5,6]].copy()
-        pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
-        pay["Mode_Of_Transaction"] = ""
+    pay = raw2.iloc[1:,[4,5,6]].copy()
+    pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
     pay = pay.dropna(subset=["Contract_No","Payment_Amount"])
     pay = pay[~pay["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
     pay["Payment_Date"]   = pd.to_datetime(pay["Payment_Date"], errors="coerce")
     pay["Payment_Amount"] = pd.to_numeric(pay["Payment_Amount"], errors="coerce")
-    pay["Mode_Of_Transaction"] = pay["Mode_Of_Transaction"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
     pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
@@ -1081,42 +872,43 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     # We read slabs PER ROW now; the dummy is used only as a fallback reference
     _ = mc_dummy  # suppress unused warning
 
-    # ── PRE-COMPUTE MAPS (all keys normalized: str + strip + upper) ──────────
-    # This ensures Excel values like 123 / "123" / " RAY-110 " all match correctly.
-
-    total_emd_map = {}
-    for cn_raw, amt in emd.groupby("Contract_No")["EMD_Amount"].sum().items():
-        total_emd_map[str(cn_raw).strip().upper()] = amt
-
-    # Effective Date MAP: source = PUR CONT DETAILS sheet (uploaded Excel).
-    # CC_Free_End = Effective_Date (this map) + cc_free_days (Contract Master).
-    eff_date_map = {}
+    total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
+    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
+    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
+    per_bale_emd  = {}
     for _, r in cont.iterrows():
-        key = str(r["Contract_No"]).strip().upper()
-        eff_date_map[key] = r["Effective_Date"]
-
-    per_bale_emd = {}
-    for _, r in cont.iterrows():
-        key = str(r["Contract_No"]).strip().upper()
-        b = r["Bales"] if pd.notna(r["Bales"]) and r["Bales"] > 0 else 1
-        per_bale_emd[key] = total_emd_map.get(key, 0) / b
+        cn = r["Contract_No"]; b = r["Bales"] if r["Bales"] > 0 else 1
+        per_bale_emd[cn] = total_emd_map.get(cn, 0) / b
 
     emd_pool = {}
-    for cn_raw, g in emd.groupby("Contract_No"):
-        key = str(cn_raw).strip().upper()
-        emd_pool[key] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
-        emd_pool[key]["Remaining"] = emd_pool[key]["EMD_Amount"].astype(float)
+    for cn, g in emd.groupby("Contract_No"):
+        emd_pool[cn] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
+        emd_pool[cn]["Remaining"] = emd_pool[cn]["EMD_Amount"].astype(float)
 
     pay_pool = {}
-    for cn_raw, g in pay.groupby("Contract_No"):
-        key = str(cn_raw).strip().upper()
-        pay_pool[key] = g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy().reset_index(drop=True)
-        pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
+    for cn, g in pay.groupby("Contract_No"):
+        pay_pool[cn] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
+        pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
 
-    branch_map = {}
-    for _, r in cont.drop_duplicates("Contract_No").iterrows():
-        key = str(r["Contract_No"]).strip().upper()
-        branch_map[key] = str(r.get("Branch", "") or "")
+    total_emd_map = emd.groupby("Contract_No")["EMD_Amount"].sum().to_dict()
+    eff_date_map  = cont.set_index("Contract_No")["Effective_Date"].to_dict()
+    pay_total_map = pay.groupby("Contract_No")["Payment_Amount"].sum().to_dict()
+    per_bale_emd  = {}
+    for _, r in cont.iterrows():
+        cn = r["Contract_No"]; b = r["Bales"] if r["Bales"] > 0 else 1
+        per_bale_emd[cn] = total_emd_map.get(cn, 0) / b
+
+    emd_pool = {}
+    for cn, g in emd.groupby("Contract_No"):
+        emd_pool[cn] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
+        emd_pool[cn]["Remaining"] = emd_pool[cn]["EMD_Amount"].astype(float)
+
+    pay_pool = {}
+    for cn, g in pay.groupby("Contract_No"):
+        pay_pool[cn] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
+        pay_pool[cn]["Remaining"] = pay_pool[cn]["Payment_Amount"].astype(float)
+
+    branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
     results = []
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
@@ -1130,33 +922,40 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
 
-        # CC FREE DAYS — from the same matched Contract Master (row_mc).
-        # row_mc is already the correct master for this contract (exact match or DEFAULT).
-        cc_free_days = int(sf(row_mc.get("cc_free_days"), 0))
+        # CC FREE DAYS MUST COME ONLY FROM THE SAME CONTRACT MASTER RECORD.
+        # Do NOT inherit it from DEFAULT/another contract.
+        cc_master = {}
+        if _contracts_list is not None:
+            cn_key = str(cn).strip().upper()
+            for _c in _contracts_list:
+                if str(_c.get("contract_no", "")).strip().upper() == cn_key:
+                    cc_master = _c
+                    break
+        else:
+            cc_master = _single_mc or {}
+        cc_free_days = int(sf(cc_master.get("cc_free_days"), 0))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
         cc_compound      = bool(row_mc.get("cc_compound", False))
         # ───────────────────────────────────────────────────────────────────
 
-        cn_key = str(cn).strip().upper()   # normalized key for all map lookups
-
         bales = row["Accepted_Qty_AUM"]
-        pbe   = per_bale_emd.get(cn_key, 0)
+        pbe   = per_bale_emd.get(cn, 0)
         mat   = row["Material_Amount"]
-        # Branch comes from PUR CONT DETAILS (uploaded Excel).
-        branch = branch_map.get(cn_key, "")
+        # Branch comes from PUR CONT DETAILS and is carried into every result row.
+        branch = branch_map.get(cn, "")
 
         igst  = row["IGST"]
         lift_date = row["Party_Bill_Date"]
-        # Effective Date: ALWAYS from uploaded PUR CONT DETAILS sheet.
-        eff_date  = eff_date_map.get(cn_key, pd.NaT)
+        eff_date  = eff_date_map.get(cn, pd.NaT)
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
+        payment_amt = pay_total_map.get(cn, 0)
 
         emd_need = round(pbe * bales, 2)
         emd_alloc, emd_date = 0.0, pd.NaT
-        pool = emd_pool.get(cn_key)
+        pool = emd_pool.get(cn)
         if pool is not None and emd_need > 0:
             rem = emd_need
             for idx in pool.index:
@@ -1169,9 +968,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 d = pool.at[idx,"EMD_Date"]
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
-        net_amt = round(total_bill - emd_alloc, 2)
-        pay_alloc, pay_date, pay_mode = 0.0, pd.NaT, ""
-        ppool = pay_pool.get(cn_key)
+        net_amt = round(mat - emd_alloc, 2)
+        pay_alloc, pay_date = 0.0, pd.NaT
+        ppool = pay_pool.get(cn)
         if ppool is not None and net_amt > 0:
             rem = net_amt
             for idx in ppool.index:
@@ -1182,9 +981,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 ppool.at[idx,"Remaining"] -= take
                 pay_alloc += take; rem -= take
                 d = ppool.at[idx,"Payment_Date"]
-                if pd.isna(pay_date) or d > pay_date:
-                    pay_date = d
-                    pay_mode = ppool.at[idx,"Mode_Of_Transaction"]
+                if pd.isna(pay_date) or d > pay_date: pay_date = d
 
         emd_days, emd_interest = 0, 0.0
         if not pd.isna(emd_date) and not pd.isna(pay_date) and emd_alloc > 0:
@@ -1192,43 +989,58 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
 
         # ── CASH DISCOUNT ─────────────────────────────────────────────────────
-        # Formula:
-        #   CD Due Date  = Effective Date + highest CD slab days
-        #   Eligibility  = Payment Date <= CD Due Date
-        #   Diff Days    = CD Due Date − Payment Date
-        #   CD %         = % from the highest (largest days) CD slab
-        #   CD Amount    = Material Amount × CD% × (Diff Days ÷ 365)
+        # Eligibility:
+        #   Payment Date <= CD Due Date -> Cash Discount applies
+        #   Payment Date >  CD Due Date -> Cash Discount = 0
         #
-        # Effective Date source:
-        #   Specific contract match → from Contract Master
-        #   DEFAULT contract        → from uploaded Excel (PUR CONT DETAILS)
-        # ──────────────────────────────────────────────────────────────────────
+        # The CD master stores CD days in its slab configuration and does not
+        # have a separate CD Free Days field. Therefore the largest configured
+        # positive CD slab-days is used as the CD due-day limit.
+        #
+        # CD amount days are ALWAYS counted from Effective Date to Payment Date.
+        # Party Bill / Lifting Date is NOT used for CD calculation.
         cd_amount, cd_days_used, cd_pct_used = 0.0, 0, 0.0
         cd_due_date = pd.NaT
         cd_due_days = 0
 
         if cd_slabs and not pd.isna(eff_date):
-            # Step 1: CD Due Date = Effective Date + highest slab days
-            valid_slabs = [s for s in cd_slabs if sf(s.get("days"), 0) > 0]
-            if valid_slabs:
-                # Highest-days slab wins for both the due date and the rate
-                best_slab  = max(valid_slabs, key=lambda x: sf(x.get("days"), 0))
-                cd_due_days = int(sf(best_slab.get("days"), 0))
-                cd_pct_used = sf(best_slab.get("pct"), 0)
-                cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
+            valid_cd_days = [
+                int(sf(s.get("days"), 0))
+                for s in cd_slabs
+                if sf(s.get("days"), 0) > 0
+            ]
+            cd_due_days = max(valid_cd_days, default=0)
+            cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
 
-                # Step 2: Check eligibility
-                if not pd.isna(pay_date) and pay_date <= cd_due_date:
-                    # Step 3: Diff Days = CD Due Date − Payment Date
-                    diff_days    = max((cd_due_date - pay_date).days, 0)
-                    cd_days_used = diff_days
-                    # Step 4: CD Amount = Mat × CD% × (Diff Days ÷ 365)
-                    cd_amount    = round((mat * cd_pct_used / 100) * (diff_days / 365), 2)
-                else:
-                    # Payment after CD Due Date → no discount
-                    cd_days_used = 0
-                    cd_pct_used  = 0.0
-                    cd_amount    = 0.0
+            if not pd.isna(pay_date) and pay_date <= cd_due_date:
+                # Difference Days = Payment Date - Effective Date
+                diff_days = max((pay_date - eff_date).days, 0)
+
+                # Highest qualifying CD threshold wins.
+                for slab in sorted(cd_slabs, key=lambda x: -sf(x.get("days"), 0)):
+                    slab_days = sf(slab.get("days"), 0)
+                    if slab_days > 0 and diff_days >= slab_days:
+                        cd_pct_used = sf(slab.get("pct"), 0)
+                        break
+
+                # If payment is before the first positive threshold, use a
+                # configured 0-day slab when one exists.
+                if cd_pct_used == 0:
+                    zero_day_slabs = [
+                        s for s in cd_slabs if sf(s.get("days"), 0) == 0
+                    ]
+                    if zero_day_slabs:
+                        cd_pct_used = sf(zero_day_slabs[0].get("pct"), 0)
+
+                cd_days_used = diff_days
+                cd_amount = round(
+                    (mat * cd_pct_used / 100) * (diff_days / 365), 2
+                )
+            else:
+                # Payment after CD Due Date -> no discount.
+                cd_days_used = 0
+                cd_pct_used = 0.0
+                cd_amount = 0.0
 
         ll_charges, ll_gst_amt, late_lift_days = 0.0, 0.0, 0
         if not pd.isna(pay_date) and not pd.isna(lift_date):
@@ -1272,23 +1084,11 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         #   Slab 4 (day 91–120): (running) × 1.35% × (days_in_slab / 30)
         #   ... and so on every 30 days until all remaining days are consumed.
         #   Each slab charges on the RUNNING amount (principal + all prior slab charges).
-        # ── CARRYING CHARGES ────────────────────────────────────────────────
-        # Rule:
-        #   CC_Free_End  = Effective_Date (from uploaded PUR CONT DETAILS)
-        #                  + cc_free_days (from Contract Master CC section)
-        #   CC_Days      = Payment_Date - CC_Free_End   (if > 0, else 0)
-        #   CC_Days <= 0 → No charges
-        #   CC_Days >  0 → Compound prorata across unlimited 30-day slabs
-        # ─────────────────────────────────────────────────────────────────────
         cc_charges, cc_gst_amt, cc_days = 0.0, 0.0, 0
-        cc_slab_breakdown = []
+        cc_slab_breakdown = []   # list of (label, amount) for each 30-day window
         cc_free_end = pd.NaT
-
         if not pd.isna(eff_date):
-            # CC_Free_End = Effective Date + CC Free Days (from Contract Master)
-            cc_free_days_int = max(int(float(cc_free_days or 0)), 0)
-            cc_free_end = eff_date + pd.Timedelta(days=cc_free_days_int)
-
+            cc_free_end = eff_date + pd.Timedelta(days=cc_free_days)
             if not pd.isna(pay_date):
                 cc_days_raw = (pay_date - cc_free_end).days
                 if cc_days_raw > 0:
@@ -1297,26 +1097,28 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                     s2c = cc_slabs[1] if len(cc_slabs) > 1 else {"days": 30, "pct": 1.35}
 
                     rem     = cc_days
-                    running = mat
+                    running = mat       # running = principal + accumulated charges
                     total   = 0.0
-                    slab_n  = 0
+                    slab_n  = 0         # slab counter (0-based)
 
                     while rem > 0:
                         slab_n += 1
                         if slab_n == 1:
-                            rate      = s1c["pct"] / 100
-                            slab_days = int(s1c["days"]) if s1c["days"] > 0 else 30
+                            rate     = s1c["pct"] / 100
+                            slab_days = s1c["days"]
                         else:
-                            rate      = s2c["pct"] / 100
-                            slab_days = int(s2c["days"]) if s2c["days"] > 0 else 30
+                            rate     = s2c["pct"] / 100
+                            slab_days = s2c["days"]
 
-                        d       = min(rem, slab_days)
-                        charge  = running * rate * (d / 30)
+                        d        = min(rem, slab_days)
+                        charge   = running * rate * (d / 30)
+                        rounded  = round(charge, 2)
 
+                        # label: "1-30", "31-60", "61-90", "91-120", ...
                         day_from = (slab_n - 1) * 30 + 1
                         day_to   = day_from + d - 1
                         label    = f"{day_from}-{day_to}"
-                        cc_slab_breakdown.append((label, round(charge, 2)))
+                        cc_slab_breakdown.append((label, rounded))
 
                         running += charge
                         total   += charge
@@ -1330,11 +1132,10 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
-            "Payment_Amount":round(pay_alloc,2),
+            "Payment_Amount":round(payment_amt,2),
             "Per_Bale_EMD":round(pbe,2), "EMD_Allocated":round(emd_alloc,2),
             "EMD_Date":emd_date, "Net_Amount":round(net_amt,2),
-            "Payment_Date":pay_date, "Payment_Mode":pay_mode,
-            "EMD_Days":emd_days, "EMD_Interest":emd_interest,
+            "Payment_Date":pay_date, "EMD_Days":emd_days, "EMD_Interest":emd_interest,
             "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "CD_Due_Date":cd_due_date,
             "Cash_Discount":cd_amount,
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
@@ -1350,106 +1151,6 @@ def fmt_date(v):
         return pd.Timestamp(v).strftime("%d-%b-%Y")
     except:
         return "—"
-
-# ─── COLUMN LABEL PRETTIFIER ───────────────────────────────────────────────
-# Converts internal snake_case column names into clean, human-readable
-# headers for both the on-screen tables and the exported Excel sheets.
-_PRETTY_COL_MAP = {
-    "Contract_No": "Contract No",
-    "GRN_No": "GRN No",
-    "Branch": "Branch",
-    "Effective_Date": "Effective Date",
-    "Party_Bill_Date": "Party Bill Date",
-    "Bales": "Bales",
-    "Material_Amount": "Material Amount",
-    "GST_On_Material": "GST On Material",
-    "Total_Bill_Amount": "Total Bill Amount",
-    "Payment_Amount": "Payment Amount",
-    "Per_Bale_EMD": "Per Bale EMD",
-    "EMD_Allocated": "EMD Allocated",
-    "EMD_Date": "EMD Date",
-    "Net_Amount": "Net Amount",
-    "Payment_Date": "Payment Date",
-    "Payment_Mode": "Mode Of Transaction",
-    "EMD_Days": "EMD Days",
-    "EMD_Interest": "EMD Interest",
-    "CD_Days": "CD Days",
-    "CD_Pct": "CD %",
-    "CD_Due_Date": "CD Due Date",
-    "Cash_Discount": "Cash Discount",
-    "Late_Lift_Days": "Late Lift Days",
-    "Late_Lifting_Chg": "Late Lifting Charges",
-    "Late_Lifting_GST": "Late Lifting GST",
-    "CC_Free_End": "CC Free End",
-    "CC_Days": "CC Days",
-    "Carry_Charges": "Carrying Charges",
-    "Carry_GST": "Carrying GST",
-    # Contract-wise / Branch-wise summary aggregate names
-    "GRNs": "GRNs",
-    "Contracts": "Contracts",
-    "Total_Bales": "Total Bales",
-    "Total_Material": "Total Material",
-    "Total_GST": "Total GST",
-    "Total_Bill": "Total Bill",
-    "Total_Payment": "Total Payment",
-    "Total_EMD": "Total EMD Allocated",
-    "Total_EMD_Interest": "Total EMD Interest",
-    "Total_Cash_Disc": "Total Cash Discount",
-    "Total_LL": "Total Late Lifting",
-    "Total_LL_GST": "Total Late Lifting GST",
-    "Total_CC": "Total Carrying Charges",
-    "Total_CC_GST": "Total Carrying GST",
-    "Material": "Material",
-    "GST": "GST",
-    "Payment": "Payment",
-    "EMD_Alloc": "EMD Allocated",
-    "Cash_Disc": "Cash Discount",
-    "LL_Chg": "Late Lifting Charges",
-    "LL_GST": "Late Lifting GST",
-    "CC_Chg": "Carrying Charges",
-    "CC_GST": "Carrying GST",
-}
-
-import re as _re
-def pretty_col(col):
-    """Map one internal column name to a clean display label."""
-    m = _re.match(r"^CC_Slab(\d+)_(.+)$", col)
-    if m:
-        return f"CC Slab {m.group(1)} ({m.group(2)})"
-    if col in _PRETTY_COL_MAP:
-        return _PRETTY_COL_MAP[col]
-    return col.replace("_", " ")
-
-def pretty_columns(df):
-    """Return a copy of df with human-readable column headers."""
-    return df.rename(columns={c: pretty_col(c) for c in df.columns})
-
-def branch_wise_summary(result_df):
-    """Aggregate the GRN-wise result into a Branch-level summary."""
-    if "Branch" not in result_df.columns:
-        return pd.DataFrame()
-    bs = result_df.groupby("Branch").agg(
-        Contracts=("Contract_No","nunique"),
-        GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
-        Total_Material=("Material_Amount","sum"),
-        Total_GST=("GST_On_Material","sum"),
-        Total_Bill=("Total_Bill_Amount","sum"),
-        Total_Payment=("Payment_Amount","sum"),
-        Total_EMD=("EMD_Allocated","sum"),
-        Total_EMD_Interest=("EMD_Interest","sum"),
-        Total_Cash_Disc=("Cash_Discount","sum"),
-        Total_LL=("Late_Lifting_Chg","sum"),
-        Total_LL_GST=("Late_Lifting_GST","sum"),
-        Total_CC=("Carry_Charges","sum"),
-        Total_CC_GST=("Carry_GST","sum"),
-    ).reset_index()
-    bs_total = {c: "" for c in bs.columns}
-    bs_total["Branch"] = "GRAND TOTAL"
-    for c in bs.columns:
-        if c != "Branch":
-            bs_total[c] = pd.to_numeric(bs[c], errors="coerce").sum()
-    bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
-    return bs
 
 def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     buf = io.BytesIO()
@@ -1475,7 +1176,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         base_cols = [
             "Contract_No","GRN_No","Branch","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
-            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date","Payment_Mode",
+            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
             "EMD_Days","EMD_Interest","CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
@@ -1491,7 +1192,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c in detail_export.columns:
                 detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
         detail_export = pd.concat([detail_export, pd.DataFrame([detail_total])], ignore_index=True)
-        pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
+        detail_export.to_excel(w, sheet_name="GRN Calculation", index=False)
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
             Total_Material=("Material_Amount","sum"),
@@ -1515,13 +1216,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c != "Contract_No" and c != "Branch":
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
-
-        # ── Branch-wise Summary ──────────────────────────────────────────────
-        branch_summary = branch_wise_summary(result_df)
-        if not branch_summary.empty:
-            pretty_columns(branch_summary).to_excel(w, sheet_name="Branch Summary", index=False)
-
+        summary.to_excel(w, sheet_name="Summary", index=False)
         cont.to_excel(w, sheet_name="PUR CONT", index=False)
         emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
@@ -1582,13 +1277,72 @@ with hc2:
 st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
-tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
+tab_dashboard, tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
+    "  🏢  Dashboard  ",
     "  📋  Masters  ",
     "  📤  Upload & Calculate  ",
     "  📊  Results  ",
     "  📖  Formula Guide  ",
     "  👤  User Master  "
 ])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE DASHBOARD
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_dashboard:
+    _contracts = st.session_state.masters.get("contracts", [])
+    _projects = st.session_state.masters.get("projects", [])
+    _results = st.session_state.get("result_df")
+    _grns = 0 if _results is None else len(_results)
+
+    _bill = float(pd.to_numeric(_results["Total_Bill_Amount"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Total_Bill_Amount" in _results.columns else 0.0
+    _emd = float(pd.to_numeric(_results["EMD_Interest"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "EMD_Interest" in _results.columns else 0.0
+    _ll = float(pd.to_numeric(_results["Late_Lifting_Chg"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Late_Lifting_Chg" in _results.columns else 0.0
+    _cc = float(pd.to_numeric(_results["Carry_Charges"], errors="coerce").fillna(0).sum()) if _results is not None and not _results.empty and "Carry_Charges" in _results.columns else 0.0
+
+    st.markdown("""
+    <div class="executive-dashboard">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:15px">
+        <div>
+          <h2>CCI Executive Dashboard</h2>
+          <p>Contract control • Calculation monitoring • Financial overview</p>
+        </div>
+        <div style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);padding:8px 12px;border-radius:9px;color:#e2e8f0;font-size:11px;font-weight:800">
+          PREMIUM CONTROL CENTRE
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _d1,_d2,_d3,_d4 = st.columns(4)
+    _d1.metric("Active Contracts", f"{len(_contracts):,}")
+    _d2.metric("Projects", f"{len(_projects):,}")
+    _d3.metric("Processed GRNs", f"{_grns:,}")
+    _d4.metric("Total Bill Amount", f"₹{_bill:,.0f}")
+
+    st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+    _a,_b = st.columns([1.35, 1], gap="large")
+    with _a:
+        st.markdown('<div class="sec-label">📊 Financial Snapshot</div>', unsafe_allow_html=True)
+        _fin = pd.DataFrame({
+            "Component":["EMD Interest","Late Lifting","Carrying Charges","Total Bill"],
+            "Amount":[_emd,_ll,_cc,_bill]
+        })
+        _fin["Amount"] = _fin["Amount"].map(lambda x:f"₹{x:,.2f}")
+        st.dataframe(_fin, use_container_width=True, hide_index=True)
+    with _b:
+        st.markdown('<div class="sec-label">📋 Contract Register</div>', unsafe_allow_html=True)
+        if _contracts:
+            _reg = pd.DataFrame([{
+                "Contract No": c.get("contract_no",""),
+                "Party": c.get("party",""),
+                "Bales": c.get("bales",0),
+                "Effective": c.get("effective_date","")
+            } for c in _contracts])
+            st.dataframe(_reg, use_container_width=True, hide_index=True, height=260)
+        else:
+            st.info("No contracts saved yet.")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: MASTERS
@@ -2037,7 +1791,7 @@ with tab_upload:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
             ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI"),
-            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT"),
+            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | PAYMENT DATE | PAYMENT AMOUNT"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
             st.markdown(f"""
@@ -2056,7 +1810,6 @@ with tab_results:
         df = st.session_state["result_df"]
         tot_bill = df["Total_Bill_Amount"].sum()
         tot_emd  = df["EMD_Interest"].sum()
-        tot_cd   = df["Cash_Discount"].sum()
         tot_ll   = df["Late_Lifting_Chg"].sum()
         tot_cc   = df["Carry_Charges"].sum()
         tot_grns = len(df)
@@ -2077,11 +1830,6 @@ with tab_results:
             <div class="metric-icon">📈</div>
             <div class="metric-val">₹{tot_emd:,.0f}</div>
             <div class="metric-lbl">EMD Interest</div>
-          </div>
-          <div class="metric-card purple">
-            <div class="metric-icon">💸</div>
-            <div class="metric-val">₹{tot_cd:,.0f}</div>
-            <div class="metric-lbl">Cash Discount</div>
           </div>
           <div class="metric-card red">
             <div class="metric-icon">⏰</div>
@@ -2148,7 +1896,7 @@ with tab_results:
                 vals = pd.to_numeric(df[c], errors="coerce")
                 detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
         disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
-        st.dataframe(pretty_columns(disp), use_container_width=True, height=440, hide_index=True)
+        st.dataframe(disp, use_container_width=True, height=440, hide_index=True)
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">📋 Contract-wise Summary</div>', unsafe_allow_html=True)
@@ -2172,15 +1920,7 @@ with tab_results:
             if c not in ("Contract_No","Branch"):
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        st.dataframe(pretty_columns(summary), use_container_width=True, hide_index=True)
-
-        st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
-        branch_summary_ui = branch_wise_summary(df)
-        if not branch_summary_ui.empty:
-            st.dataframe(pretty_columns(branch_summary_ui), use_container_width=True, hide_index=True)
-        else:
-            st.info("Branch data not available for this upload.")
+        st.dataframe(summary, use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 4: FORMULA GUIDE
