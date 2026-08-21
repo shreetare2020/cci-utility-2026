@@ -707,259 +707,266 @@ def _do_login():
 if not st.session_state.authenticated:
     st.markdown("""
     <style>
-    .login-card {
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+    * { font-family:'Inter',sans-serif; box-sizing:border-box; margin:0; padding:0; }
+
+    /* Full viewport login */
+    [data-testid="stAppViewContainer"] {
+        background: #fdf0e6 !important;
+        min-height: 100vh;
+    }
+    [data-testid="stHeader"] { display:none !important; }
+    .main .block-container {
+        padding: 0 !important; max-width: 100% !important;
+        height: 100vh; overflow: hidden;
+    }
+    /* Hide default streamlit chrome */
+    header[data-testid="stHeader"], footer { display:none !important; }
+    [data-testid="stToolbar"] { display:none !important; }
+
+    /* ── SPLIT LAYOUT ── */
+    .login-outer {
+        display: flex; height: 100vh; width: 100%;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* LEFT PANEL – warm orange gradient with floral feel */
+    .login-left {
+        flex: 1.1;
+        background: linear-gradient(160deg, #f97316 0%, #ea580c 35%, #c2410c 65%, #9a3412 100%);
+        display: flex; flex-direction: column;
+        justify-content: space-between;
+        padding: 50px 48px 40px;
+        position: relative; overflow: hidden;
+    }
+    .login-left::before {
+        content:'';
+        position:absolute; top:-80px; right:-80px;
+        width:400px; height:400px;
+        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+        border-radius:50%;
+    }
+    .login-left::after {
+        content:'';
+        position:absolute; bottom:-120px; left:-60px;
+        width:500px; height:500px;
+        background: radial-gradient(circle, rgba(255,200,100,0.15) 0%, transparent 65%);
+        border-radius:50%;
+    }
+
+    .ll-logo { display:flex; align-items:center; gap:14px; z-index:1; position:relative; }
+    .ll-logo img { height:60px; width:auto; border-radius:12px; background:rgba(255,255,255,0.95); padding:7px 12px; box-shadow:0 6px 24px rgba(0,0,0,0.25); }
+    .ll-brand { color:#ffffff; font-size:13px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; opacity:0.9; }
+
+    .ll-main { z-index:1; position:relative; }
+    .ll-headline {
+        font-family:'Poppins',sans-serif;
+        font-size:40px; font-weight:900; color:#ffffff;
+        line-height:1.15; margin-bottom:12px;
+        text-shadow:0 2px 12px rgba(0,0,0,0.2);
+    }
+    .ll-headline span { color:#fde68a; }
+    .ll-tagline { font-size:15px; color:rgba(255,255,255,0.80); line-height:1.6; max-width:340px; margin-bottom:36px; }
+    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .ll-feat {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.20);
+        border-radius: 14px; padding: 14px 16px;
+        backdrop-filter: blur(8px);
+    }
+    .ll-feat-icon { font-size:20px; margin-bottom:6px; }
+    .ll-feat-title { font-size:12px; font-weight:800; color:#fde68a; margin-bottom:3px; }
+    .ll-feat-desc { font-size:11px; color:rgba(255,255,255,0.70); line-height:1.4; }
+
+    .ll-footer { z-index:1; position:relative; display:flex; gap:24px; align-items:center; }
+    .ll-footer span { font-size:11px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:5px; }
+
+    /* RIGHT PANEL – clean white form */
+    .login-right {
+        flex: 0.9;
         background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 40px 36px 36px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-        max-width: 420px;
-        margin: 80px auto 0;
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center;
+        padding: 60px 56px;
+        box-shadow: -12px 0 40px rgba(0,0,0,0.10);
+        position: relative;
     }
-    .lt { font-size:22px; font-weight:700; color:#111827; margin-bottom:4px; }
-    .ls { font-size:13px; color:#6b7280; margin-bottom:24px; }
-    .le { color:#dc2626; font-size:13px; margin-top:8px; font-weight:500; }
-    .login-card .stTextInput input { background:#f9fafb !important; border:1.5px solid #d1d5db !important; color:#111827 !important; }
-    .login-card .stTextInput label { color:#374151 !important; }
-    
-/* =========================================================
-   FINAL UI FIXES
-   ========================================================= */
+    .login-right-inner { width: 100%; max-width: 380px; }
 
-/* 1) LOGIN: remove blank placeholder above logo / empty blocks */
-.login-page .empty-box,
-.login-page .logo-placeholder,
-.login-page .top-placeholder,
-.login-page .blank-box,
-.login-page .spacer-box {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-.login-page div:empty {
-    display: none !important;
-}
-
-/* Remove generic bordered/filled empty blocks around login logo */
-.login-page [data-testid="stVerticalBlockBorderWrapper"]:has(div:empty) {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-/* 3) FILE UPLOAD: neutral gray button with strong contrast */
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] [role="button"] {
-    background: #4b5563 !important;
-    color: #ffffff !important;
-    border: 1px solid #374151 !important;
-    border-radius: 8px !important;
-    font-weight: 800 !important;
-    text-shadow: none !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,.12) !important;
-}
-[data-testid="stFileUploader"] button:hover,
-[data-testid="stFileUploader"] [role="button"]:hover {
-    background: #374151 !important;
-    color: #ffffff !important;
-}
-
-/* 2) CONTRACT PREVIEW: compact executive card */
-.contract-preview-card {
-    width: 100%;
-    box-sizing: border-box;
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin: 8px 0 12px 0;
-    box-shadow: 0 3px 12px rgba(15,23,42,.08);
-    overflow: hidden;
-}
-.contract-preview-header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:12px;
-    padding-bottom:10px;
-    border-bottom:1px solid #e5e7eb;
-}
-.contract-preview-title {
-    font-size:18px;
-    font-weight:900;
-    color:#111827;
-}
-.contract-preview-party {
-    font-size:13px;
-    font-weight:700;
-    color:#6b7280;
-    text-align:right;
-}
-.contract-preview-meta {
-    display:grid;
-    grid-template-columns:repeat(4, minmax(0,1fr));
-    gap:8px;
-    margin:10px 0;
-}
-.contract-preview-meta-item {
-    background:#f8fafc;
-    border:1px solid #e5e7eb;
-    border-radius:8px;
-    padding:7px 9px;
-}
-.contract-preview-label {
-    font-size:10px;
-    font-weight:700;
-    color:#6b7280;
-    text-transform:uppercase;
-}
-.contract-preview-value {
-    font-size:13px;
-    font-weight:800;
-    color:#111827;
-    margin-top:2px;
-}
-.contract-preview-sections {
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0,1fr));
-    gap:10px;
-}
-.contract-preview-section {
-    border:1px solid #e5e7eb;
-    border-radius:9px;
-    padding:9px 10px;
-    background:#fafafa;
-    min-width:0;
-}
-.contract-preview-section h4 {
-    margin:0 0 7px 0;
-    font-size:12px;
-    font-weight:900;
-    color:#1f2937;
-}
-.contract-preview-row {
-    display:flex;
-    justify-content:space-between;
-    gap:8px;
-    padding:4px 0;
-    border-bottom:1px dashed #e5e7eb;
-    font-size:11px;
-}
-.contract-preview-row:last-child {
-    border-bottom:none;
-}
-.contract-preview-row span:first-child {
-    color:#6b7280;
-}
-.contract-preview-row span:last-child {
-    color:#111827;
-    font-weight:800;
-    text-align:right;
-    white-space:nowrap;
-}
-.contract-preview-actions {
-    display:flex;
-    gap:8px;
-    margin-top:10px;
-}
-@media (max-width: 900px) {
-    .contract-preview-meta,
-    .contract-preview-sections {
-        grid-template-columns:1fr;
+    .lr-eyebrow {
+        display:flex; align-items:center; gap:10px; margin-bottom:18px;
+        font-size:11px; font-weight:800; color:#ea580c;
+        text-transform:uppercase; letter-spacing:.14em;
     }
-}
+    .lr-eyebrow::before, .lr-eyebrow::after {
+        content:''; flex:1; height:1px; background:#f97316; opacity:0.4;
+    }
+    .lr-title {
+        font-family:'Poppins',sans-serif;
+        font-size:34px; font-weight:900; color:#1c1917;
+        line-height:1.1; margin-bottom:6px;
+    }
+    .lr-sub { font-size:14px; color:#78716c; margin-bottom:32px; }
+    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 26px; }
+    .lr-divider::before { content:'◆'; color:#f97316; font-size:14px; }
 
-/* 4) EXECUTIVE DASHBOARD */
-.executive-dashboard {
-    background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
-    border-radius:16px;
-    padding:20px 22px;
-    margin:8px 0 18px 0;
-    box-shadow:0 8px 25px rgba(15,23,42,.18);
-}
-.executive-dashboard h2 {
-    color:#ffffff;
-    margin:0;
-    font-size:25px;
-    font-weight:900;
-}
-.executive-dashboard p {
-    color:#cbd5e1;
-    margin:4px 0 0 0;
-    font-size:13px;
-}
-.exec-kpis {
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:10px;
-    margin-top:15px;
-}
-.exec-kpi {
-    background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.12);
-    border-radius:11px;
-    padding:12px;
-}
-.exec-kpi-label {
-    color:#cbd5e1;
-    font-size:10px;
-    font-weight:800;
-    text-transform:uppercase;
-}
-.exec-kpi-value {
-    color:#ffffff;
-    font-size:22px;
-    font-weight:900;
-    margin-top:3px;
-}
+    /* Form fields - light clean */
+    .login-right div[data-testid="stTextInput"] label {
+        font-size:13px !important; font-weight:700 !important;
+        color:#1c1917 !important; margin-bottom:4px !important;
+        letter-spacing:.02em !important;
+    }
+    .login-right div[data-testid="stTextInput"] input {
+        background:#fafaf9 !important;
+        border:1.5px solid #e7e5e4 !important;
+        border-radius:12px !important;
+        color:#1c1917 !important;
+        font-size:14px !important;
+        padding:13px 16px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+    }
+    .login-right div[data-testid="stTextInput"] input:focus {
+        border-color:#f97316 !important;
+        box-shadow:0 0 0 3px rgba(249,115,22,0.18) !important;
+        background:#ffffff !important;
+    }
+    .login-right div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
 
+    /* Primary button – orange */
+    .login-right div[data-testid="stButton"] button[kind="primary"] {
+        background: linear-gradient(135deg,#ea580c,#f97316) !important;
+        color:#ffffff !important; border:none !important;
+        border-radius:14px !important; font-size:16px !important;
+        font-weight:800 !important; padding:16px !important;
+        box-shadow:0 8px 24px rgba(234,88,12,0.40) !important;
+        letter-spacing:.02em !important;
+        transition:all 0.25s !important;
+    }
+    .login-right div[data-testid="stButton"] button[kind="primary"]:hover {
+        background:linear-gradient(135deg,#c2410c,#ea580c) !important;
+        box-shadow:0 12px 32px rgba(234,88,12,0.55) !important;
+        transform:translateY(-2px) !important;
+    }
 
-<style>
-/* FINAL UPLOAD BUTTON */
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] button[kind],
-[data-testid="stFileUploader"] [data-testid="baseButton-secondary"] {
-    background: #6b7280 !important;
-    background-image: none !important;
-    color: #ffffff !important;
-    border: 1px solid #4b5563 !important;
-    border-radius: 7px !important;
-    font-weight: 800 !important;
-    box-shadow: none !important;
-}
-[data-testid="stFileUploader"] button:hover,
-[data-testid="stFileUploader"] [data-testid="baseButton-secondary"]:hover {
-    background: #4b5563 !important;
-    color: #ffffff !important;
-}
+    /* Bottom branding */
+    .lr-bottom {
+        text-align:center; margin-top:36px;
+        padding-top:28px; border-top:1px solid #f5f5f4;
+    }
+    .lr-bottom-brand { font-size:15px; font-weight:800; color:#ea580c; margin-bottom:4px; }
+    .lr-bottom-desc { font-size:12px; color:#a8a29e; margin-bottom:6px; }
+    .lr-bottom-secure { font-size:11px; font-weight:700; color:#ea580c; }
 
-/* LOGIN: absolutely no outer card */
-.login-card,
-.login-page .login-card,
-.login-page [data-testid="stVerticalBlockBorderWrapper"] {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-}
-</style>
-</style>
+    /* Error msg */
+    .login-err {
+        background:#fff7f5; border:1.5px solid #fca5a5;
+        border-radius:10px; padding:11px 14px;
+        color:#dc2626; font-size:13px; font-weight:600;
+        margin-top:12px; text-align:center;
+    }
+    </style>
     """, unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 2, 1])
-    with col:
-        st.markdown(
-            f'<div style="text-align:center;margin:35px 0 16px 0;background:transparent;border:0;box-shadow:none;">'
-            f'<img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:transparent;padding:0;border-radius:0;box-shadow:none;border:0;" alt="Softview Technologies"></div>',
-            unsafe_allow_html=True
-        )
-        st.markdown('<div class="lt" style="text-align:center">🔐 CCI Utility Login</div><div style="text-align:center;font-size:11px;color:#64748b;margin-top:-2px;margin-bottom:16px;letter-spacing:.06em">SOFTVIEW TECHNOLOGIES</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ls" style="text-align:center">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
-        st.text_input("Username", key="_lu", placeholder="Enter username")
-        st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
-        st.button("🔓  Login", on_click=_do_login, type="primary", use_container_width=True)
-        if st.session_state._login_error:
-            st.markdown(f'<div class="le">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+
+    # ── Build the full-width login layout via HTML + st columns for form ──
+    left_col, right_col = st.columns([1.1, 0.9])
+
+    with left_col:
+        st.markdown(f"""
+        <div class="login-left" style="min-height:100vh;">
+          <div class="ll-logo">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Softview">
+            <span class="ll-brand">Softview Technologies</span>
+          </div>
+
+          <div class="ll-main">
+            <div class="ll-headline">Smart software.<br><span>Built for business.</span></div>
+            <div class="ll-tagline">SoftView Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams and drive business growth.</div>
+            <div class="ll-features">
+              <div class="ll-feat">
+                <div class="ll-feat-icon">🏢</div>
+                <div class="ll-feat-title">Enterprise Ready</div>
+                <div class="ll-feat-desc">Structured workflows and business controls.</div>
+              </div>
+              <div class="ll-feat">
+                <div class="ll-feat-icon">📊</div>
+                <div class="ll-feat-title">Data Driven</div>
+                <div class="ll-feat-desc">Clear calculations, reports and insights.</div>
+              </div>
+              <div class="ll-feat">
+                <div class="ll-feat-icon">🔒</div>
+                <div class="ll-feat-title">Secure Access</div>
+                <div class="ll-feat-desc">Authorised user login and role-based access.</div>
+              </div>
+              <div class="ll-feat">
+                <div class="ll-feat-icon">💎</div>
+                <div class="ll-feat-title">Executive Experience</div>
+                <div class="ll-feat-desc">Clean, premium and easy-to-use interface.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ll-footer">
+            <span>🛡️ Secure. Reliable. Scalable.</span>
+            <span>👥 Trusted by Professionals.</span>
+            <span>🏆 Excellence in Every Solution.</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with right_col:
+        # Wrap the entire right side in a styled div
+        st.markdown("""
+        <div class="login-right" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 48px;">
+          <div class="login-right-inner" style="max-width:380px;margin:0 auto;width:100%;">
+            <div class="lr-eyebrow">CCI Working Calculation Utility</div>
+            <div class="lr-title">Welcome Back</div>
+            <div class="lr-sub">Sign in to continue to your secure workspace.</div>
+            <div class="lr-divider"></div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Spacer to push form down
+        st.markdown("<div style='height:15vh'></div>", unsafe_allow_html=True)
+
+        # Center content
+        _, fc, _ = st.columns([0.15, 0.70, 0.15])
+        with fc:
+            st.markdown('<div class="login-right">', unsafe_allow_html=True)
+            st.markdown("""
+            <div style="text-align:center;margin-bottom:8px">
+              <div style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:.14em;display:flex;align-items:center;gap:8px;justify-content:center">
+                <span style="flex:1;height:1px;background:#f97316;opacity:0.4;display:inline-block"></span>
+                CCI Working Calculation Utility
+                <span style="flex:1;height:1px;background:#f97316;opacity:0.4;display:inline-block"></span>
+              </div>
+              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:#1c1917;margin:10px 0 4px">Welcome Back</div>
+              <div style="font-size:13px;color:#78716c;margin-bottom:4px">Sign in to continue to your secure workspace.</div>
+              <div style="color:#f97316;font-size:16px;margin:8px 0 24px">◆</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:4px">Username</p>', unsafe_allow_html=True)
+            st.text_input("", key="_lu", placeholder="👤  Enter your username", label_visibility="collapsed")
+
+            st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:4px">Password</p>', unsafe_allow_html=True)
+            st.text_input("", key="_lp", type="password", placeholder="🔒  Enter your password", label_visibility="collapsed")
+
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
+
+            if st.session_state._login_error:
+                st.markdown(f'<div class="login-err">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+
+            st.markdown("""
+            <div class="lr-bottom">
+              <div class="lr-bottom-brand">SoftView Technologies</div>
+              <div class="lr-bottom-desc">CCI Working Calculation Utility &nbsp;·&nbsp; Premium Enterprise Edition</div>
+              <div class="lr-bottom-secure">🛡️ Secure access for authorised users only.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
@@ -1185,52 +1192,43 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
 
         # ── CASH DISCOUNT ─────────────────────────────────────────────────────
-        # Correct CD logic only. All other calculations remain unchanged.
-        # CD Due Date = Effective Date + Free Days For CD
-        # Payment Date <= CD Due Date -> CD applies
-        # Payment Date >  CD Due Date -> CD = 0
-        # CD Amount = Material Amount * CD % / 365 * (Payment Date - Effective Date)
+        # Formula:
+        #   CD Due Date  = Effective Date + highest CD slab days
+        #   Eligibility  = Payment Date <= CD Due Date
+        #   Diff Days    = CD Due Date − Payment Date
+        #   CD %         = % from the highest (largest days) CD slab
+        #   CD Amount    = Material Amount × CD% × (Diff Days ÷ 365)
+        #
+        # Effective Date source:
+        #   Specific contract match → from Contract Master
+        #   DEFAULT contract        → from uploaded Excel (PUR CONT DETAILS)
+        # ──────────────────────────────────────────────────────────────────────
         cd_amount, cd_days_used, cd_pct_used = 0.0, 0, 0.0
         cd_due_date = pd.NaT
         cd_due_days = 0
 
-        if not pd.isna(eff_date):
-            # Prefer dedicated Contract Master fields when available.
-            # In this file's existing master structure, fall back to the
-            # first configured CD slab (days = free days, pct = CD %).
-            _master_cd_free = row_mc.get("cd_free_days", None)
-            _master_cd_pct = row_mc.get("cd_pct", None)
+        if cd_slabs and not pd.isna(eff_date):
+            # Step 1: CD Due Date = Effective Date + highest slab days
+            valid_slabs = [s for s in cd_slabs if sf(s.get("days"), 0) > 0]
+            if valid_slabs:
+                # Highest-days slab wins for both the due date and the rate
+                best_slab  = max(valid_slabs, key=lambda x: sf(x.get("days"), 0))
+                cd_due_days = int(sf(best_slab.get("days"), 0))
+                cd_pct_used = sf(best_slab.get("pct"), 0)
+                cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
 
-            if _master_cd_free is not None and str(_master_cd_free).strip() != "":
-                cd_due_days = max(int(sf(_master_cd_free, 0)), 0)
-            else:
-                _positive_cd_slabs = [
-                    s for s in cd_slabs if sf(s.get("days"), 0) > 0
-                ]
-                cd_due_days = int(sf(_positive_cd_slabs[0].get("days"), 0)) if _positive_cd_slabs else 0
-
-            if _master_cd_pct is not None and str(_master_cd_pct).strip() != "":
-                cd_pct_used = sf(_master_cd_pct, 0)
-            else:
-                _positive_cd_slabs = [
-                    s for s in cd_slabs if sf(s.get("days"), 0) > 0
-                ]
-                cd_pct_used = sf(_positive_cd_slabs[0].get("pct"), 0) if _positive_cd_slabs else 0.0
-
-            cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
-
-            if not pd.isna(pay_date) and pay_date <= cd_due_date:
-                # Difference Days = Payment Date - Effective Date
-                diff_days = max((pay_date - eff_date).days, 0)
-                cd_days_used = diff_days
-                cd_amount = round(
-                    (mat * cd_pct_used / 100) * (diff_days / 365), 2
-                )
-            else:
-                # Payment after CD Due Date -> no Cash Discount.
-                cd_days_used = 0
-                cd_pct_used = 0.0
-                cd_amount = 0.0
+                # Step 2: Check eligibility
+                if not pd.isna(pay_date) and pay_date <= cd_due_date:
+                    # Step 3: Diff Days = CD Due Date − Payment Date
+                    diff_days    = max((cd_due_date - pay_date).days, 0)
+                    cd_days_used = diff_days
+                    # Step 4: CD Amount = Mat × CD% × (Diff Days ÷ 365)
+                    cd_amount    = round((mat * cd_pct_used / 100) * (diff_days / 365), 2)
+                else:
+                    # Payment after CD Due Date → no discount
+                    cd_days_used = 0
+                    cd_pct_used  = 0.0
+                    cd_amount    = 0.0
 
         ll_charges, ll_gst_amt, late_lift_days = 0.0, 0.0, 0
         if not pd.isna(pay_date) and not pd.isna(lift_date):
