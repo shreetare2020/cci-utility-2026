@@ -611,100 +611,6 @@ div[data-testid="stFileUploader"] button {
 </style>
 """, unsafe_allow_html=True)
 
-# ─── PREMIUM ABOLI EXECUTIVE THEME ─────────────────────────────────────────────
-st.markdown("""
-<style>
-:root {
-    --aboli: #C86A8A; --aboli-dark: #8F3F5B; --aboli-deep: #5B2639;
-    --aboli-soft: #F8E7EE; --gold: #B58A3A; --line: #E9D7DF;
-}
-[data-testid="stAppViewContainer"] {
-    background:
-        radial-gradient(circle at 8% 0%, rgba(200,106,138,.10), transparent 28%),
-        radial-gradient(circle at 95% 12%, rgba(181,138,58,.08), transparent 24%),
-        linear-gradient(180deg,#FFF9FB 0%,#F7F2F5 48%,#F4EFF2 100%) !important;
-}
-.main .block-container { max-width:1480px !important; padding:.75rem 1.25rem 2.5rem !important; }
-
-.top-header {
-    background:linear-gradient(110deg,#5B2639 0%,#8F3F5B 48%,#C86A8A 100%) !important;
-    border:1px solid rgba(255,255,255,.18) !important;
-    border-radius:18px !important; min-height:82px !important;
-    box-shadow:0 10px 28px rgba(91,38,57,.22),inset 0 1px 0 rgba(255,255,255,.18) !important;
-}
-.top-header-title { font-size:22px !important; }
-.top-header-badge { background:rgba(255,255,255,.15) !important; border:1px solid rgba(255,255,255,.22) !important; }
-
-div[data-testid="stTabs"] {
-    background:rgba(255,255,255,.90) !important; border:1px solid var(--line) !important;
-    border-radius:15px !important; padding:5px !important;
-    box-shadow:0 5px 18px rgba(91,38,57,.08) !important;
-}
-div[data-testid="stTabs"] button { color:#6E5260 !important; font-weight:700 !important; border-radius:10px !important; }
-div[data-testid="stTabs"] button[aria-selected="true"] {
-    color:#fff !important; background:linear-gradient(135deg,#8F3F5B,#C86A8A) !important;
-    box-shadow:0 4px 12px rgba(143,63,91,.24) !important;
-}
-
-.sec-label {
-    color:var(--aboli-dark) !important; font-weight:800 !important; letter-spacing:.09em !important;
-    border-left:4px solid var(--aboli) !important; padding-left:9px !important;
-}
-.contract-card,.clean-contract-card {
-    border:1px solid var(--line) !important; border-radius:15px !important;
-    background:rgba(255,255,255,.96) !important; box-shadow:0 7px 20px rgba(91,38,57,.075) !important;
-}
-.contract-card:hover,.clean-contract-card:hover {
-    border-color:rgba(200,106,138,.55) !important; box-shadow:0 9px 24px rgba(91,38,57,.11) !important;
-}
-.basic-grid div { background:#FFF8FA !important; border:1px solid #F2E2E8 !important; }
-.condition-box { background:linear-gradient(180deg,#FFF8FA,#FFFFFF) !important; border-color:#EBD5DF !important; }
-.condition-title { color:var(--aboli-dark) !important; }
-.contract-project { background:var(--aboli-soft) !important; border-color:#E5B7C8 !important; color:var(--aboli-deep) !important; }
-
-div[data-testid="stTextInput"] input,div[data-testid="stNumberInput"] input,
-div[data-testid="stDateInput"] input,div[data-testid="stTextArea"] textarea,
-div[data-baseweb="select"] > div {
-    border:1px solid #DDC8D1 !important; border-radius:9px !important;
-}
-div[data-testid="stTextInput"] input:focus,div[data-testid="stNumberInput"] input:focus,
-div[data-testid="stDateInput"] input:focus {
-    border-color:var(--aboli) !important; box-shadow:0 0 0 2px rgba(200,106,138,.13) !important;
-}
-div[data-testid="stButton"] button[kind="primary"] {
-    background:linear-gradient(135deg,#7B314D,#C86A8A) !important; border:none !important;
-    box-shadow:0 5px 13px rgba(123,49,77,.18) !important;
-}
-div[data-testid="stButton"] button[kind="primary"]:hover { background:linear-gradient(135deg,#5B2639,#A94E70) !important; }
-div[data-testid="stDownloadButton"] button {
-    background:linear-gradient(135deg,#9C6D2E,#C89B4C) !important; border:none !important;
-}
-[data-testid="stFileUploader"] { border-color:#D79BB0 !important; background:#FFF8FA !important; }
-
-.metric-row { grid-template-columns:repeat(6,minmax(145px,1fr)) !important; gap:12px !important; margin:12px 0 22px !important; }
-.metric-card {
-    min-height:112px !important; border-radius:16px !important; padding:13px 10px !important;
-    background:linear-gradient(145deg,#FFFFFF 0%,#FFF6F9 100%) !important;
-    border:1px solid #E9D4DE !important; box-shadow:0 8px 20px rgba(91,38,57,.08) !important;
-}
-.metric-card::before { background:linear-gradient(90deg,#C86A8A,#B58A3A) !important; opacity:1 !important; }
-.metric-val { color:#4C2635 !important; font-size:18px !important; font-weight:850 !important; }
-.metric-lbl { color:#806A74 !important; }
-
-div[data-testid="stDataFrame"] {
-    border:1px solid #E6D3DC !important; border-radius:14px !important;
-    overflow:hidden !important; box-shadow:0 8px 22px rgba(91,38,57,.07) !important; background:#fff !important;
-}
-div[data-testid="stExpander"] summary { border:1px solid #E8D5DE !important; border-radius:10px !important; background:#FFF8FA !important; }
-div[data-testid="stExpander"] details[open] > summary { color:var(--aboli-dark) !important; background:var(--aboli-soft) !important; }
-div[data-testid="stAlert"] { border-radius:11px !important; border-left:4px solid var(--aboli) !important; }
-.sv-divider { height:1px !important; background:linear-gradient(90deg,transparent,#D9B6C4,#E9D7DF,transparent) !important; }
-
-@media (max-width:1100px){ .metric-row{grid-template-columns:repeat(3,1fr) !important;} }
-@media (max-width:600px){ .metric-row{grid-template-columns:repeat(2,1fr) !important;} }
-</style>
-""", unsafe_allow_html=True)
-
 # ─── LOGIN CREDENTIALS (Firebase-backed) ─────────────────────────────────────
 _DEFAULT_USERS = {"admin": "cci@2025", "softview": "sv@admin"}
 
@@ -799,296 +705,261 @@ def _do_login():
         st.session_state._login_error = "❌ Invalid username or password."
 
 if not st.session_state.authenticated:
-    # ─── PREMIUM SOFTVIEW LOGIN — RESPONSIVE 1366×768 / 1366×609 SAFE LAYOUT ──
-    # Login page only. Existing authentication and application logic are untouched.
     st.markdown("""
     <style>
-    html,body,[data-testid="stAppViewContainer"],[data-testid="stApp"]{
-        margin:0!important;padding:0!important;width:100%!important;
-        min-height:100vh!important;background:#FDE9D8!important;
+    .login-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 40px 36px 36px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        max-width: 420px;
+        margin: 80px auto 0;
     }
-    [data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"],
-    [data-testid="stStatusWidget"],footer{display:none!important}
-    .main,.main .block-container{
-        margin:0!important;padding:0!important;max-width:none!important;width:100%!important;
-    }
+    .lt { font-size:22px; font-weight:700; color:#111827; margin-bottom:4px; }
+    .ls { font-size:13px; color:#6b7280; margin-bottom:24px; }
+    .le { color:#dc2626; font-size:13px; margin-top:8px; font-weight:500; }
+    .login-card .stTextInput input { background:#f9fafb !important; border:1.5px solid #d1d5db !important; color:#111827 !important; }
+    .login-card .stTextInput label { color:#374151 !important; }
+    
+/* =========================================================
+   FINAL UI FIXES
+   ========================================================= */
 
-    .sv-page{
-        position:relative;width:100vw;height:100vh;min-height:560px;
-        overflow:hidden;
-        box-sizing:border-box;
-        background:
-          radial-gradient(circle at 8% 20%,rgba(255,255,255,.72),transparent 23%),
-          radial-gradient(circle at 52% 15%,rgba(255,188,122,.16),transparent 28%),
-          linear-gradient(120deg,#FCE5D1 0%,#FFF1E4 48%,#FDE7D2 100%);
-    }
-    .sv-page:before{
-        content:"";position:absolute;inset:10px;
-        border:1px solid rgba(232,117,38,.55);border-radius:17px;
-        pointer-events:none;z-index:5;
-    }
+/* 1) LOGIN: remove blank placeholder above logo / empty blocks */
+.login-page .empty-box,
+.login-page .logo-placeholder,
+.login-page .top-placeholder,
+.login-page .blank-box,
+.login-page .spacer-box {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+.login-page div:empty {
+    display: none !important;
+}
 
-    /* LEFT SIDE */
-    .sv-left{
-        position:absolute;left:0;top:0;bottom:0;width:53.5%;
-        box-sizing:border-box;padding:28px 38px 18px 6.2vw;
-        overflow:hidden;color:#382820;
-    }
-    .sv-flower{
-        position:absolute;right:-2px;top:0;height:100%;width:31%;
-        object-fit:cover;object-position:center top;
-        opacity:.98;z-index:0;pointer-events:none;
-        mix-blend-mode:multiply;
-    }
-    .sv-left-inner{position:relative;z-index:2;width:72%;max-width:590px;height:100%;}
-    .sv-symbol{
-        width:180px;height:126px;object-fit:contain;object-position:left center;
-        display:block;margin:-2px 0 -4px -5px;
-        mix-blend-mode:multiply;
-    }
-    .sv-wordmark{
-        margin:0;
-        font-family:Arial,Helvetica,sans-serif;
-        font-size:45px;line-height:.98;font-weight:800;letter-spacing:-2px;
-        color:#332923;
-    }
-    .sv-tech{
-        margin:5px 0 8px 5px;
-        font-size:18px;line-height:1;font-weight:900;letter-spacing:4px;
-        color:#E96816;
-    }
-    .sv-rule{
-        width:305px;height:2px;margin:8px 0 12px 2px;
-        background:linear-gradient(90deg,#F07822,#F8B47B,transparent);
-        position:relative;
-    }
-    .sv-rule:after{
-        content:"✦";position:absolute;left:48%;top:-12px;
-        color:#F07822;background:#FCE5D1;padding:0 7px;font-size:17px;
-    }
-    .sv-hero{
-        font-size:26px;line-height:1.05;font-weight:850;
-        margin:0 0 7px;color:#3A2B24;
-    }
-    .sv-hero span{color:#E96715}
-    .sv-sub{
-        font-size:11.5px;line-height:1.45;max-width:445px;
-        margin:0 0 12px;color:#4F413A;
-    }
-    .sv-about{
-        width:100%;box-sizing:border-box;
-        border:1px solid rgba(235,130,64,.40);border-radius:12px;
-        background:rgba(255,249,243,.45);
-        padding:10px 13px;margin-bottom:8px;
-        box-shadow:0 5px 14px rgba(198,91,26,.05);
-    }
-    .sv-about-title{font-size:11.5px;font-weight:900;color:#E76514;margin-bottom:3px}
-    .sv-about-text{font-size:10px;line-height:1.38;color:#4B3D35;max-width:430px}
+/* Remove generic bordered/filled empty blocks around login logo */
+.login-page [data-testid="stVerticalBlockBorderWrapper"]:has(div:empty) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
 
-    .sv-features{display:grid;grid-template-columns:1fr 1fr;gap:0;
-        width:100%;border:1px solid rgba(235,130,64,.32);border-radius:11px;overflow:hidden;
-        background:rgba(255,250,245,.38)}
-    .sv-feature{padding:7px 10px;border-right:1px solid rgba(235,130,64,.24);
-        border-bottom:1px solid rgba(235,130,64,.24);min-height:42px;box-sizing:border-box}
-    .sv-feature:nth-child(2n){border-right:0}
-    .sv-feature:nth-child(3),.sv-feature:nth-child(4){border-bottom:0}
-    .sv-feature-title{font-size:10px;font-weight:900;color:#E76514;margin-bottom:2px}
-    .sv-feature-text{font-size:8.7px;line-height:1.28;color:#4A3B34}
-    .sv-left-footer{
-        position:absolute;left:0;bottom:1px;display:flex;gap:20px;
-        font-size:8.5px;color:#594A42;white-space:nowrap;
-    }
-    .sv-left-footer b{color:#E76514}
+/* 3) FILE UPLOAD: neutral gray button with strong contrast */
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] [role="button"] {
+    background: #4b5563 !important;
+    color: #ffffff !important;
+    border: 1px solid #374151 !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,.12) !important;
+}
+[data-testid="stFileUploader"] button:hover,
+[data-testid="stFileUploader"] [role="button"]:hover {
+    background: #374151 !important;
+    color: #ffffff !important;
+}
 
-    /* RIGHT LOGIN CARD */
-    .sv-right{
-        position:absolute;right:3.2%;top:5.2%;width:42.5%;height:89.5%;
-        box-sizing:border-box;
-        background:rgba(255,255,255,.92);
-        border:1px solid rgba(255,255,255,.96);
-        border-radius:18px;
-        box-shadow:0 16px 40px rgba(142,69,29,.14),0 0 0 1px rgba(231,126,56,.08);
-        display:flex;align-items:center;justify-content:center;
-        padding:25px 5.3%;
-        z-index:3;
+/* 2) CONTRACT PREVIEW: compact executive card */
+.contract-preview-card {
+    width: 100%;
+    box-sizing: border-box;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 8px 0 12px 0;
+    box-shadow: 0 3px 12px rgba(15,23,42,.08);
+    overflow: hidden;
+}
+.contract-preview-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding-bottom:10px;
+    border-bottom:1px solid #e5e7eb;
+}
+.contract-preview-title {
+    font-size:18px;
+    font-weight:900;
+    color:#111827;
+}
+.contract-preview-party {
+    font-size:13px;
+    font-weight:700;
+    color:#6b7280;
+    text-align:right;
+}
+.contract-preview-meta {
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0,1fr));
+    gap:8px;
+    margin:10px 0;
+}
+.contract-preview-meta-item {
+    background:#f8fafc;
+    border:1px solid #e5e7eb;
+    border-radius:8px;
+    padding:7px 9px;
+}
+.contract-preview-label {
+    font-size:10px;
+    font-weight:700;
+    color:#6b7280;
+    text-transform:uppercase;
+}
+.contract-preview-value {
+    font-size:13px;
+    font-weight:800;
+    color:#111827;
+    margin-top:2px;
+}
+.contract-preview-sections {
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0,1fr));
+    gap:10px;
+}
+.contract-preview-section {
+    border:1px solid #e5e7eb;
+    border-radius:9px;
+    padding:9px 10px;
+    background:#fafafa;
+    min-width:0;
+}
+.contract-preview-section h4 {
+    margin:0 0 7px 0;
+    font-size:12px;
+    font-weight:900;
+    color:#1f2937;
+}
+.contract-preview-row {
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    padding:4px 0;
+    border-bottom:1px dashed #e5e7eb;
+    font-size:11px;
+}
+.contract-preview-row:last-child {
+    border-bottom:none;
+}
+.contract-preview-row span:first-child {
+    color:#6b7280;
+}
+.contract-preview-row span:last-child {
+    color:#111827;
+    font-weight:800;
+    text-align:right;
+    white-space:nowrap;
+}
+.contract-preview-actions {
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+}
+@media (max-width: 900px) {
+    .contract-preview-meta,
+    .contract-preview-sections {
+        grid-template-columns:1fr;
     }
-    .sv-form{width:100%;max-width:500px}
-    .sv-kicker{
-        text-align:center;color:#ED721A;font-size:10.5px;font-weight:900;
-        letter-spacing:.13em;margin-bottom:7px;white-space:nowrap;
-    }
-    .sv-kicker:before,.sv-kicker:after{
-        content:"";display:inline-block;width:38px;height:1px;
-        background:#F0A36D;vertical-align:middle;margin:0 12px;
-    }
-    .sv-title{
-        text-align:center;font-size:32px;line-height:1.05;
-        font-weight:900;color:#352A25;letter-spacing:-.8px;margin:0;
-    }
-    .sv-login-sub{
-        text-align:center;color:#62564F;font-size:11.5px;margin:6px 0 13px;
-    }
-    .sv-small-rule{
-        width:125px;height:1px;background:#F1B07B;margin:0 auto 18px;
-        position:relative;
-    }
-    .sv-small-rule:after{
-        content:"✦";position:absolute;left:50%;transform:translateX(-50%);
-        top:-9px;color:#EE731A;background:#fff;padding:0 7px;font-size:13px;
-    }
+}
 
-    .sv-right div[data-testid="stTextInput"]{margin-bottom:10px!important}
-    .sv-right div[data-testid="stTextInput"] label{
-        color:#302721!important;font-size:11px!important;font-weight:800!important;
-        margin-bottom:4px!important;
-    }
-    .sv-right div[data-testid="stTextInput"] input{
-        height:46px!important;min-height:46px!important;
-        border:1px solid #F1C9AC!important;border-radius:10px!important;
-        background:#fff!important;color:#302721!important;
-        font-size:12px!important;box-shadow:none!important;
-    }
-    .sv-right div[data-testid="stTextInput"] input:focus{
-        border-color:#ED7622!important;box-shadow:0 0 0 2px rgba(237,118,34,.10)!important;
-    }
-    .sv-login-button{margin-top:2px}
-    .sv-login-button button{
-        height:46px!important;border:0!important;border-radius:10px!important;
-        color:#fff!important;font-size:14px!important;font-weight:900!important;
-        background:linear-gradient(100deg,#8C3559 0%,#C15C7E 100%)!important;
-        box-shadow:0 7px 16px rgba(128,49,78,.18)!important;
-    }
-    .sv-login-button button:hover{
-        background:linear-gradient(100deg,#7B2D4E,#B34D70)!important;
-    }
-    .sv-error{
-        margin-top:5px;padding:9px;border-radius:9px;text-align:center;
-        color:#A92E22;background:#FFF1EC;border:1px solid #F0B6A3;
-        font-size:11px;font-weight:750;
-    }
-    .sv-bottom{
-        margin-top:13px;text-align:center;border-top:1px solid #F2D5C0;padding-top:10px;
-    }
-    .sv-bottom-title{color:#E76514;font-size:13px;font-weight:900}
-    .sv-bottom-text{color:#665A54;font-size:9.5px;margin-top:3px}
-    .sv-bottom-secure{color:#EA6816;font-size:9.5px;font-weight:800;margin-top:4px}
+/* 4) EXECUTIVE DASHBOARD */
+.executive-dashboard {
+    background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+    border-radius:16px;
+    padding:20px 22px;
+    margin:8px 0 18px 0;
+    box-shadow:0 8px 25px rgba(15,23,42,.18);
+}
+.executive-dashboard h2 {
+    color:#ffffff;
+    margin:0;
+    font-size:25px;
+    font-weight:900;
+}
+.executive-dashboard p {
+    color:#cbd5e1;
+    margin:4px 0 0 0;
+    font-size:13px;
+}
+.exec-kpis {
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin-top:15px;
+}
+.exec-kpi {
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:11px;
+    padding:12px;
+}
+.exec-kpi-label {
+    color:#cbd5e1;
+    font-size:10px;
+    font-weight:800;
+    text-transform:uppercase;
+}
+.exec-kpi-value {
+    color:#ffffff;
+    font-size:22px;
+    font-weight:900;
+    margin-top:3px;
+}
 
-    /* Very short desktop screens: compact without squashing the whole design. */
-    @media (max-height:650px) and (min-width:901px){
-        .sv-left{padding-top:17px;padding-bottom:8px}
-        .sv-symbol{width:145px;height:100px}
-        .sv-wordmark{font-size:39px}
-        .sv-tech{font-size:15px;margin-top:3px}
-        .sv-rule{margin:5px 0 8px;width:250px}
-        .sv-hero{font-size:22px}
-        .sv-sub{font-size:10px;margin-bottom:8px}
-        .sv-about{padding:7px 10px;margin-bottom:5px}
-        .sv-feature{padding:5px 8px;min-height:34px}
-        .sv-left-footer{font-size:7.5px}
-        .sv-right{top:3%;height:94%;padding:16px 5.5%}
-        .sv-kicker{font-size:9px;margin-bottom:4px}
-        .sv-title{font-size:27px}
-        .sv-login-sub{margin:4px 0 8px}
-        .sv-small-rule{margin-bottom:10px}
-        .sv-right div[data-testid="stTextInput"]{margin-bottom:6px!important}
-        .sv-right div[data-testid="stTextInput"] input{height:40px!important;min-height:40px!important}
-        .sv-login-button button{height:42px!important}
-        .sv-bottom{margin-top:8px;padding-top:7px}
-    }
-    @media (max-width:900px){
-        .sv-page{height:auto;min-height:100vh;overflow:auto}
-        .sv-left,.sv-right{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:auto}
-        .sv-left{min-height:520px;padding:28px 28px 22px}
-        .sv-left-inner{width:78%}
-        .sv-flower{width:36%;height:100%}
-        .sv-right{min-height:500px;margin:0 18px 22px;width:calc(100% - 36px);padding:35px 28px}
-        .sv-left-footer{position:relative;bottom:auto;margin-top:18px;white-space:normal}
-    }
-    </style>
+
+<style>
+/* FINAL UPLOAD BUTTON */
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] button[kind],
+[data-testid="stFileUploader"] [data-testid="baseButton-secondary"] {
+    background: #6b7280 !important;
+    background-image: none !important;
+    color: #ffffff !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 7px !important;
+    font-weight: 800 !important;
+    box-shadow: none !important;
+}
+[data-testid="stFileUploader"] button:hover,
+[data-testid="stFileUploader"] [data-testid="baseButton-secondary"]:hover {
+    background: #4b5563 !important;
+    color: #ffffff !important;
+}
+
+/* LOGIN: absolutely no outer card */
+.login-card,
+.login-page .login-card,
+.login-page [data-testid="stVerticalBlockBorderWrapper"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+</style>
+</style>
     """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div class="sv-page">
-      <div class="sv-left">
-        <img class="sv-flower" src="data:image/png;base64,{flower_b64}">
-        <div class="sv-left-inner">
-          <img class="sv-symbol" src="data:image/png;base64,{symbol_b64}">
-          <div class="sv-wordmark">Softview</div>
-          <div class="sv-tech">TECHNOLOGIES</div>
-          <div class="sv-rule"></div>
-
-          <div class="sv-hero">Smart software.<br><span>Built for business.</span></div>
-          <div class="sv-sub">
-            SoftView Technologies delivers enterprise-grade digital solutions that
-            simplify operations, empower teams and drive business growth.
-          </div>
-
-          <div class="sv-about">
-            <div class="sv-about-title">About SoftView Technologies</div>
-            <div class="sv-about-text">
-              We build modern applications that bring operational workflows, data,
-              reporting and user access together in one secure, scalable and efficient platform.
-            </div>
-          </div>
-
-          <div class="sv-features">
-            <div class="sv-feature">
-              <div class="sv-feature-title">Enterprise Ready</div>
-              <div class="sv-feature-text">Structured workflows and business controls.</div>
-            </div>
-            <div class="sv-feature">
-              <div class="sv-feature-title">Data Driven</div>
-              <div class="sv-feature-text">Clear calculations, reports and insights.</div>
-            </div>
-            <div class="sv-feature">
-              <div class="sv-feature-title">Secure Access</div>
-              <div class="sv-feature-text">Authorised user login and role-based access.</div>
-            </div>
-            <div class="sv-feature">
-              <div class="sv-feature-title">Executive Experience</div>
-              <div class="sv-feature-text">Clean, premium and easy-to-use interface.</div>
-            </div>
-          </div>
-        </div>
-        <div class="sv-left-footer">
-          <span>◈ Secure. Reliable. Scalable.</span>
-          <span>◆ Trusted by Professionals.</span>
-          <span>♜ Excellence in Every Solution.</span>
-        </div>
-      </div>
-
-      <div class="sv-right">
-        <div class="sv-form">
-          <div class="sv-kicker">CCI WORKING CALCULATION UTILITY</div>
-          <div class="sv-title">Welcome Back</div>
-          <div class="sv-login-sub">Sign in to continue to your secure workspace.</div>
-          <div class="sv-small-rule"></div>
-    """, unsafe_allow_html=True)
-
-    st.text_input("Username", key="_lu", placeholder="Enter your username")
-    st.text_input("Password", key="_lp", type="password", placeholder="Enter your password")
-
-    st.markdown('<div class="sv-login-button">', unsafe_allow_html=True)
-    st.button("🔐  Sign In", on_click=_do_login, type="primary", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    if st.session_state._login_error:
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
         st.markdown(
-            f'<div class="sv-error">{st.session_state._login_error}</div>',
+            f'<div style="text-align:center;margin:35px 0 16px 0;background:transparent;border:0;box-shadow:none;">'
+            f'<img src="data:image/png;base64,{LOGO_B64}" style="height:80px;width:auto;object-fit:contain;background:transparent;padding:0;border-radius:0;box-shadow:none;border:0;" alt="Softview Technologies"></div>',
             unsafe_allow_html=True
         )
-
-    st.markdown("""
-          <div class="sv-bottom">
-            <div class="sv-bottom-title">SoftView Technologies</div>
-            <div class="sv-bottom-text">CCI Working Calculation Utility &nbsp;•&nbsp; Premium Enterprise Edition</div>
-            <div class="sv-bottom-secure">Secure access for authorised users only.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
+        st.markdown('<div class="lt" style="text-align:center">🔐 CCI Utility Login</div><div style="text-align:center;font-size:11px;color:#64748b;margin-top:-2px;margin-bottom:16px;letter-spacing:.06em">SOFTVIEW TECHNOLOGIES</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ls" style="text-align:center">Softview Technologies — Authorised Access Only</div>', unsafe_allow_html=True)
+        st.text_input("Username", key="_lu", placeholder="Enter username")
+        st.text_input("Password", key="_lp", type="password", placeholder="Enter password")
+        st.button("🔓  Login", on_click=_do_login, type="primary", use_container_width=True)
+        if st.session_state._login_error:
+            st.markdown(f'<div class="le">{st.session_state._login_error}</div>', unsafe_allow_html=True)
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
@@ -1487,33 +1358,6 @@ def fmt_date(v):
         return pd.Timestamp(v).strftime("%d-%b-%Y")
     except:
         return "—"
-
-def fmt_indian_number(value, decimals=2):
-    """Indian grouping: 2536263.72 -> 25,36,263.72"""
-    try:
-        if value is None or pd.isna(value):
-            return "—"
-        x = abs(float(value))
-        sign = "-" if float(value) < 0 else ""
-        s = f"{x:.{decimals}f}"
-        whole, frac = s.split(".")
-        if len(whole) > 3:
-            last3 = whole[-3:]
-            rest = whole[:-3]
-            groups = []
-            while len(rest) > 2:
-                groups.insert(0, rest[-2:])
-                rest = rest[:-2]
-            if rest:
-                groups.insert(0, rest)
-            whole = ",".join(groups + [last3])
-        return f"{sign}{whole}.{frac}"
-    except Exception:
-        return "—"
-
-def fmt_inr(value, decimals=2):
-    result = fmt_indian_number(value, decimals)
-    return f"₹{result}" if result != "—" else result
 
 # ─── COLUMN LABEL PRETTIFIER ───────────────────────────────────────────────
 # Converts internal snake_case column names into clean, human-readable
@@ -2234,27 +2078,27 @@ with tab_results:
           </div>
           <div class="metric-card green">
             <div class="metric-icon">💰</div>
-            <div class="metric-val">₹{fmt_indian_number(tot_bill, 2)}</div>
+            <div class="metric-val">₹{tot_bill:,.0f}</div>
             <div class="metric-lbl">Total Bill Amt</div>
           </div>
           <div class="metric-card teal">
             <div class="metric-icon">📈</div>
-            <div class="metric-val">₹{fmt_indian_number(tot_emd, 2)}</div>
+            <div class="metric-val">₹{tot_emd:,.0f}</div>
             <div class="metric-lbl">EMD Interest</div>
           </div>
           <div class="metric-card purple">
             <div class="metric-icon">💸</div>
-            <div class="metric-val">₹{fmt_indian_number(tot_cd, 2)}</div>
+            <div class="metric-val">₹{tot_cd:,.0f}</div>
             <div class="metric-lbl">Cash Discount</div>
           </div>
           <div class="metric-card red">
             <div class="metric-icon">⏰</div>
-            <div class="metric-val">₹{fmt_indian_number(tot_ll, 2)}</div>
+            <div class="metric-val">₹{tot_ll:,.0f}</div>
             <div class="metric-lbl">Late Lifting</div>
           </div>
           <div class="metric-card orange">
             <div class="metric-icon">🚛</div>
-            <div class="metric-val">₹{fmt_indian_number(tot_cc, 2)}</div>
+            <div class="metric-val">₹{tot_cc:,.0f}</div>
             <div class="metric-lbl">Carry Charges</div>
           </div>
         </div>
@@ -2300,8 +2144,7 @@ with tab_results:
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
                     "Per_Bale_EMD","EMD_Allocated","Net_Amount","EMD_Interest",
                     "Cash_Discount","Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
-            if col in disp.columns:
-                disp[col] = disp[col].apply(lambda x: fmt_inr(x, 2) if pd.notna(x) and float(x) != 0 else "—")
+            disp[col] = disp[col].apply(lambda x: f"₹{x:,.2f}" if x else "—")
 
         # Clear GRN detail totals row (all numeric amounts and bales).
         detail_total = {c: "" for c in disp.columns}
@@ -2311,7 +2154,7 @@ with tab_results:
                   "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             if c in disp.columns:
                 vals = pd.to_numeric(df[c], errors="coerce")
-                detail_total[c] = fmt_inr(vals.sum(), 2) if c != "Bales" else int(vals.sum())
+                detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
         disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
         st.dataframe(pretty_columns(disp), use_container_width=True, height=440, hide_index=True)
 
