@@ -799,224 +799,269 @@ def _do_login():
         st.session_state._login_error = "❌ Invalid username or password."
 
 if not st.session_state.authenticated:
-    # ─── PREMIUM ABOLI EXECUTIVE LOGIN ────────────────────────────────────────
+    # ─── FINAL PREMIUM ABOLI LOGIN — LOGIN PAGE ONLY ─────────────────────────
     st.markdown("""
     <style>
-    /* Full-screen executive login background */
+    /* Remove the unnecessary top/outer blank area on the URL. */
     [data-testid="stAppViewContainer"] {
         background:
-            radial-gradient(circle at 12% 8%, rgba(255,255,255,.14), transparent 26%),
-            radial-gradient(circle at 88% 92%, rgba(181,138,58,.12), transparent 24%),
-            linear-gradient(135deg,#4E2032 0%,#7D3450 42%,#C86A8A 100%) !important;
+            radial-gradient(circle at 12% 10%, rgba(255,255,255,.12), transparent 25%),
+            radial-gradient(circle at 90% 90%, rgba(255,255,255,.08), transparent 25%),
+            linear-gradient(135deg,#71364D 0%,#9C4F6D 52%,#C86A8A 100%) !important;
         min-height:100vh !important;
     }
-    [data-testid="stHeader"] { background:transparent !important; }
+    [data-testid="stHeader"] {
+        background:transparent !important;
+        height:0 !important;
+    }
     [data-testid="stToolbar"] { display:none !important; }
+    [data-testid="stDecoration"] { display:none !important; }
+
     .main .block-container {
-        max-width:1280px !important;
-        padding:2.4rem 2.4rem 2rem !important;
+        max-width:1400px !important;
+        padding:0 !important;
+        margin:0 auto !important;
+    }
+    .main {
+        padding:0 !important;
     }
 
-    .sv-login-shell {
-        min-height: calc(100vh - 4.4rem);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-    }
-    .sv-login-wrap {
+    /* Streamlit columns become the two clean halves of the login page. */
+    .sv-login-page {
+        min-height:100vh;
         width:100%;
-        max-width:1160px;
-        min-height:620px;
-        display:grid;
-        grid-template-columns:1.08fr .92fr;
-        border-radius:28px;
-        overflow:hidden;
-        background:rgba(255,255,255,.98);
-        box-shadow:0 28px 70px rgba(55,17,31,.35), 0 0 0 1px rgba(255,255,255,.20);
+        display:flex;
+        align-items:stretch;
+        margin:0;
+        padding:0;
     }
 
-    /* Brand / company introduction */
-    .sv-brand-panel {
+    .sv-left {
         position:relative;
-        padding:56px 58px;
-        color:#fff;
-        background:
-            radial-gradient(circle at 86% 18%, rgba(255,255,255,.14), transparent 25%),
-            radial-gradient(circle at 20% 86%, rgba(181,138,58,.14), transparent 28%),
-            linear-gradient(145deg,#4B1D2E 0%,#7D3450 48%,#B95477 100%);
+        width:54%;
+        min-height:100vh;
+        padding:48px 62px 34px;
+        box-sizing:border-box;
         overflow:hidden;
         display:flex;
         flex-direction:column;
         justify-content:space-between;
+        color:#fff;
+        background:
+            radial-gradient(circle at 82% 16%, rgba(255,255,255,.11), transparent 24%),
+            radial-gradient(circle at 15% 92%, rgba(255,255,255,.06), transparent 28%),
+            linear-gradient(145deg,#652C43 0%,#8F4863 52%,#B65E7D 100%);
     }
-    .sv-brand-panel:before {
+    .sv-left:before {
         content:"";
         position:absolute;
-        width:300px;height:300px;
-        border:1px solid rgba(255,255,255,.12);
-        border-radius:50%;
-        right:-120px;bottom:-120px;
-    }
-    .sv-brand-panel:after {
-        content:"";
-        position:absolute;
-        width:180px;height:180px;
+        width:430px;height:430px;
+        right:-190px;bottom:-205px;
         border:1px solid rgba(255,255,255,.10);
         border-radius:50%;
-        right:20px;bottom:20px;
     }
-    .sv-brand-top,.sv-brand-bottom { position:relative; z-index:2; }
+    .sv-left:after {
+        content:"";
+        position:absolute;
+        width:280px;height:280px;
+        right:-105px;bottom:-130px;
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:50%;
+    }
 
-    .sv-logo-box {
-        width:74px;height:74px;
-        border-radius:20px;
-        display:flex;align-items:center;justify-content:center;
-        background:rgba(255,255,255,.12);
-        border:1px solid rgba(255,255,255,.20);
-        box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 10px 25px rgba(35,9,19,.15);
+    .sv-brand-content {
+        position:relative;
+        z-index:2;
+        max-width:620px;
+    }
+
+    /* Exact supplied SoftView logo, displayed substantially larger. */
+    .sv-logo-frame {
+        width:245px;
+        height:205px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:13px;
+        box-sizing:border-box;
+        border-radius:22px;
+        background:rgba(255,255,255,.965);
+        border:1px solid rgba(255,255,255,.72);
+        box-shadow:
+            0 18px 40px rgba(48,18,30,.20),
+            inset 0 0 0 1px rgba(200,106,138,.10);
         margin-bottom:28px;
     }
-    .sv-logo-box img {
-        max-width:54px;max-height:54px;
+    .sv-logo-frame img {
+        width:100%;
+        max-width:220px;
+        max-height:180px;
+        height:auto;
         object-fit:contain;
-    }
-    .sv-eyebrow {
-        font-size:11px;
-        font-weight:800;
-        letter-spacing:.18em;
-        text-transform:uppercase;
-        color:#F6DDE6;
-        margin-bottom:9px;
-    }
-    .sv-brand-title {
-        font-size:36px;
-        line-height:1.08;
-        font-weight:900;
-        letter-spacing:-.8px;
-        margin:0 0 10px;
-    }
-    .sv-brand-subtitle {
-        font-size:15px;
-        line-height:1.7;
-        color:rgba(255,255,255,.78);
-        max-width:510px;
-        margin-bottom:26px;
-    }
-    .sv-intro {
-        max-width:525px;
-        font-size:13px;
-        line-height:1.75;
-        color:rgba(255,255,255,.88);
-        padding:17px 18px;
-        border:1px solid rgba(255,255,255,.13);
-        border-left:3px solid #D7AD62;
-        border-radius:12px;
-        background:rgba(255,255,255,.065);
-        backdrop-filter:blur(4px);
-    }
-    .sv-feature-grid {
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:10px;
-        margin-top:22px;
-        max-width:540px;
-    }
-    .sv-feature {
-        padding:12px 13px;
-        border-radius:11px;
-        background:rgba(255,255,255,.065);
-        border:1px solid rgba(255,255,255,.10);
-        font-size:11.5px;
-        color:rgba(255,255,255,.90);
-    }
-    .sv-feature b {
         display:block;
-        font-size:12px;
-        color:#fff;
-        margin-bottom:3px;
-    }
-    .sv-footer {
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        font-size:10.5px;
-        color:rgba(255,255,255,.52);
-        letter-spacing:.03em;
-        margin-top:30px;
-    }
-    .sv-secure-badge {
-        border:1px solid rgba(255,255,255,.16);
-        background:rgba(255,255,255,.07);
-        padding:6px 10px;
-        border-radius:30px;
-        color:rgba(255,255,255,.76);
     }
 
-    /* Login form panel */
-    .sv-form-panel {
-        padding:54px 62px 44px;
-        display:flex;
-        align-items:center;
-        background:linear-gradient(180deg,#FFFFFF 0%,#FFF9FB 100%);
-    }
-    .sv-form-inner { width:100%; max-width:410px; margin:auto; }
-    .sv-form-kicker {
-        color:#A34E6D;
-        font-size:10.5px;
-        font-weight:800;
-        letter-spacing:.16em;
+    .sv-company-label {
+        font-size:11px;
+        font-weight:900;
+        letter-spacing:.22em;
         text-transform:uppercase;
+        color:#FBE8EF;
         margin-bottom:10px;
     }
-    .sv-form-title {
-        font-size:31px;
-        line-height:1.15;
+    .sv-hero-title {
+        font-size:42px;
+        line-height:1.06;
+        font-weight:900;
+        letter-spacing:-1px;
+        margin:0 0 14px;
+        color:#fff;
+    }
+    .sv-hero-title span {
+        color:#FFE4ED;
+    }
+    .sv-hero-sub {
+        font-size:15px;
+        line-height:1.72;
+        max-width:600px;
+        color:rgba(255,255,255,.83);
+        margin-bottom:24px;
+    }
+
+    .sv-about {
+        max-width:590px;
+        padding:17px 20px;
+        border-radius:14px;
+        border:1px solid rgba(255,255,255,.15);
+        border-left:3px solid rgba(255,231,178,.82);
+        background:rgba(255,255,255,.065);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .sv-about-title {
+        font-size:13px;
+        font-weight:850;
+        color:#fff;
+        margin-bottom:5px;
+    }
+    .sv-about-text {
+        font-size:12px;
+        line-height:1.65;
+        color:rgba(255,255,255,.78);
+    }
+
+    .sv-pills {
+        display:flex;
+        flex-wrap:wrap;
+        gap:9px;
+        margin-top:17px;
+    }
+    .sv-pill {
+        padding:8px 11px;
+        border-radius:30px;
+        background:rgba(255,255,255,.065);
+        border:1px solid rgba(255,255,255,.12);
+        color:rgba(255,255,255,.84);
+        font-size:10.5px;
+        font-weight:700;
+    }
+
+    .sv-left-footer {
+        position:relative;
+        z-index:2;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:15px;
+        font-size:10.5px;
+        color:rgba(255,255,255,.54);
+        padding-top:22px;
+    }
+    .sv-secure {
+        padding:7px 11px;
+        border-radius:30px;
+        background:rgba(255,255,255,.065);
+        border:1px solid rgba(255,255,255,.12);
+        color:rgba(255,255,255,.72);
+    }
+
+    /* Right login area — deliberately very light so text never looks embossed/faint. */
+    .sv-right {
+        width:46%;
+        min-height:100vh;
+        box-sizing:border-box;
+        padding:40px 72px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:
+            radial-gradient(circle at 100% 0%, rgba(200,106,138,.055), transparent 30%),
+            linear-gradient(180deg,#FFFFFF 0%,#FFF9FB 100%);
+    }
+    .sv-login-card {
+        width:100%;
+        max-width:450px;
+        padding:8px 0;
+    }
+    .sv-kicker {
+        font-size:10.5px;
+        font-weight:900;
+        letter-spacing:.18em;
+        text-transform:uppercase;
+        color:#A04C6A;
+        margin-bottom:10px;
+    }
+    .sv-login-title {
+        font-size:34px;
+        line-height:1.12;
         font-weight:900;
         color:#321824;
-        letter-spacing:-.5px;
+        letter-spacing:-.7px;
         margin:0 0 8px;
     }
-    .sv-form-sub {
+    .sv-login-sub {
         font-size:13px;
-        color:#81717A;
-        margin:0 0 30px;
+        color:#796771;
+        margin:0 0 28px;
     }
-    .sv-form-panel div[data-testid="stTextInput"] {
-        margin-bottom:12px;
+
+    .sv-right div[data-testid="stTextInput"] {
+        margin-bottom:14px !important;
     }
-    .sv-form-panel div[data-testid="stTextInput"] label {
-        color:#4B3740 !important;
-        font-weight:700 !important;
+    .sv-right div[data-testid="stTextInput"] label {
+        color:#493640 !important;
         font-size:12px !important;
+        font-weight:750 !important;
     }
-    .sv-form-panel div[data-testid="stTextInput"] input {
-        height:48px !important;
-        background:#FFFDFE !important;
-        border:1px solid #E3CDD6 !important;
+    .sv-right div[data-testid="stTextInput"] input {
+        height:49px !important;
+        box-sizing:border-box !important;
+        border:1px solid #DFC8D2 !important;
         border-radius:11px !important;
-        color:#34242B !important;
+        background:#FFFFFF !important;
+        color:#30242A !important;
         font-size:13px !important;
-        padding-left:14px !important;
+        box-shadow:0 2px 7px rgba(91,38,57,.035) !important;
     }
-    .sv-form-panel div[data-testid="stTextInput"] input:focus {
+    .sv-right div[data-testid="stTextInput"] input:focus {
         border-color:#C86A8A !important;
-        box-shadow:0 0 0 3px rgba(200,106,138,.13) !important;
+        box-shadow:0 0 0 3px rgba(200,106,138,.12) !important;
     }
-    .sv-login-btn button {
+
+    .sv-login-button button {
         height:50px !important;
-        border-radius:11px !important;
-        background:linear-gradient(135deg,#7D3450,#C86A8A) !important;
         border:0 !important;
+        border-radius:11px !important;
         color:#fff !important;
         font-size:14px !important;
-        font-weight:800 !important;
-        box-shadow:0 8px 18px rgba(125,52,80,.22) !important;
+        font-weight:850 !important;
+        background:linear-gradient(135deg,#8B3E5A,#C86A8A) !important;
+        box-shadow:0 8px 18px rgba(139,62,90,.18) !important;
     }
-    .sv-login-btn button:hover {
-        background:linear-gradient(135deg,#5F263C,#A84C6C) !important;
-        box-shadow:0 10px 22px rgba(125,52,80,.28) !important;
+    .sv-login-button button:hover {
+        background:linear-gradient(135deg,#743149,#B45879) !important;
+        box-shadow:0 10px 22px rgba(139,62,90,.24) !important;
     }
+
     .sv-error {
         margin-top:12px;
         padding:10px 12px;
@@ -1027,89 +1072,112 @@ if not st.session_state.authenticated:
         font-size:12px;
         font-weight:700;
     }
-    .sv-form-bottom {
-        text-align:center;
-        margin-top:27px;
+    .sv-login-bottom {
+        margin-top:29px;
         padding-top:18px;
         border-top:1px solid #F0E2E7;
-        color:#9A8790;
+        text-align:center;
+        color:#A18D96;
         font-size:10.5px;
-        line-height:1.6;
+        line-height:1.65;
     }
-    .sv-form-bottom b { color:#6F4B59; }
+    .sv-login-bottom b { color:#6D4858; }
 
-    @media (max-width: 850px) {
-        .main .block-container { padding:1rem !important; }
-        .sv-login-wrap { grid-template-columns:1fr; min-height:auto; border-radius:22px; }
-        .sv-brand-panel { padding:36px 30px; }
-        .sv-form-panel { padding:38px 30px; }
-        .sv-brand-title { font-size:30px; }
-        .sv-feature-grid { grid-template-columns:1fr; }
-        .sv-footer { margin-top:24px; }
+    /* Hide Streamlit's unwanted empty/placeholder boxes on login. */
+    .login-page .empty-box,
+    .login-page .logo-placeholder,
+    .login-page .top-placeholder,
+    .login-page .blank-box,
+    .login-card {
+        background:transparent !important;
+        border:0 !important;
+        box-shadow:none !important;
+    }
+
+    @media (max-width:900px) {
+        .sv-left,.sv-right { width:100%; min-height:auto; }
+        .sv-login-page { display:block; }
+        .sv-left { padding:34px 28px; }
+        .sv-right { padding:40px 28px; }
+        .sv-hero-title { font-size:32px; }
+        .sv-logo-frame { width:220px; height:185px; }
+        .sv-left-footer { margin-top:28px; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # One premium two-panel login surface.
-    st.markdown('<div class="sv-login-shell"><div class="sv-login-wrap">', unsafe_allow_html=True)
-
-    left, right = st.columns([1.08, .92], gap="small")
+    st.markdown('<div class="sv-login-page">', unsafe_allow_html=True)
+    left, right = st.columns([54, 46], gap="small")
 
     with left:
         st.markdown(f"""
-        <div class="sv-brand-panel">
-          <div class="sv-brand-top">
-            <div class="sv-logo-box">
+        <div class="sv-left">
+          <div class="sv-brand-content">
+            <div class="sv-logo-frame">
               <img src="data:image/png;base64,{LOGO_B64}" alt="SoftView Technologies">
             </div>
-            <div class="sv-eyebrow">SoftView Technologies</div>
-            <div class="sv-brand-title">Smart software.<br>Built for business.</div>
-            <div class="sv-brand-subtitle">
-              Enterprise-focused digital solutions designed to make business processes
-              simpler, faster and more controlled.
+
+            <div class="sv-company-label">SOFTVIEW TECHNOLOGIES</div>
+
+            <div class="sv-hero-title">
+              Smart software.<br>
+              <span>Built for business.</span>
             </div>
-            <div class="sv-intro">
-              <b>About SoftView Technologies</b><br>
-              SoftView Technologies focuses on modern business applications that bring
-              operational workflows, data, reporting and user access together in one
-              professional digital environment.
+
+            <div class="sv-hero-sub">
+              Enterprise-focused digital solutions designed to simplify business
+              processes, strengthen operational control and turn business data
+              into clear, actionable information.
             </div>
-            <div class="sv-feature-grid">
-              <div class="sv-feature"><b>✦ Enterprise Ready</b>Structured workflows and business controls.</div>
-              <div class="sv-feature"><b>✦ Data Driven</b>Clear calculations, reports and insights.</div>
-              <div class="sv-feature"><b>✦ Secure Access</b>Authorised user login and controlled access.</div>
-              <div class="sv-feature"><b>✦ Executive Experience</b>Clean, premium and easy-to-use interface.</div>
+
+            <div class="sv-about">
+              <div class="sv-about-title">About SoftView Technologies</div>
+              <div class="sv-about-text">
+                SoftView Technologies develops modern business applications that
+                bring workflows, calculations, reporting, data and authorised
+                user access together in one professional digital environment.
+              </div>
+            </div>
+
+            <div class="sv-pills">
+              <span class="sv-pill">✦ Enterprise Ready</span>
+              <span class="sv-pill">✦ Data Driven</span>
+              <span class="sv-pill">✦ Secure Access</span>
+              <span class="sv-pill">✦ Executive Experience</span>
             </div>
           </div>
-          <div class="sv-brand-bottom">
-            <div class="sv-footer">
-              <span>© 2026 SoftView Technologies</span>
-              <span class="sv-secure-badge">🔒 Authorised Enterprise Access</span>
-            </div>
+
+          <div class="sv-left-footer">
+            <span>© 2026 SoftView Technologies</span>
+            <span class="sv-secure">🔒 Authorised Enterprise Access</span>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
     with right:
-        st.markdown('<div class="sv-form-panel"><div class="sv-form-inner">', unsafe_allow_html=True)
+        st.markdown('<div class="sv-right"><div class="sv-login-card">', unsafe_allow_html=True)
+
         st.markdown("""
-        <div class="sv-form-kicker">CCI Working Calculation Utility</div>
-        <div class="sv-form-title">Welcome Back</div>
-        <div class="sv-form-sub">Sign in to continue to your secure workspace.</div>
+        <div class="sv-kicker">CCI WORKING CALCULATION UTILITY</div>
+        <div class="sv-login-title">Welcome Back</div>
+        <div class="sv-login-sub">Sign in to continue to your secure workspace.</div>
         """, unsafe_allow_html=True)
 
         st.text_input("Username", key="_lu", placeholder="Enter your username")
         st.text_input("Password", key="_lp", type="password", placeholder="Enter your password")
 
-        st.markdown('<div class="sv-login-btn">', unsafe_allow_html=True)
+        st.markdown('<div class="sv-login-button">', unsafe_allow_html=True)
         st.button("🔐  Sign In", on_click=_do_login, type="primary", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state._login_error:
-            st.markdown(f'<div class="sv-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="sv-error">{st.session_state._login_error}</div>',
+                unsafe_allow_html=True
+            )
 
         st.markdown("""
-        <div class="sv-form-bottom">
+        <div class="sv-login-bottom">
           <b>SoftView Technologies</b><br>
           CCI Working Calculation Utility &nbsp;•&nbsp; Premium Enterprise Edition<br>
           Secure access for authorised users only
@@ -1117,7 +1185,7 @@ if not st.session_state.authenticated:
         </div></div>
         """, unsafe_allow_html=True)
 
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
