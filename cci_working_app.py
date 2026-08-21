@@ -168,25 +168,33 @@ div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
 }
 
 /* ── METRIC CARDS ── */
-.metric-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
 .metric-card {
     background: #ffffff; border: 1px solid #e5e7eb;
-    border-radius: 14px; padding: 18px 14px; text-align: center;
+    border-radius: 12px; padding: 14px 8px; text-align: center;
     position: relative; overflow: hidden;
     box-shadow: 0 1px 6px rgba(0,0,0,0.06);
 }
 .metric-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 3px; border-radius: 14px 14px 0 0;
+    height: 3px; border-radius: 12px 12px 0 0;
 }
 .metric-card.green::before  { background: linear-gradient(90deg, #1a7a1a, #39FF14); }
 .metric-card.blue::before   { background: linear-gradient(90deg, #1a56db, #3b82f6); }
 .metric-card.teal::before   { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .metric-card.red::before    { background: linear-gradient(90deg, #dc2626, #ef4444); }
 .metric-card.orange::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
-.metric-val { font-size: 22px; font-weight: 700; color: #111827; margin-bottom: 4px; letter-spacing: -0.5px; }
-.metric-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-.metric-icon { font-size: 21px; margin-bottom: 8px; }
+.metric-card.purple::before { background: linear-gradient(90deg, #7e22ce, #a855f7); }
+.metric-val { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 3px; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric-lbl { font-size: 9.5px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric-icon { font-size: 16px; margin-bottom: 5px; }
+
+@media (max-width: 900px) {
+    .metric-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+    .metric-row { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* ── FORM ELEMENTS ── */
 div[data-testid="stTextInput"] input,
@@ -995,12 +1003,22 @@ def parse_excel(file_bytes):
     emd["EMD_Date"]   = pd.to_datetime(emd["EMD_Date"], errors="coerce")
     emd["EMD_Amount"] = pd.to_numeric(emd["EMD_Amount"], errors="coerce")
     emd = emd.dropna(subset=["EMD_Amount"]).reset_index(drop=True)
-    pay = raw2.iloc[1:,[4,5,6]].copy()
-    pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
+    # Columns: Contract No | Mode of Transaction | Payment Date | Payment Amount
+    # (Backward compatible: if the sheet doesn't yet have the Mode of
+    # Transaction column (col H), fall back to the old 3-column layout
+    # Contract No | Payment Date | Payment Amount and leave mode blank.)
+    if raw2.shape[1] >= 8:
+        pay = raw2.iloc[1:,[4,5,6,7]].copy()
+        pay.columns = ["Contract_No","Mode_Of_Transaction","Payment_Date","Payment_Amount"]
+    else:
+        pay = raw2.iloc[1:,[4,5,6]].copy()
+        pay.columns = ["Contract_No","Payment_Date","Payment_Amount"]
+        pay["Mode_Of_Transaction"] = ""
     pay = pay.dropna(subset=["Contract_No","Payment_Amount"])
     pay = pay[~pay["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
     pay["Payment_Date"]   = pd.to_datetime(pay["Payment_Date"], errors="coerce")
     pay["Payment_Amount"] = pd.to_numeric(pay["Payment_Amount"], errors="coerce")
+    pay["Mode_Of_Transaction"] = pay["Mode_Of_Transaction"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
     pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
@@ -1070,10 +1088,6 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         key = str(r["Contract_No"]).strip().upper()
         eff_date_map[key] = r["Effective_Date"]
 
-    pay_total_map = {}
-    for cn_raw, amt in pay.groupby("Contract_No")["Payment_Amount"].sum().items():
-        pay_total_map[str(cn_raw).strip().upper()] = amt
-
     per_bale_emd = {}
     for _, r in cont.iterrows():
         key = str(r["Contract_No"]).strip().upper()
@@ -1089,7 +1103,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     pay_pool = {}
     for cn_raw, g in pay.groupby("Contract_No"):
         key = str(cn_raw).strip().upper()
-        pay_pool[key] = g[["Payment_Date","Payment_Amount"]].copy().reset_index(drop=True)
+        pay_pool[key] = g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy().reset_index(drop=True)
         pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
 
     branch_map = {}
@@ -1132,7 +1146,6 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         gst_on_mat  = round(igst, 2)
         total_bill  = round(mat + gst_on_mat, 2)
-        payment_amt = pay_total_map.get(cn_key, 0)
 
         emd_need = round(pbe * bales, 2)
         emd_alloc, emd_date = 0.0, pd.NaT
@@ -1150,7 +1163,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
         net_amt = round(mat - emd_alloc, 2)
-        pay_alloc, pay_date = 0.0, pd.NaT
+        pay_alloc, pay_date, pay_mode = 0.0, pd.NaT, ""
         ppool = pay_pool.get(cn_key)
         if ppool is not None and net_amt > 0:
             rem = net_amt
@@ -1162,7 +1175,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 ppool.at[idx,"Remaining"] -= take
                 pay_alloc += take; rem -= take
                 d = ppool.at[idx,"Payment_Date"]
-                if pd.isna(pay_date) or d > pay_date: pay_date = d
+                if pd.isna(pay_date) or d > pay_date:
+                    pay_date = d
+                    pay_mode = ppool.at[idx,"Mode_Of_Transaction"]
 
         emd_days, emd_interest = 0, 0.0
         if not pd.isna(emd_date) and not pd.isna(pay_date) and emd_alloc > 0:
@@ -1170,55 +1185,49 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
 
         # ── CASH DISCOUNT ─────────────────────────────────────────────────────
-        # Eligibility:
-        #   Payment Date <= CD Due Date -> Cash Discount applies
-        #   Payment Date >  CD Due Date -> Cash Discount = 0
-        #
-        # The CD master stores CD days in its slab configuration and does not
-        # have a separate CD Free Days field. Therefore the largest configured
-        # positive CD slab-days is used as the CD due-day limit.
-        #
-        # CD amount days are ALWAYS counted from Effective Date to Payment Date.
-        # Party Bill / Lifting Date is NOT used for CD calculation.
+        # Correct CD logic only. All other calculations remain unchanged.
+        # CD Due Date = Effective Date + Free Days For CD
+        # Payment Date <= CD Due Date -> CD applies
+        # Payment Date >  CD Due Date -> CD = 0
+        # CD Amount = Material Amount * CD % / 365 * (Payment Date - Effective Date)
         cd_amount, cd_days_used, cd_pct_used = 0.0, 0, 0.0
         cd_due_date = pd.NaT
         cd_due_days = 0
 
-        if cd_slabs and not pd.isna(eff_date):
-            valid_cd_days = [
-                int(sf(s.get("days"), 0))
-                for s in cd_slabs
-                if sf(s.get("days"), 0) > 0
-            ]
-            cd_due_days = max(valid_cd_days, default=0)
+        if not pd.isna(eff_date):
+            # Prefer dedicated Contract Master fields when available.
+            # In this file's existing master structure, fall back to the
+            # first configured CD slab (days = free days, pct = CD %).
+            _master_cd_free = row_mc.get("cd_free_days", None)
+            _master_cd_pct = row_mc.get("cd_pct", None)
+
+            if _master_cd_free is not None and str(_master_cd_free).strip() != "":
+                cd_due_days = max(int(sf(_master_cd_free, 0)), 0)
+            else:
+                _positive_cd_slabs = [
+                    s for s in cd_slabs if sf(s.get("days"), 0) > 0
+                ]
+                cd_due_days = int(sf(_positive_cd_slabs[0].get("days"), 0)) if _positive_cd_slabs else 0
+
+            if _master_cd_pct is not None and str(_master_cd_pct).strip() != "":
+                cd_pct_used = sf(_master_cd_pct, 0)
+            else:
+                _positive_cd_slabs = [
+                    s for s in cd_slabs if sf(s.get("days"), 0) > 0
+                ]
+                cd_pct_used = sf(_positive_cd_slabs[0].get("pct"), 0) if _positive_cd_slabs else 0.0
+
             cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
 
             if not pd.isna(pay_date) and pay_date <= cd_due_date:
                 # Difference Days = Payment Date - Effective Date
                 diff_days = max((pay_date - eff_date).days, 0)
-
-                # Highest qualifying CD threshold wins.
-                for slab in sorted(cd_slabs, key=lambda x: -sf(x.get("days"), 0)):
-                    slab_days = sf(slab.get("days"), 0)
-                    if slab_days > 0 and diff_days >= slab_days:
-                        cd_pct_used = sf(slab.get("pct"), 0)
-                        break
-
-                # If payment is before the first positive threshold, use a
-                # configured 0-day slab when one exists.
-                if cd_pct_used == 0:
-                    zero_day_slabs = [
-                        s for s in cd_slabs if sf(s.get("days"), 0) == 0
-                    ]
-                    if zero_day_slabs:
-                        cd_pct_used = sf(zero_day_slabs[0].get("pct"), 0)
-
                 cd_days_used = diff_days
                 cd_amount = round(
                     (mat * cd_pct_used / 100) * (diff_days / 365), 2
                 )
             else:
-                # Payment after CD Due Date -> no discount.
+                # Payment after CD Due Date -> no Cash Discount.
                 cd_days_used = 0
                 cd_pct_used = 0.0
                 cd_amount = 0.0
@@ -1323,10 +1332,11 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
-            "Payment_Amount":round(payment_amt,2),
+            "Payment_Amount":round(pay_alloc,2),
             "Per_Bale_EMD":round(pbe,2), "EMD_Allocated":round(emd_alloc,2),
             "EMD_Date":emd_date, "Net_Amount":round(net_amt,2),
-            "Payment_Date":pay_date, "EMD_Days":emd_days, "EMD_Interest":emd_interest,
+            "Payment_Date":pay_date, "Payment_Mode":pay_mode,
+            "EMD_Days":emd_days, "EMD_Interest":emd_interest,
             "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "CD_Due_Date":cd_due_date,
             "Cash_Discount":cd_amount,
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
@@ -1342,6 +1352,106 @@ def fmt_date(v):
         return pd.Timestamp(v).strftime("%d-%b-%Y")
     except:
         return "—"
+
+# ─── COLUMN LABEL PRETTIFIER ───────────────────────────────────────────────
+# Converts internal snake_case column names into clean, human-readable
+# headers for both the on-screen tables and the exported Excel sheets.
+_PRETTY_COL_MAP = {
+    "Contract_No": "Contract No",
+    "GRN_No": "GRN No",
+    "Branch": "Branch",
+    "Effective_Date": "Effective Date",
+    "Party_Bill_Date": "Party Bill Date",
+    "Bales": "Bales",
+    "Material_Amount": "Material Amount",
+    "GST_On_Material": "GST On Material",
+    "Total_Bill_Amount": "Total Bill Amount",
+    "Payment_Amount": "Payment Amount",
+    "Per_Bale_EMD": "Per Bale EMD",
+    "EMD_Allocated": "EMD Allocated",
+    "EMD_Date": "EMD Date",
+    "Net_Amount": "Net Amount",
+    "Payment_Date": "Payment Date",
+    "Payment_Mode": "Mode Of Transaction",
+    "EMD_Days": "EMD Days",
+    "EMD_Interest": "EMD Interest",
+    "CD_Days": "CD Days",
+    "CD_Pct": "CD %",
+    "CD_Due_Date": "CD Due Date",
+    "Cash_Discount": "Cash Discount",
+    "Late_Lift_Days": "Late Lift Days",
+    "Late_Lifting_Chg": "Late Lifting Charges",
+    "Late_Lifting_GST": "Late Lifting GST",
+    "CC_Free_End": "CC Free End",
+    "CC_Days": "CC Days",
+    "Carry_Charges": "Carrying Charges",
+    "Carry_GST": "Carrying GST",
+    # Contract-wise / Branch-wise summary aggregate names
+    "GRNs": "GRNs",
+    "Contracts": "Contracts",
+    "Total_Bales": "Total Bales",
+    "Total_Material": "Total Material",
+    "Total_GST": "Total GST",
+    "Total_Bill": "Total Bill",
+    "Total_Payment": "Total Payment",
+    "Total_EMD": "Total EMD Allocated",
+    "Total_EMD_Interest": "Total EMD Interest",
+    "Total_Cash_Disc": "Total Cash Discount",
+    "Total_LL": "Total Late Lifting",
+    "Total_LL_GST": "Total Late Lifting GST",
+    "Total_CC": "Total Carrying Charges",
+    "Total_CC_GST": "Total Carrying GST",
+    "Material": "Material",
+    "GST": "GST",
+    "Payment": "Payment",
+    "EMD_Alloc": "EMD Allocated",
+    "Cash_Disc": "Cash Discount",
+    "LL_Chg": "Late Lifting Charges",
+    "LL_GST": "Late Lifting GST",
+    "CC_Chg": "Carrying Charges",
+    "CC_GST": "Carrying GST",
+}
+
+import re as _re
+def pretty_col(col):
+    """Map one internal column name to a clean display label."""
+    m = _re.match(r"^CC_Slab(\d+)_(.+)$", col)
+    if m:
+        return f"CC Slab {m.group(1)} ({m.group(2)})"
+    if col in _PRETTY_COL_MAP:
+        return _PRETTY_COL_MAP[col]
+    return col.replace("_", " ")
+
+def pretty_columns(df):
+    """Return a copy of df with human-readable column headers."""
+    return df.rename(columns={c: pretty_col(c) for c in df.columns})
+
+def branch_wise_summary(result_df):
+    """Aggregate the GRN-wise result into a Branch-level summary."""
+    if "Branch" not in result_df.columns:
+        return pd.DataFrame()
+    bs = result_df.groupby("Branch").agg(
+        Contracts=("Contract_No","nunique"),
+        GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
+        Total_Material=("Material_Amount","sum"),
+        Total_GST=("GST_On_Material","sum"),
+        Total_Bill=("Total_Bill_Amount","sum"),
+        Total_Payment=("Payment_Amount","sum"),
+        Total_EMD=("EMD_Allocated","sum"),
+        Total_EMD_Interest=("EMD_Interest","sum"),
+        Total_Cash_Disc=("Cash_Discount","sum"),
+        Total_LL=("Late_Lifting_Chg","sum"),
+        Total_LL_GST=("Late_Lifting_GST","sum"),
+        Total_CC=("Carry_Charges","sum"),
+        Total_CC_GST=("Carry_GST","sum"),
+    ).reset_index()
+    bs_total = {c: "" for c in bs.columns}
+    bs_total["Branch"] = "GRAND TOTAL"
+    for c in bs.columns:
+        if c != "Branch":
+            bs_total[c] = pd.to_numeric(bs[c], errors="coerce").sum()
+    bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
+    return bs
 
 def df_to_excel_bytes(result_df, cont, emd, pay, grn):
     buf = io.BytesIO()
@@ -1367,7 +1477,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         base_cols = [
             "Contract_No","GRN_No","Branch","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
-            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date",
+            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date","Payment_Mode",
             "EMD_Days","EMD_Interest","CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
@@ -1383,7 +1493,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c in detail_export.columns:
                 detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
         detail_export = pd.concat([detail_export, pd.DataFrame([detail_total])], ignore_index=True)
-        detail_export.to_excel(w, sheet_name="GRN Calculation", index=False)
+        pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
             Total_Material=("Material_Amount","sum"),
@@ -1407,7 +1517,13 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c != "Contract_No" and c != "Branch":
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        summary.to_excel(w, sheet_name="Summary", index=False)
+        pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
+
+        # ── Branch-wise Summary ──────────────────────────────────────────────
+        branch_summary = branch_wise_summary(result_df)
+        if not branch_summary.empty:
+            pretty_columns(branch_summary).to_excel(w, sheet_name="Branch Summary", index=False)
+
         cont.to_excel(w, sheet_name="PUR CONT", index=False)
         emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
@@ -1475,12 +1591,6 @@ tab_masters, tab_upload, tab_results, tab_help, tab_users = st.tabs([
     "  📖  Formula Guide  ",
     "  👤  User Master  "
 ])
-
-# ══════════════════════════════════════════════════════════════════════════════
-# EXECUTIVE DASHBOARD
-# ══════════════════════════════════════════════════════════════════════════════
-
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: MASTERS
@@ -1929,7 +2039,7 @@ with tab_upload:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
             ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI"),
-            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | PAYMENT DATE | PAYMENT AMOUNT"),
+            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
             st.markdown(f"""
@@ -1948,13 +2058,13 @@ with tab_results:
         df = st.session_state["result_df"]
         tot_bill = df["Total_Bill_Amount"].sum()
         tot_emd  = df["EMD_Interest"].sum()
-        tot_cd   = df["Cash_Discount"].sum() if "Cash_Discount" in df.columns else 0.0
+        tot_cd   = df["Cash_Discount"].sum()
         tot_ll   = df["Late_Lifting_Chg"].sum()
         tot_cc   = df["Carry_Charges"].sum()
         tot_grns = len(df)
 
         st.markdown(f"""
-        <div class="metric-row" style="grid-template-columns:repeat(6,1fr)">
+        <div class="metric-row">
           <div class="metric-card blue">
             <div class="metric-icon">📋</div>
             <div class="metric-val">{tot_grns}</div>
@@ -1970,8 +2080,7 @@ with tab_results:
             <div class="metric-val">₹{tot_emd:,.0f}</div>
             <div class="metric-lbl">EMD Interest</div>
           </div>
-          <div class="metric-card purple" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.06)">
-            <div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div>
+          <div class="metric-card purple">
             <div class="metric-icon">💸</div>
             <div class="metric-val">₹{tot_cd:,.0f}</div>
             <div class="metric-lbl">Cash Discount</div>
@@ -2041,7 +2150,7 @@ with tab_results:
                 vals = pd.to_numeric(df[c], errors="coerce")
                 detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
         disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
-        st.dataframe(disp, use_container_width=True, height=440, hide_index=True)
+        st.dataframe(pretty_columns(disp), use_container_width=True, height=440, hide_index=True)
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">📋 Contract-wise Summary</div>', unsafe_allow_html=True)
@@ -2065,7 +2174,15 @@ with tab_results:
             if c not in ("Contract_No","Branch"):
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        st.dataframe(summary, use_container_width=True, hide_index=True)
+        st.dataframe(pretty_columns(summary), use_container_width=True, hide_index=True)
+
+        st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
+        branch_summary_ui = branch_wise_summary(df)
+        if not branch_summary_ui.empty:
+            st.dataframe(pretty_columns(branch_summary_ui), use_container_width=True, hide_index=True)
+        else:
+            st.info("Branch data not available for this upload.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 4: FORMULA GUIDE
