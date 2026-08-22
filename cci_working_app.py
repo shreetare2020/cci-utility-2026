@@ -76,7 +76,10 @@ st.markdown("""
 * { font-family: 'Inter', sans-serif; font-size: 14px; }
 
 [data-testid="stAppViewContainer"] {
-    background: #e8eaee;
+    background:
+        radial-gradient(circle at 8% 0%, rgba(249,115,22,0.06) 0%, transparent 42%),
+        radial-gradient(circle at 100% 10%, rgba(234,88,12,0.05) 0%, transparent 38%),
+        #f4f0ea;
     min-height: 100vh;
 }
 [data-testid="stHeader"] { background: transparent !important; }
@@ -84,110 +87,145 @@ st.markdown("""
 
 /* ── TOP HEADER ── */
 .top-header {
-    background: linear-gradient(90deg, #1a7a1a 0%, #22a832 40%, #0a1628 100%);
-    border-radius: 14px;
-    padding: 0px 24px;
-    margin-bottom: 18px;
+    background: linear-gradient(115deg, #f97316 0%, #ea580c 45%, #9a3412 100%);
+    border-radius: 18px;
+    padding: 0px 28px;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 4px 24px rgba(0,113,45,0.4), 0 0 0 1px rgba(0,200,80,0.15);
-    min-height: 72px;
+    box-shadow: 0 10px 32px rgba(154,52,18,0.38), 0 0 0 1px rgba(253,186,116,0.28);
+    min-height: 80px;
+    position: relative;
+    overflow: hidden;
+}
+.top-header::before {
+    content:'';
+    position:absolute; top:-60px; right:-40px;
+    width:220px; height:220px;
+    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
+    border-radius:50%; pointer-events:none;
+}
+.top-header::after {
+    content:'';
+    position:absolute; bottom:-90px; left:20%;
+    width:260px; height:260px;
+    background: radial-gradient(circle, rgba(255,200,100,0.14) 0%, transparent 65%);
+    border-radius:50%; pointer-events:none;
 }
 .top-header-left {
-    display: flex; align-items: center; gap: 16px;
+    display: flex; align-items: center; gap: 18px; z-index:1; position:relative;
 }
 .top-header-title {
     color: #ffffff;
-    font-size: 21px;
-    font-weight: 700;
+    font-size: 23px;
+    font-weight: 800;
     letter-spacing: -0.3px;
     line-height: 1.2;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.18);
 }
 .top-header-sub {
-    color: rgba(255,255,255,0.75);
-    font-size: 14px;
-    font-weight: 400;
-    margin-top: 2px;
+    color: rgba(255,255,255,0.85);
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-top: 3px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
 .top-header-badge {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.22);
     color: #fff;
     font-size: 11px;
-    padding: 3px 10px;
+    padding: 4px 12px;
     border-radius: 20px;
-    font-weight: 600;
-    letter-spacing: .06em;
-    border: 1px solid rgba(255,255,255,0.3);
+    font-weight: 800;
+    letter-spacing: .08em;
+    border: 1px solid rgba(255,255,255,0.35);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 .logo-img {
     height: 68px; width: auto;
-    border-radius: 10px; background: transparent;
-    padding: 0; object-fit: contain;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12); flex-shrink: 0;
+    border-radius: 12px; background: rgba(255,255,255,0.97);
+    padding: 6px 10px; object-fit: contain;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18); flex-shrink: 0;
 }
-.top-header-left { display: flex !important; align-items: center !important; gap: 14px !important; }
+.top-header-left { display: flex !important; align-items: center !important; gap: 16px !important; }
 
 /* ── TABS ── */
 div[data-testid="stTabs"] {
     background: #ffffff;
-    border-radius: 12px; padding: 4px;
-    border: 1px solid #d1d5db;
-    margin-bottom: 18px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-radius: 16px; padding: 6px;
+    border: 1px solid #e7ddd0;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(154,52,18,0.06);
 }
 div[data-testid="stTabs"] button {
-    font-size: 14px !important; font-weight: 500 !important;
-    color: #4b5563 !important;
-    border-radius: 8px !important; padding: 8px 20px !important;
+    font-size: 14px !important; font-weight: 600 !important;
+    color: #78716c !important;
+    border-radius: 11px !important; padding: 10px 22px !important;
     transition: all 0.2s !important;
 }
 div[data-testid="stTabs"] button[aria-selected="true"] {
-    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
-    color: #ffffff !important; font-weight: 600 !important;
-    box-shadow: 0 2px 10px rgba(26,122,26,0.35) !important;
+    background: linear-gradient(135deg, #c2410c, #f97316) !important;
+    color: #ffffff !important; font-weight: 800 !important;
+    box-shadow: 0 4px 14px rgba(234,88,12,0.40) !important;
+    transform: translateY(-1px);
 }
 div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
-    color: #1a7a1a !important; background: rgba(26,122,26,0.08) !important;
+    color: #c2410c !important; background: rgba(234,88,12,0.08) !important;
 }
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+div[data-testid="stTabs"] [data-baseweb="tab-border"] { display:none !important; }
 
 /* ── CARDS ── */
 .sv-card {
-    background: #ffffff; border: 1px solid #e5e7eb;
-    border-radius: 14px; padding: 20px; margin-bottom: 16px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    background: #ffffff; border: 1px solid #ece4d8;
+    border-radius: 16px; padding: 22px; margin-bottom: 16px;
+    box-shadow: 0 4px 18px rgba(154,52,18,0.07);
+    transition: box-shadow 0.2s ease;
 }
+.sv-card:hover { box-shadow: 0 8px 26px rgba(154,52,18,0.11); }
 .sv-card-title {
-    font-size: 13px; font-weight: 700; color: #1a7a1a;
+    font-size: 13px; font-weight: 800; color: #c2410c;
     text-transform: uppercase; letter-spacing: .1em;
-    margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.sv-card-title::before {
+    content:''; width:6px; height:18px; border-radius:3px;
+    background: linear-gradient(180deg,#f97316,#c2410c); display:inline-block; flex-shrink:0;
 }
 .sv-card-title::after {
     content: ''; flex: 1; height: 1px;
-    background: linear-gradient(90deg, rgba(26,122,26,0.3), transparent);
+    background: linear-gradient(90deg, rgba(234,88,12,0.3), transparent);
 }
 
 /* ── METRIC CARDS ── */
-.metric-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+.metric-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 22px; }
 .metric-card {
-    background: #ffffff; border: 1px solid #e5e7eb;
-    border-radius: 12px; padding: 14px 8px; text-align: center;
+    background: #ffffff; border: 1px solid #ece4d8;
+    border-radius: 14px; padding: 18px 10px; text-align: center;
     position: relative; overflow: hidden;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 16px rgba(154,52,18,0.07);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.metric-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(154,52,18,0.14); }
 .metric-card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 3px; border-radius: 12px 12px 0 0;
+    height: 4px; border-radius: 14px 14px 0 0;
 }
-.metric-card.green::before  { background: linear-gradient(90deg, #1a7a1a, #39FF14); }
+.metric-card.green::before  { background: linear-gradient(90deg, #c2410c, #fdba74); }
 .metric-card.blue::before   { background: linear-gradient(90deg, #1a56db, #3b82f6); }
 .metric-card.teal::before   { background: linear-gradient(90deg, #0891b2, #06b6d4); }
 .metric-card.red::before    { background: linear-gradient(90deg, #dc2626, #ef4444); }
 .metric-card.orange::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
 .metric-card.purple::before { background: linear-gradient(90deg, #7e22ce, #a855f7); }
-.metric-val { font-size: 17px; font-weight: 700; color: #111827; margin-bottom: 3px; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.metric-lbl { font-size: 9.5px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.metric-icon { font-size: 16px; margin-bottom: 5px; }
+.metric-val { font-size: 18px; font-weight: 800; color: #1c1917; margin-bottom: 4px; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric-lbl { font-size: 9.5px; color: #a8a29e; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric-icon {
+    font-size: 20px; margin-bottom: 8px; display:inline-flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:50%;
+    background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(194,65,12,0.06));
+}
 
 @media (max-width: 900px) {
     .metric-row { grid-template-columns: repeat(3, 1fr); }
@@ -205,13 +243,13 @@ input[type="text"], input[type="number"], input[type="date"] {
     background-color: #ffffff !important;
     border: 1.5px solid #d1d5db !important;
     border-radius: 8px !important; color: #111827 !important;
-    caret-color: #1a7a1a !important;
+    caret-color: #c2410c !important;
 }
 div[data-testid="stTextInput"] input:focus,
 div[data-testid="stNumberInput"] input:focus,
 div[data-testid="stDateInput"] input:focus {
-    border-color: #22a832 !important;
-    box-shadow: 0 0 0 3px rgba(34,168,50,0.15) !important; outline: none !important;
+    border-color: #f97316 !important;
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.15) !important; outline: none !important;
 }
 div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
 div[data-baseweb="select"] > div {
@@ -227,7 +265,7 @@ div[data-baseweb="popover"] ul, div[data-baseweb="menu"] {
 div[data-baseweb="menu"] li, div[data-baseweb="option"] {
     color: #111827 !important; background-color: #ffffff !important;
 }
-div[data-baseweb="option"]:hover { background-color: rgba(26,122,26,0.08) !important; }
+div[data-baseweb="option"]:hover { background-color: rgba(234,88,12,0.08) !important; }
 div[data-testid="stTextInput"] label,
 div[data-testid="stNumberInput"] label,
 div[data-testid="stSelectbox"] label,
@@ -244,72 +282,82 @@ div[data-testid="stNumberInput"] button {
 
 /* ── BUTTONS ── */
 div[data-testid="stButton"] button[kind="primary"] {
-    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
+    background: linear-gradient(135deg, #c2410c, #f97316) !important;
     color: #ffffff !important; border: none !important;
-    border-radius: 8px !important; font-weight: 600 !important; font-size: 14px !important;
-    padding: 10px 24px !important; box-shadow: 0 3px 12px rgba(26,122,26,0.3) !important;
-    transition: all 0.2s !important;
+    border-radius: 11px !important; font-weight: 700 !important; font-size: 14px !important;
+    padding: 11px 26px !important; box-shadow: 0 6px 18px rgba(234,88,12,0.35) !important;
+    transition: all 0.2s !important; letter-spacing: .01em !important;
 }
 div[data-testid="stButton"] button[kind="primary"]:hover {
-    transform: translateY(-1px) !important; box-shadow: 0 5px 18px rgba(26,122,26,0.4) !important;
+    transform: translateY(-2px) !important; box-shadow: 0 10px 24px rgba(234,88,12,0.45) !important;
 }
 div[data-testid="stButton"] button[kind="secondary"] {
-    background: #f9fafb !important; border: 1px solid #d1d5db !important;
-    color: #374151 !important; border-radius: 8px !important; font-weight: 500 !important;
+    background: #ffffff !important; border: 1.5px solid #e7ddd0 !important;
+    color: #57534e !important; border-radius: 11px !important; font-weight: 600 !important;
 }
 div[data-testid="stButton"] button[kind="secondary"]:hover {
-    background: #f3f4f6 !important; border-color: #22a832 !important; color: #1a7a1a !important;
+    background: #fff7ed !important; border-color: #f97316 !important; color: #c2410c !important;
 }
 
 /* ── DOWNLOAD BUTTON ── */
 div[data-testid="stDownloadButton"] button {
     background: linear-gradient(135deg, #1a56db, #2563eb) !important;
-    color: white !important; border: none !important; border-radius: 8px !important;
-    font-weight: 600 !important; box-shadow: 0 3px 12px rgba(26,86,219,0.3) !important;
+    color: white !important; border: none !important; border-radius: 11px !important;
+    font-weight: 700 !important; box-shadow: 0 6px 18px rgba(26,86,219,0.32) !important;
+    transition: all 0.2s !important;
+}
+div[data-testid="stDownloadButton"] button:hover {
+    transform: translateY(-2px) !important; box-shadow: 0 10px 24px rgba(26,86,219,0.42) !important;
 }
 
 /* ── ALERTS ── */
 div[data-testid="stAlert"] {
-    background: #f0fdf4 !important; border: 1px solid #86efac !important;
-    border-radius: 8px !important; color: #166534 !important;
+    background: #fff7ed !important; border: 1px solid #fdba74 !important;
+    border-radius: 11px !important; color: #9a3412 !important;
+    box-shadow: 0 3px 10px rgba(154,52,18,0.06) !important;
 }
 div[data-testid="stInfo"] {
-    background: #eff6ff !important; border: 1px solid #93c5fd !important; border-radius: 8px !important;
+    background: #eff6ff !important; border: 1px solid #93c5fd !important; border-radius: 11px !important;
 }
 div[data-testid="stWarning"] {
-    background: #fffbeb !important; border: 1px solid #fcd34d !important; border-radius: 8px !important;
+    background: #fffbeb !important; border: 1px solid #fcd34d !important; border-radius: 11px !important;
 }
 
 /* ── DATAFRAME ── */
 div[data-testid="stDataFrame"] {
-    border-radius: 10px !important; overflow: hidden;
-    border: 1px solid #e5e7eb !important; box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+    border-radius: 14px !important; overflow: hidden;
+    border: 1px solid #ece4d8 !important; box-shadow: 0 4px 16px rgba(154,52,18,0.07) !important;
+}
+div[data-testid="stDataFrame"] [role="columnheader"] {
+    background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
+    color: #9a3412 !important; font-weight: 800 !important;
 }
 
 /* ── EXPANDER ── */
 div[data-testid="stExpander"] {
-    background: #ffffff !important; border: 1px solid #d1d5db !important;
-    border-radius: 10px !important; box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
-    margin-bottom: 10px !important;
+    background: #ffffff !important; border: 1px solid #e7ddd0 !important;
+    border-radius: 14px !important; box-shadow: 0 4px 14px rgba(154,52,18,0.06) !important;
+    margin-bottom: 12px !important; overflow: hidden;
 }
 div[data-testid="stExpander"] summary,
 div[data-testid="stExpander"] details > summary {
-    background: #f9fafb !important; color: #111827 !important;
-    font-weight: 600 !important; border-radius: 10px !important; font-size: 14px !important;
+    background: #fafaf9 !important; color: #1c1917 !important;
+    font-weight: 700 !important; border-radius: 14px !important; font-size: 14px !important;
+    padding: 4px 6px !important;
 }
 div[data-testid="stExpander"] details[open] > summary {
-    background: linear-gradient(135deg,rgba(26,122,26,0.08),rgba(34,168,50,0.05)) !important;
-    color: #1a7a1a !important; border-radius: 10px 10px 0 0 !important;
-    border-bottom: 1px solid #d1d5db !important;
+    background: linear-gradient(135deg,rgba(234,88,12,0.10),rgba(249,115,22,0.05)) !important;
+    color: #c2410c !important; border-radius: 14px 14px 0 0 !important;
+    border-bottom: 1px solid #e7ddd0 !important;
 }
 div[data-testid="stExpander"] summary span,
 div[data-testid="stExpander"] summary p,
 div[data-testid="stExpander"] summary * { color: inherit !important; }
 div[data-testid="stExpander"] summary:hover {
-    background: rgba(26,122,26,0.06) !important; color: #1a7a1a !important;
+    background: rgba(234,88,12,0.07) !important; color: #c2410c !important;
 }
 div[data-testid="stExpander"] > details,
-div[data-testid="stExpander"] details { background: #ffffff !important; border-radius: 10px !important; }
+div[data-testid="stExpander"] details { background: #ffffff !important; border-radius: 14px !important; }
 div[data-testid="stExpander"] details > div,
 div[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
     background: #ffffff !important; color: #374151 !important;
@@ -319,50 +367,50 @@ div[data-testid="stExpander"] div, div[data-testid="stExpander"] section { backg
 
 /* File uploader inside expander */
 div[data-testid="stExpander"] div[data-testid="stFileUploader"] {
-    background: #f9fafb !important; border: 2px dashed rgba(26,122,26,0.4) !important; border-radius: 10px !important;
+    background: #f9fafb !important; border: 2px dashed rgba(234,88,12,0.4) !important; border-radius: 10px !important;
 }
 div[data-testid="stExpander"] div[data-testid="stFileUploader"] * { color: #374151 !important; }
 div[data-testid="stExpander"] div[data-testid="stFileUploader"] button,
 div[data-testid="stExpander"] div[data-testid="stFileUploader"] button:focus {
-    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
-    background-color: #22a832 !important; color: #ffffff !important; border: none !important; opacity: 1 !important;
+    background: linear-gradient(135deg, #c2410c, #f97316) !important;
+    background-color: #f97316 !important; color: #ffffff !important; border: none !important; opacity: 1 !important;
 }
 div[data-testid="stExpander"] div[data-testid="stFileUploader"] button:hover {
-    background: linear-gradient(135deg, #22a832, #2dc93e) !important;
+    background: linear-gradient(135deg, #f97316, #ea580c) !important;
     color: #ffffff !important; opacity: 1 !important;
 }
 
 /* ── STATUS PILLS ── */
-.pill-open { background: linear-gradient(135deg,#1a7a1a,#22a832); color:#fff; padding:3px 12px; border-radius:20px; font-size:12px; font-weight:700; }
-.pill-closed { background: linear-gradient(135deg,#dc2626,#ef4444); color:#fff; padding:3px 12px; border-radius:20px; font-size:12px; font-weight:700; }
+.pill-open { background: linear-gradient(135deg,#c2410c,#f97316); color:#fff; padding:4px 14px; border-radius:20px; font-size:11.5px; font-weight:800; letter-spacing:.04em; box-shadow:0 2px 8px rgba(234,88,12,0.35); }
+.pill-closed { background: linear-gradient(135deg,#dc2626,#ef4444); color:#fff; padding:4px 14px; border-radius:20px; font-size:11.5px; font-weight:800; letter-spacing:.04em; box-shadow:0 2px 8px rgba(220,38,38,0.30); }
 
 /* ── SECTION DIVIDER ── */
-.sv-divider { height: 1px; background: linear-gradient(90deg,transparent,rgba(26,122,26,0.25),transparent); margin: 16px 0; }
+.sv-divider { height: 1px; background: linear-gradient(90deg,transparent,rgba(234,88,12,0.3),transparent); margin: 18px 0; }
 
 /* ── FORMULA BOX ── */
 .formula-box {
-    background: #f0fdf4; border-left: 3px solid #22a832;
+    background: #fff7ed; border-left: 3px solid #f97316;
     border-radius: 0 8px 8px 0; padding: 10px 14px;
     font-family: 'Courier New', monospace; font-size: 12px;
-    color: #166534; margin: 4px 0 10px 0; white-space: pre-wrap; line-height: 1.6;
-    border: 1px solid #bbf7d0; border-left: 3px solid #22a832;
+    color: #9a3412; margin: 4px 0 10px 0; white-space: pre-wrap; line-height: 1.6;
+    border: 1px solid #fed7aa; border-left: 3px solid #f97316;
 }
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #f3f4f6; }
-::-webkit-scrollbar-thumb { background: rgba(26,122,26,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(234,88,12,0.3); border-radius: 3px; }
 
 /* ── PRORATA LABELS ── */
-.prorata-label { font-size: 13px; font-weight: 700; color: #1a7a1a; text-transform:uppercase; letter-spacing:.1em; margin-top:12px; margin-bottom:4px; }
+.prorata-label { font-size: 13px; font-weight: 700; color: #c2410c; text-transform:uppercase; letter-spacing:.1em; margin-top:12px; margin-bottom:4px; }
 .prorata-hint { font-size: 13px; color: #6b7280; margin-bottom: 6px; line-height: 1.5; }
 
 /* ── RADIO BUTTON ── */
 div[data-testid="stRadio"] > div { background: transparent !important; }
 div[data-testid="stRadio"] label { color: #374151 !important; background: transparent !important; }
 div[data-testid="stRadio"] span { color: #374151 !important; }
-div[data-testid="stRadio"] input[type="radio"] + div { border-color: rgba(26,122,26,0.5) !important; }
-div[data-testid="stRadio"] input[type="radio"]:checked + div { background: #22a832 !important; border-color: #22a832 !important; }
+div[data-testid="stRadio"] input[type="radio"] + div { border-color: rgba(234,88,12,0.5) !important; }
+div[data-testid="stRadio"] input[type="radio"]:checked + div { background: #f97316 !important; border-color: #f97316 !important; }
 
 /* ── GLOBAL LIGHT OVERRIDES ── */
 .stApp, .main, [data-testid="stAppViewContainer"] > .main { background: transparent !important; }
@@ -372,9 +420,9 @@ div[data-testid="stVerticalBlock"], div[data-testid="stHorizontalBlock"] { backg
 div[data-baseweb="popover"] [role="listbox"], div[data-baseweb="popover"] { background-color: #ffffff !important; }
 div[data-baseweb="popover"] [role="option"] { background-color: #ffffff !important; color: #111827 !important; }
 div[data-baseweb="popover"] [role="option"]:hover,
-div[data-baseweb="popover"] [aria-selected="true"] { background-color: rgba(26,122,26,0.08) !important; }
+div[data-baseweb="popover"] [aria-selected="true"] { background-color: rgba(234,88,12,0.08) !important; }
 div[data-baseweb="popover"] [aria-selected="true"] {
-    background-color: rgba(0,214,90,0.2) !important;
+    background-color: rgba(251,146,60,0.2) !important;
 }
 /* Checkbox */
 div[data-testid="stCheckbox"] label {
@@ -398,13 +446,13 @@ div[data-testid="stCaptionContainer"] p {
     margin-bottom: 10px;
     transition: border-color 0.2s;
 }
-.contract-card:hover { border-color: rgba(0,214,90,0.3); }
+.contract-card:hover { border-color: rgba(251,146,60,0.3); }
 
 /* ── SECTION LABEL ── */
 .sec-label {
     font-size: 14px;
     font-weight: 700;
-    color: #39FF14;
+    color: #fdba74;
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-bottom: 10px;
@@ -414,21 +462,21 @@ div[data-testid="stCaptionContainer"] p {
 /* ── FILE UPLOADER ── */
 div[data-testid="stFileUploader"] {
     background: rgba(255,255,255,0.03) !important;
-    border: 2px dashed rgba(0,214,90,0.3) !important;
+    border: 2px dashed rgba(251,146,60,0.3) !important;
     border-radius: 10px !important;
     padding: 8px !important;
 }
 div[data-testid="stFileUploader"]:hover {
-    border-color: rgba(57,255,20,0.6) !important;
-    background: rgba(26,122,26,0.05) !important;
+    border-color: rgba(253,186,116,0.6) !important;
+    background: rgba(234,88,12,0.05) !important;
 }
 /* File uploader button — all states locked to parrot green */
 div[data-testid="stFileUploader"] button,
 div[data-testid="stFileUploaderDropzone"] button,
 [data-testid="stFileUploader"] button[kind],
 [data-testid="stFileUploader"] button {
-    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
-    background-color: #22a832 !important;
+    background: linear-gradient(135deg, #c2410c, #f97316) !important;
+    background-color: #f97316 !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 6px !important;
@@ -440,12 +488,12 @@ div[data-testid="stFileUploader"] button:focus,
 div[data-testid="stFileUploader"] button:active,
 div[data-testid="stFileUploaderDropzone"] button:hover,
 [data-testid="stFileUploader"] button:hover {
-    background: linear-gradient(135deg, #22a832, #39FF14) !important;
-    background-color: #39FF14 !important;
+    background: linear-gradient(135deg, #f97316, #fdba74) !important;
+    background-color: #fdba74 !important;
     color: #0a1a0a !important;
     border: none !important;
     opacity: 1 !important;
-    box-shadow: 0 0 12px rgba(57,255,20,0.4) !important;
+    box-shadow: 0 0 12px rgba(253,186,116,0.4) !important;
 }
 div[data-testid="stFileUploader"] small,
 div[data-testid="stFileUploader"] span,
@@ -468,13 +516,13 @@ div[data-testid="stCaptionContainer"] { color: #6b7280 !important; }
 h1,h2,h3,h4 { color: #111827 !important; }
 
 /* ── SPINNER ── */
-div[data-testid="stSpinner"] { color: #22a832 !important; }
+div[data-testid="stSpinner"] { color: #f97316 !important; }
 
 /* ── SUCCESS MSG ── */
 .success-msg {
-    background: #f0fdf4; border: 1px solid #86efac;
+    background: #fff7ed; border: 1px solid #fdba74;
     border-radius: 8px; padding: 10px 16px;
-    color: #166534; font-weight: 500; font-size: 14px; margin: 8px 0;
+    color: #9a3412; font-weight: 500; font-size: 14px; margin: 8px 0;
 }
 
 /* ── FOOTER ── */
@@ -485,16 +533,25 @@ div[data-testid="stSpinner"] { color: #22a832 !important; }
 
 /* ── CONTRACT CARD ── */
 .contract-card {
-    background: #ffffff; border: 1px solid #e5e7eb;
-    border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;
-    transition: border-color 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    background: #ffffff; border: 1px solid #ece4d8; border-left: 4px solid #f97316;
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 12px;
+    transition: all 0.2s ease; box-shadow: 0 3px 12px rgba(154,52,18,0.06);
 }
-.contract-card:hover { border-color: #22a832; }
+.contract-card:hover { border-left-color: #c2410c; box-shadow: 0 8px 22px rgba(154,52,18,0.13); transform: translateX(2px); }
 
 /* ── SECTION LABEL ── */
 .sec-label {
-    font-size: 12px; font-weight: 700; color: #1a7a1a;
-    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; margin-top: 16px;
+    font-size: 12.5px; font-weight: 800; color: #c2410c;
+    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 12px; margin-top: 18px;
+    display: flex; align-items: center; gap: 8px;
+}
+.sec-label::before {
+    content: ''; width: 6px; height: 16px; border-radius: 3px;
+    background: linear-gradient(180deg, #f97316, #c2410c); display: inline-block; flex-shrink: 0;
+}
+.sec-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(234,88,12,0.25), transparent);
 }
 
 /* ── CHECKBOX ── */
@@ -503,26 +560,26 @@ div[data-testid="stCheckbox"] label { color: #374151 !important; }
 /* ── FILE UPLOADER (main) ── */
 div[data-testid="stFileUploader"] {
     background: #f9fafb !important;
-    border: 2px dashed rgba(26,122,26,0.35) !important;
+    border: 2px dashed rgba(234,88,12,0.35) !important;
     border-radius: 10px !important; padding: 8px !important;
 }
 div[data-testid="stFileUploader"]:hover {
-    border-color: #22a832 !important; background: rgba(26,122,26,0.03) !important;
+    border-color: #f97316 !important; background: rgba(234,88,12,0.03) !important;
 }
 div[data-testid="stFileUploader"] button,
 div[data-testid="stFileUploaderDropzone"] button,
 [data-testid="stFileUploader"] button {
-    background: linear-gradient(135deg, #1a7a1a, #22a832) !important;
-    background-color: #22a832 !important; color: #ffffff !important;
+    background: linear-gradient(135deg, #c2410c, #f97316) !important;
+    background-color: #f97316 !important; color: #ffffff !important;
     border: none !important; border-radius: 6px !important; font-weight: 600 !important; opacity: 1 !important;
 }
 div[data-testid="stFileUploader"] button:hover,
 div[data-testid="stFileUploaderDropzone"] button:hover,
 [data-testid="stFileUploader"] button:hover {
-    background: linear-gradient(135deg, #22a832, #2dc93e) !important;
-    background-color: #2dc93e !important; color: #ffffff !important;
+    background: linear-gradient(135deg, #f97316, #ea580c) !important;
+    background-color: #ea580c !important; color: #ffffff !important;
     border: none !important; opacity: 1 !important;
-    box-shadow: 0 3px 10px rgba(34,168,50,0.3) !important;
+    box-shadow: 0 3px 10px rgba(249,115,22,0.3) !important;
 }
 div[data-testid="stFileUploader"] small,
 div[data-testid="stFileUploader"] span,
@@ -536,14 +593,15 @@ body, .stApp, [data-testid="stAppViewContainer"] {
 .contract-card {
     background: #ffffff !important;
     color: #1f2937 !important;
-    border: 1px solid #dbe3ea !important;
-    box-shadow: 0 4px 14px rgba(15,23,42,0.06) !important;
+    border: 1px solid #ece4d8 !important;
+    border-left: 4px solid #f97316 !important;
+    box-shadow: 0 4px 14px rgba(154,52,18,0.07) !important;
 }
 .contract-card * { color: #374151 !important; }
-.contract-card strong { color: #166534 !important; }
+.contract-card strong { color: #9a3412 !important; }
 .contract-card [style*="color:#fff"], .contract-card [style*="color: #fff"] { color:#374151 !important; }
 .pill-open, .pill-closed { color:#ffffff !important; }
-.sec-label { color: #176b35 !important; }
+.sec-label { color: #9a3412 !important; }
 div[data-testid="stCaptionContainer"] p,
 .stCaption, .stMarkdown p, .stMarkdown li { color: #4b5563 !important; }
 div[data-testid="stCheckbox"] label,
@@ -557,17 +615,17 @@ div[data-testid="stButton"] button {
 }
 div[data-testid="stButton"] button[kind="primary"] {
     color: #ffffff !important;
-    background: linear-gradient(135deg,#176b35,#22a832) !important;
+    background: linear-gradient(135deg,#9a3412,#f97316) !important;
     border: none !important;
 }
 div[data-testid="stButton"] button:hover {
-    color: #14532d !important;
-    border-color: #22a832 !important;
-    background: #f0fdf4 !important;
+    color: #7c2d12 !important;
+    border-color: #f97316 !important;
+    background: #fff7ed !important;
 }
 div[data-testid="stButton"] button[kind="primary"]:hover {
     color: #ffffff !important;
-    background: linear-gradient(135deg,#14532d,#22a832) !important;
+    background: linear-gradient(135deg,#7c2d12,#f97316) !important;
 }
 div[data-testid="stDownloadButton"] button {
     color: #ffffff !important;
@@ -578,8 +636,8 @@ div[data-testid="stExpander"] summary,
 div[data-testid="stExpander"] summary * { color: #374151 !important; }
 div[data-testid="stExpander"] summary { background:#f8fafc !important; }
 div[data-testid="stExpander"] details[open] > summary {
-    color:#176b35 !important;
-    background:#f0fdf4 !important;
+    color:#9a3412 !important;
+    background:#fff7ed !important;
 }
 div[data-testid="stTextInput"] input,
 div[data-testid="stNumberInput"] input,
@@ -595,7 +653,7 @@ div[data-testid="stFileUploader"] {
 div[data-testid="stFileUploader"] * { color:#475569 !important; }
 div[data-testid="stFileUploader"] button {
     color:#ffffff !important;
-    background:linear-gradient(135deg,#176b35,#22a832) !important;
+    background:linear-gradient(135deg,#9a3412,#f97316) !important;
 }
 
 
@@ -653,7 +711,7 @@ st.markdown("""
 .contract-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding-bottom:10px; border-bottom:1px solid #e5e7eb; }
 .contract-no { font-size:16px; font-weight:800; color:#111827; }
 .contract-party { margin-top:4px; font-size:12px; color:#4b5563; font-weight:600; }
-.contract-project { background:#ecfdf5; border:1px solid #bbf7d0; color:#166534; padding:5px 10px; border-radius:18px; font-size:11px; font-weight:700; max-width:52%; text-align:center; }
+.contract-project { background:#ecfdf5; border:1px solid #fed7aa; color:#9a3412; padding:5px 10px; border-radius:18px; font-size:11px; font-weight:700; max-width:52%; text-align:center; }
 .basic-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; padding:12px 0; }
 .basic-grid div { display:flex; justify-content:space-between; gap:10px; padding:6px 8px; background:#f8fafc; border-radius:7px; font-size:11px; }
 .basic-grid span { color:#64748b; }
@@ -708,9 +766,9 @@ if not st.session_state.authenticated:
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
-    * { font-family:'Inter',sans-serif; box-sizing:border-box; margin:0; padding:0; }
+    * { font-family:'Inter',sans-serif; box-sizing:border-box; }
 
-    /* Full viewport login */
+    /* Full viewport login — locked to exactly one screen, no gaps, no scroll */
     html, body {
         height: 100vh !important; overflow: hidden !important;
         margin: 0 !important; padding: 0 !important;
@@ -719,63 +777,61 @@ if not st.session_state.authenticated:
         background: #fdf0e6 !important;
         height: 100vh !important; overflow: hidden !important;
     }
-    [data-testid="stHeader"] { display:none !important; }
-    section[data-testid="stMain"] {
-        padding-top: 0 !important; overflow: hidden !important;
-    }
+    [data-testid="stHeader"], header[data-testid="stHeader"], footer,
+    [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
+    section[data-testid="stMain"] { padding-top: 0 !important; overflow: hidden !important; }
     .main .block-container, [data-testid="stMainBlockContainer"] {
         padding: 0 !important; margin: 0 !important; max-width: 100% !important;
         height: 100vh !important; overflow: hidden !important;
     }
-    div[data-testid="stVerticalBlockBorderWrapper"],
-    div[data-testid="stVerticalBlock"] {
-        gap: 0 !important; height: 100%;
-    }
+    section.main > div { padding: 0 !important; }
+
+    /* Kill Streamlit's own column gap/padding so the two panels sit flush */
+    div[data-testid="stVerticalBlock"] { gap: 0 !important; }
     div[data-testid="stHorizontalBlock"] {
-        gap: 0 !important; height: 100vh !important; align-items: stretch !important;
+        gap: 0 !important;
+        align-items: stretch !important;
     }
-    div[data-testid="column"] { padding: 0 !important; }
-    div[data-testid="stElementContainer"] { height: 100%; }
-    /* Hide default streamlit chrome */
-    header[data-testid="stHeader"], footer { display:none !important; }
-    [data-testid="stToolbar"] { display:none !important; }
-
-    /* ── SPLIT LAYOUT ── */
-    .login-outer {
-        display: flex; height: 100vh; width: 100%;
-        font-family: 'Inter', sans-serif;
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        padding: 0 !important;
+        height: 100vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        overflow: hidden !important;
     }
+    div[data-testid="stVerticalBlockBorderWrapper"] { height: 100%; }
 
-    /* LEFT PANEL – warm orange gradient with floral feel */
+    /* LEFT PANEL – warm orange gradient with brand story */
     .login-left {
-        flex: 1.1;
-        height: 100vh;
+        flex: 1;
         background: linear-gradient(160deg, #f97316 0%, #ea580c 35%, #c2410c 65%, #9a3412 100%);
         display: flex; flex-direction: column;
         justify-content: space-between;
-        padding: 34px 48px 28px;
+        padding: 36px 52px 28px;
         position: relative; overflow: hidden;
+        height: 100vh;
     }
     .login-left::before {
         content:'';
         position:absolute; top:-80px; right:-80px;
         width:400px; height:400px;
-        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
         border-radius:50%;
     }
     .login-left::after {
         content:'';
         position:absolute; bottom:-120px; left:-60px;
         width:500px; height:500px;
-        background: radial-gradient(circle, rgba(255,200,100,0.15) 0%, transparent 65%);
+        background: radial-gradient(circle, rgba(255,200,100,0.18) 0%, transparent 65%);
         border-radius:50%;
     }
 
     .ll-logo { display:flex; align-items:center; gap:14px; z-index:1; position:relative; }
-    .ll-logo img { height:60px; width:auto; border-radius:12px; background:rgba(255,255,255,0.95); padding:7px 12px; box-shadow:0 6px 24px rgba(0,0,0,0.25); }
-    .ll-brand { color:#ffffff; font-size:13px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; opacity:0.9; }
+    .ll-logo img { height:56px; width:auto; border-radius:12px; background:rgba(255,255,255,0.96); padding:7px 12px; box-shadow:0 6px 24px rgba(0,0,0,0.25); }
+    .ll-brand { color:#ffffff; font-size:13px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; opacity:0.92; }
 
-    .ll-main { z-index:1; position:relative; }
+    .ll-main { z-index:1; position:relative; margin: 20px 0; }
     .ll-headline {
         font-family:'Poppins',sans-serif;
         font-size:36px; font-weight:900; color:#ffffff;
@@ -783,35 +839,26 @@ if not st.session_state.authenticated:
         text-shadow:0 2px 12px rgba(0,0,0,0.2);
     }
     .ll-headline span { color:#fde68a; }
-    .ll-tagline { font-size:14px; color:rgba(255,255,255,0.80); line-height:1.5; max-width:340px; margin-bottom:24px; }
-    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .ll-tagline { font-size:14px; color:rgba(255,255,255,0.85); line-height:1.5; max-width:360px; margin-bottom:22px; }
+    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:440px; }
     .ll-feat {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.20);
+        background: rgba(255,255,255,0.13);
+        border: 1px solid rgba(255,255,255,0.22);
         border-radius: 14px; padding: 14px 16px;
         backdrop-filter: blur(8px);
     }
     .ll-feat-icon { font-size:20px; margin-bottom:6px; }
     .ll-feat-title { font-size:12px; font-weight:800; color:#fde68a; margin-bottom:3px; }
-    .ll-feat-desc { font-size:11px; color:rgba(255,255,255,0.70); line-height:1.4; }
+    .ll-feat-desc { font-size:11px; color:rgba(255,255,255,0.75); line-height:1.4; }
 
-    .ll-footer { z-index:1; position:relative; display:flex; gap:24px; align-items:center; }
-    .ll-footer span { font-size:11px; color:rgba(255,255,255,0.55); display:flex; align-items:center; gap:5px; }
+    .ll-footer { z-index:1; position:relative; display:flex; flex-wrap:wrap; gap:20px; align-items:center; }
+    .ll-footer span { font-size:11px; color:rgba(255,255,255,0.60); display:flex; align-items:center; gap:5px; white-space:nowrap; }
 
-    /* RIGHT PANEL – clean white form */
-    .login-right {
-        flex: 0.9;
-        background: #ffffff;
-        display: flex; flex-direction: column;
-        justify-content: center; align-items: center;
-        padding: 60px 56px;
-        box-shadow: -12px 0 40px rgba(0,0,0,0.10);
-        position: relative;
-    }
-    .login-right-inner { width: 100%; max-width: 380px; }
+    /* RIGHT PANEL – clean white form, vertically centered */
+    .login-right-inner { width: 100%; max-width: 380px; margin: 0 auto; }
 
     .lr-eyebrow {
-        display:flex; align-items:center; gap:10px; margin-bottom:18px;
+        display:flex; align-items:center; gap:10px; margin-bottom:16px;
         font-size:11px; font-weight:800; color:#ea580c;
         text-transform:uppercase; letter-spacing:.14em;
     }
@@ -820,20 +867,19 @@ if not st.session_state.authenticated:
     }
     .lr-title {
         font-family:'Poppins',sans-serif;
-        font-size:34px; font-weight:900; color:#1c1917;
-        line-height:1.1; margin-bottom:6px;
+        font-size:32px; font-weight:900; color:#1c1917;
+        line-height:1.1; margin-bottom:6px; text-align:center;
     }
-    .lr-sub { font-size:14px; color:#78716c; margin-bottom:32px; }
-    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 26px; }
-    .lr-divider::before { content:'◆'; color:#f97316; font-size:14px; }
+    .lr-sub { font-size:13px; color:#78716c; margin-bottom:4px; text-align:center; }
+    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 24px; color:#f97316; font-size:16px; }
 
     /* Form fields - light clean */
-    .login-right div[data-testid="stTextInput"] label {
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] label {
         font-size:13px !important; font-weight:700 !important;
         color:#1c1917 !important; margin-bottom:4px !important;
         letter-spacing:.02em !important;
     }
-    .login-right div[data-testid="stTextInput"] input {
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input {
         background:#fafaf9 !important;
         border:1.5px solid #e7e5e4 !important;
         border-radius:12px !important;
@@ -842,15 +888,15 @@ if not st.session_state.authenticated:
         padding:13px 16px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
     }
-    .login-right div[data-testid="stTextInput"] input:focus {
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input:focus {
         border-color:#f97316 !important;
         box-shadow:0 0 0 3px rgba(249,115,22,0.18) !important;
         background:#ffffff !important;
     }
-    .login-right div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
 
     /* Primary button – orange */
-    .login-right div[data-testid="stButton"] button[kind="primary"] {
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"] {
         background: linear-gradient(135deg,#ea580c,#f97316) !important;
         color:#ffffff !important; border:none !important;
         border-radius:14px !important; font-size:16px !important;
@@ -859,7 +905,7 @@ if not st.session_state.authenticated:
         letter-spacing:.02em !important;
         transition:all 0.25s !important;
     }
-    .login-right div[data-testid="stButton"] button[kind="primary"]:hover {
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"]:hover {
         background:linear-gradient(135deg,#c2410c,#ea580c) !important;
         box-shadow:0 12px 32px rgba(234,88,12,0.55) !important;
         transform:translateY(-2px) !important;
@@ -867,8 +913,8 @@ if not st.session_state.authenticated:
 
     /* Bottom branding */
     .lr-bottom {
-        text-align:center; margin-top:36px;
-        padding-top:28px; border-top:1px solid #f5f5f4;
+        text-align:center; margin-top:32px;
+        padding-top:24px; border-top:1px solid #f5f5f4;
     }
     .lr-bottom-brand { font-size:15px; font-weight:800; color:#ea580c; margin-bottom:4px; }
     .lr-bottom-desc { font-size:12px; color:#a8a29e; margin-bottom:6px; }
@@ -881,15 +927,19 @@ if not st.session_state.authenticated:
         color:#dc2626; font-size:13px; font-weight:600;
         margin-top:12px; text-align:center;
     }
+
+    @media (max-width: 900px) {
+        .ll-headline { font-size:30px; }
+        .ll-features { grid-template-columns:1fr; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Build the full-width login layout via HTML + st columns for form ──
-    left_col, right_col = st.columns([1.1, 0.9])
+    left_col, right_col = st.columns([1.1, 0.9], gap="small")
 
     with left_col:
         st.markdown(f"""
-        <div class="login-left" style="min-height:100vh;">
+        <div class="login-left">
           <div class="ll-logo">
             <img src="data:image/png;base64,{LOGO_B64}" alt="Softview">
             <span class="ll-brand">Softview Technologies</span>
@@ -931,35 +981,14 @@ if not st.session_state.authenticated:
         """, unsafe_allow_html=True)
 
     with right_col:
-        # Wrap the entire right side in a styled div
-        st.markdown("""
-        <div class="login-right" style="height:100vh;display:flex;flex-direction:column;justify-content:center;padding:40px 48px;">
-          <div class="login-right-inner" style="max-width:380px;margin:0 auto;width:100%;">
-            <div class="lr-eyebrow">CCI Working Calculation Utility</div>
-            <div class="lr-title">Welcome Back</div>
-            <div class="lr-sub">Sign in to continue to your secure workspace.</div>
-            <div class="lr-divider"></div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Spacer to push form down
-        st.markdown("<div style='height:15vh'></div>", unsafe_allow_html=True)
-
-        # Center content
-        _, fc, _ = st.columns([0.15, 0.70, 0.15])
+        _, fc, _ = st.columns([0.12, 0.76, 0.12])
         with fc:
-            st.markdown('<div class="login-right">', unsafe_allow_html=True)
             st.markdown("""
-            <div style="text-align:center;margin-bottom:8px">
-              <div style="font-size:11px;font-weight:800;color:#ea580c;text-transform:uppercase;letter-spacing:.14em;display:flex;align-items:center;gap:8px;justify-content:center">
-                <span style="flex:1;height:1px;background:#f97316;opacity:0.4;display:inline-block"></span>
-                CCI Working Calculation Utility
-                <span style="flex:1;height:1px;background:#f97316;opacity:0.4;display:inline-block"></span>
-              </div>
-              <div style="font-family:'Poppins',sans-serif;font-size:32px;font-weight:900;color:#1c1917;margin:10px 0 4px">Welcome Back</div>
-              <div style="font-size:13px;color:#78716c;margin-bottom:4px">Sign in to continue to your secure workspace.</div>
-              <div style="color:#f97316;font-size:16px;margin:8px 0 24px">◆</div>
+            <div class="login-right-inner">
+              <div class="lr-eyebrow">CCI Working Calculation Utility</div>
+              <div class="lr-title">Welcome Back</div>
+              <div class="lr-sub">Sign in to continue to your secure workspace.</div>
+              <div class="lr-divider">◆</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -977,12 +1006,11 @@ if not st.session_state.authenticated:
 
             st.markdown("""
             <div class="lr-bottom">
-              <div class="lr-bottom-brand">SoftView Technologies</div>
+              <div class="lr-bottom-brand">Softview Technologies</div>
               <div class="lr-bottom-desc">CCI Working Calculation Utility &nbsp;·&nbsp; Premium Enterprise Edition</div>
               <div class="lr-bottom-secure">🛡️ Secure access for authorised users only.</div>
             </div>
             """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
 
     st.stop()
 
@@ -1009,6 +1037,38 @@ def sf(val, default=0.0):
         return float(val) if val not in ('', None) else default
     except:
         return default
+
+# ─── INDIAN NUMBER FORMAT (₹ 2,22,25,262.00 style) ────────────────────────────
+def fmt_inr(value, symbol="₹", decimals=2, dash_on_zero=True):
+    """Format a number Indian-style: last 3 digits, then groups of 2
+    (e.g. 22225262 -> 2,22,25,262.00). Returns '—' for empty/zero when
+    dash_on_zero is True, matching the existing GRN-detail style."""
+    try:
+        if value is None or value == "":
+            return "—"
+        num = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if dash_on_zero and num == 0:
+        return "—"
+    neg = num < 0
+    num = abs(num)
+    whole = int(num)
+    s = str(whole)
+    if len(s) > 3:
+        last3 = s[-3:]
+        rest = s[:-3]
+        parts = []
+        while len(rest) > 2:
+            parts.insert(0, rest[-2:])
+            rest = rest[:-2]
+        if rest:
+            parts.insert(0, rest)
+        s = ",".join(parts) + "," + last3
+    if decimals > 0:
+        frac = f"{num:.{decimals}f}".split(".")[1]
+        return f"{symbol}{'-' if neg else ''}{s}.{frac}"
+    return f"{symbol}{'-' if neg else ''}{s}"
 
 # ─── PARSE EXCEL ──────────────────────────────────────────────────────────────
 def parse_excel(file_bytes):
@@ -1561,19 +1621,22 @@ with hc1:
     <div class="top-header">
       <div class="top-header-left">
         <img src="data:image/png;base64,{LOGO_B64}" class="logo-img" alt="Softview">
-        <div class="top-header-title">CCI Working Calculation Utility</div>
+        <div>
+          <div class="top-header-title">🧮 CCI Working Calculation Utility</div>
+          <div class="top-header-sub">Softview Technologies · Enterprise Financial Suite</div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-        <span class="top-header-badge">v2.0 PREMIUM</span>
-        <span style="font-size:11px;color:rgba(0,214,90,0.9);font-weight:600;letter-spacing:.04em">👤 {_logged_user.upper()}</span>
+        <span class="top-header-badge">✨ PREMIUM ENTERPRISE EDITION</span>
+        <span style="font-size:11.5px;color:rgba(255,255,255,0.92);font-weight:700;letter-spacing:.04em">👤 {_logged_user.upper()}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
 with hc2:
     components.html(f"""
-    <div style="background:#ffffff;border:1px solid #dbe3ea;border-radius:10px;padding:7px 10px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:5px">
-      <div style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Live Time</div>
-      <span id="clock" style="font:700 13px monospace;color:#166534">🕐 {_clock_str}</span>
+    <div style="background:linear-gradient(135deg,#fff7ed,#ffffff);border:1px solid #fdba74;border-radius:12px;padding:8px 12px;text-align:center;box-shadow:0 4px 14px rgba(154,52,18,0.10);margin-bottom:5px">
+      <div style="font-size:9px;color:#c2410c;font-weight:800;letter-spacing:.08em;text-transform:uppercase">🕐 Live Time</div>
+      <span id="clock" style="font:800 13px monospace;color:#9a3412">{_clock_str}</span>
     </div>
     <script>
     (function(){{
@@ -2021,9 +2084,9 @@ with tab_upload:
             st.markdown(f"""
             <div class="contract-card" style="margin-bottom:14px">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:rgba(255,255,255,0.6)">
-                <span>📌 EMD Rate: <strong style="color:#86efac">{mc.get('emd_percent','—')}% p.a.</strong></span>
+                <span>📌 EMD Rate: <strong style="color:#fdba74">{mc.get('emd_percent','—')}% p.a.</strong></span>
                 <span>🌾 Bales: <strong style="color:#fff">{mc.get('bales','—')}</strong></span>
-                <span>🚛 CC Free: <strong style="color:#86efac">{mc.get('cc_free_days',0)} days</strong></span>
+                <span>🚛 CC Free: <strong style="color:#fdba74">{mc.get('cc_free_days',0)} days</strong></span>
                 <span>📅 Eff Date: <strong style="color:#fff">{mc.get('effective_date','—')}</strong></span>
               </div>
             </div>""", unsafe_allow_html=True)
@@ -2059,7 +2122,7 @@ with tab_upload:
         ]:
             st.markdown(f"""
             <div class="contract-card">
-              <div style="font-size:11px;font-weight:700;color:#39FF14;margin-bottom:6px">{title}</div>
+              <div style="font-size:11px;font-weight:700;color:#fdba74;margin-bottom:6px">{title}</div>
               <div style="font-size:11px;color:rgba(255,255,255,0.5);font-family:monospace">{cols}</div>
             </div>""", unsafe_allow_html=True)
 
@@ -2087,27 +2150,27 @@ with tab_results:
           </div>
           <div class="metric-card green">
             <div class="metric-icon">💰</div>
-            <div class="metric-val">₹{tot_bill:,.0f}</div>
+            <div class="metric-val">{fmt_inr(tot_bill, decimals=0)}</div>
             <div class="metric-lbl">Total Bill Amt</div>
           </div>
           <div class="metric-card teal">
             <div class="metric-icon">📈</div>
-            <div class="metric-val">₹{tot_emd:,.0f}</div>
+            <div class="metric-val">{fmt_inr(tot_emd, decimals=0)}</div>
             <div class="metric-lbl">EMD Interest</div>
           </div>
           <div class="metric-card purple">
             <div class="metric-icon">💸</div>
-            <div class="metric-val">₹{tot_cd:,.0f}</div>
+            <div class="metric-val">{fmt_inr(tot_cd, decimals=0)}</div>
             <div class="metric-lbl">Cash Discount</div>
           </div>
           <div class="metric-card red">
             <div class="metric-icon">⏰</div>
-            <div class="metric-val">₹{tot_ll:,.0f}</div>
+            <div class="metric-val">{fmt_inr(tot_ll, decimals=0)}</div>
             <div class="metric-lbl">Late Lifting</div>
           </div>
           <div class="metric-card orange">
             <div class="metric-icon">🚛</div>
-            <div class="metric-val">₹{tot_cc:,.0f}</div>
+            <div class="metric-val">{fmt_inr(tot_cc, decimals=0)}</div>
             <div class="metric-lbl">Carry Charges</div>
           </div>
         </div>
@@ -2153,7 +2216,7 @@ with tab_results:
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
                     "Per_Bale_EMD","EMD_Allocated","Net_Amount","EMD_Interest",
                     "Cash_Discount","Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
-            disp[col] = disp[col].apply(lambda x: f"₹{x:,.2f}" if x else "—")
+            disp[col] = disp[col].apply(lambda x: fmt_inr(x))
 
         # Clear GRN detail totals row (all numeric amounts and bales).
         detail_total = {c: "" for c in disp.columns}
@@ -2163,7 +2226,7 @@ with tab_results:
                   "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             if c in disp.columns:
                 vals = pd.to_numeric(df[c], errors="coerce")
-                detail_total[c] = f"₹{vals.sum():,.2f}" if c != "Bales" else int(vals.sum())
+                detail_total[c] = fmt_inr(vals.sum()) if c != "Bales" else int(vals.sum())
         disp = pd.concat([disp, pd.DataFrame([detail_total])], ignore_index=True)
         st.dataframe(pretty_columns(disp), use_container_width=True, height=440, hide_index=True)
 
@@ -2189,12 +2252,24 @@ with tab_results:
             if c not in ("Contract_No","Branch"):
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
+        _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales")]
+        for c in _summary_money_cols:
+            summary[c] = summary[c].apply(lambda x: fmt_inr(x, dash_on_zero=False))
+        for _cnt_col in ("Bales", "GRNs"):
+            if _cnt_col in summary.columns:
+                summary[_cnt_col] = summary[_cnt_col].apply(lambda x: "" if x == "" else int(pd.to_numeric(x, errors="coerce") or 0))
         st.dataframe(pretty_columns(summary), use_container_width=True, hide_index=True)
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
-        branch_summary_ui = branch_wise_summary(df)
+        branch_summary_ui = branch_wise_summary(df).copy()
         if not branch_summary_ui.empty:
+            _branch_money_cols = [c for c in branch_summary_ui.columns if c not in ("Branch","Contracts","GRNs","Total_Bales")]
+            for c in _branch_money_cols:
+                branch_summary_ui[c] = branch_summary_ui[c].apply(lambda x: fmt_inr(x, dash_on_zero=False))
+            for _cnt_col in ("Contracts", "GRNs", "Total_Bales"):
+                if _cnt_col in branch_summary_ui.columns:
+                    branch_summary_ui[_cnt_col] = branch_summary_ui[_cnt_col].apply(lambda x: "" if x == "" else int(pd.to_numeric(x, errors="coerce") or 0))
             st.dataframe(pretty_columns(branch_summary_ui), use_container_width=True, hide_index=True)
         else:
             st.info("Branch data not available for this upload.")
@@ -2319,7 +2394,7 @@ with tab_users:
                 <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
                     <div style="display:flex;align-items:center;gap:10px">
-                      <span style="font-size:22px;background:{"#fef9c3" if is_admin else "#f0fdf4"};border-radius:50%;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center">{"👑" if is_admin else "👤"}</span>
+                      <span style="font-size:22px;background:{"#fef9c3" if is_admin else "#fff7ed"};border-radius:50%;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center">{"👑" if is_admin else "👤"}</span>
                       <div>
                         <div style="font-weight:700;color:#111827;font-size:14px">{uname}
                           {"&nbsp;<span style='background:#fef3c7;color:#d97706;font-size:10px;padding:1px 8px;border-radius:20px;font-weight:700;border:1px solid #fde68a'>ADMIN</span>" if is_admin else ""}
@@ -2377,13 +2452,13 @@ with tab_users:
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown(f"""
-        <div style="background:rgba(0,113,45,0.1);border:1px solid rgba(0,214,90,0.2);border-radius:8px;padding:10px 16px;font-size:12px;color:rgba(255,255,255,0.5)">
-        🔒 Currently logged in as: <strong style="color:#86efac">{current_user}</strong> &nbsp;·&nbsp; Total users: <strong style="color:#fff">{len(all_users)}</strong>
+        <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:12px 16px;font-size:12px;color:#78716c">
+        🔒 Currently logged in as: <strong style="color:#c2410c">{current_user}</strong> &nbsp;·&nbsp; Total users: <strong style="color:#1c1917">{len(all_users)}</strong>
         </div>""", unsafe_allow_html=True)
 
 # ── FOOTER ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="sv-footer">
-  Powered by <strong style="color:rgba(255,255,255,0.4)">Softview Technologies</strong> &nbsp;·&nbsp; CCI Working Calculation Utility v2.0
+  Powered by <strong style="color:#c2410c">Softview Technologies</strong> &nbsp;·&nbsp; CCI Working Calculation Utility v2.0
 </div>
 """, unsafe_allow_html=True)
