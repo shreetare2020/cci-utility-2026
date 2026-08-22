@@ -2311,7 +2311,8 @@ with tab_results:
         )
         # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
         # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
-        summary["Access_Shortage"] = (summary["Payment"] + summary["EMD_Alloc"]) - summary["Total_Payable"]
+        summary["Access_Shortage"] = (summary["Payment"] + summary["EMD_Alloc"]) - summary["Total_Bill"]
+	#summary["Total_Payable"]
         branch_map_ui = None
         # Branch mapping is preserved with the uploaded PUR CONT DETAILS data.
         if "Branch" in df.columns:
