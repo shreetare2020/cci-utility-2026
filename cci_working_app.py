@@ -711,15 +711,31 @@ if not st.session_state.authenticated:
     * { font-family:'Inter',sans-serif; box-sizing:border-box; margin:0; padding:0; }
 
     /* Full viewport login */
+    html, body {
+        height: 100vh !important; overflow: hidden !important;
+        margin: 0 !important; padding: 0 !important;
+    }
     [data-testid="stAppViewContainer"] {
         background: #fdf0e6 !important;
-        min-height: 100vh;
+        height: 100vh !important; overflow: hidden !important;
     }
     [data-testid="stHeader"] { display:none !important; }
-    .main .block-container {
-        padding: 0 !important; max-width: 100% !important;
-        height: 100vh; overflow: hidden;
+    section[data-testid="stMain"] {
+        padding-top: 0 !important; overflow: hidden !important;
     }
+    .main .block-container, [data-testid="stMainBlockContainer"] {
+        padding: 0 !important; margin: 0 !important; max-width: 100% !important;
+        height: 100vh !important; overflow: hidden !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"],
+    div[data-testid="stVerticalBlock"] {
+        gap: 0 !important; height: 100%;
+    }
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0 !important; height: 100vh !important; align-items: stretch !important;
+    }
+    div[data-testid="column"] { padding: 0 !important; }
+    div[data-testid="stElementContainer"] { height: 100%; }
     /* Hide default streamlit chrome */
     header[data-testid="stHeader"], footer { display:none !important; }
     [data-testid="stToolbar"] { display:none !important; }
@@ -733,10 +749,11 @@ if not st.session_state.authenticated:
     /* LEFT PANEL – warm orange gradient with floral feel */
     .login-left {
         flex: 1.1;
+        height: 100vh;
         background: linear-gradient(160deg, #f97316 0%, #ea580c 35%, #c2410c 65%, #9a3412 100%);
         display: flex; flex-direction: column;
         justify-content: space-between;
-        padding: 50px 48px 40px;
+        padding: 34px 48px 28px;
         position: relative; overflow: hidden;
     }
     .login-left::before {
@@ -761,12 +778,12 @@ if not st.session_state.authenticated:
     .ll-main { z-index:1; position:relative; }
     .ll-headline {
         font-family:'Poppins',sans-serif;
-        font-size:40px; font-weight:900; color:#ffffff;
-        line-height:1.15; margin-bottom:12px;
+        font-size:36px; font-weight:900; color:#ffffff;
+        line-height:1.15; margin-bottom:10px;
         text-shadow:0 2px 12px rgba(0,0,0,0.2);
     }
     .ll-headline span { color:#fde68a; }
-    .ll-tagline { font-size:15px; color:rgba(255,255,255,0.80); line-height:1.6; max-width:340px; margin-bottom:36px; }
+    .ll-tagline { font-size:14px; color:rgba(255,255,255,0.80); line-height:1.5; max-width:340px; margin-bottom:24px; }
     .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .ll-feat {
         background: rgba(255,255,255,0.12);
@@ -916,7 +933,7 @@ if not st.session_state.authenticated:
     with right_col:
         # Wrap the entire right side in a styled div
         st.markdown("""
-        <div class="login-right" style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:60px 48px;">
+        <div class="login-right" style="height:100vh;display:flex;flex-direction:column;justify-content:center;padding:40px 48px;">
           <div class="login-right-inner" style="max-width:380px;margin:0 auto;width:100%;">
             <div class="lr-eyebrow">CCI Working Calculation Utility</div>
             <div class="lr-title">Welcome Back</div>
