@@ -1636,9 +1636,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         # CCI (Late Lifting, Carrying) − amounts WE receive from CCI (Cash
         # Discount, interest on our EMD deposit).
         summary["Total_Payable"] = (
-            summary["Total_Bill"] + summary["Total_LL"] + summary["Total_LL_GST"]
-            + summary["Total_CC"] + summary["Total_CC_GST"]
-            - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
+            summary["Total_Bill"] 
         )
         # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
         # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
@@ -2311,8 +2309,7 @@ with tab_results:
         )
         # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
         # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
-        summary["Access_Shortage"] = (summary["Payment"] + summary["EMD_Alloc"]) - summary["Total_Bill"]
-	#summary["Total_Payable"]
+        summary["Access_Shortage"] = (summary["Payment"] + summary["EMD_Alloc"]) - summary["Total_Payable"]
         branch_map_ui = None
         # Branch mapping is preserved with the uploaded PUR CONT DETAILS data.
         if "Branch" in df.columns:
