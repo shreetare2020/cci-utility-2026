@@ -788,109 +788,119 @@ if not st.session_state.authenticated:
     }
     section.main > div { padding: 0 !important; }
 
-    /* The two Streamlit columns become one floating rounded card */
+    /* A soft picture-frame border around the whole login page, like the reference */
+    .main .block-container {
+        border: 1.5px solid rgba(249,115,22,0.30) !important;
+        border-radius: 28px !important;
+        box-shadow: 0 24px 60px -16px rgba(154,52,18,0.20) !important;
+        padding: 30px 34px !important;
+    }
+
+    /* The two Streamlit columns stay the same overall height, but only the
+       LEFT content fills it directly -- the RIGHT side becomes a smaller,
+       independently floating card (see reference image), not a stretched box */
     div[data-testid="stHorizontalBlock"] {
         gap: 0 !important;
         align-items: stretch !important;
-        border-radius: 26px !important;
-        overflow: hidden !important;
-        box-shadow: 0 30px 70px -12px rgba(154,52,18,0.28), 0 0 0 1px rgba(255,255,255,0.6) !important;
-        background: #fffaf4 !important;
         width: 100% !important;
     }
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         padding: 0 !important;
     }
-    /* Only tighten spacing inside the right (form) column — never globally,
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
+        display: flex !important; align-items: center !important; justify-content: center !important;
+        padding: 18px 22px !important;
+    }
+    /* Only tighten spacing inside the right (form) column -- never globally,
        this is what was causing the Username/Password label to overlap the input */
     div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlock"] {
-        gap: 0.55rem !important;
+        gap: 0.5rem !important;
     }
 
-    /* LEFT SIDE – content sits directly on the soft cream background, no hard block */
+    /* LEFT SIDE - content sits directly on the soft cream background, no hard block */
     .login-left {
-        padding: 44px 46px 34px;
+        padding: 30px 40px 30px 8px;
         position: relative;
-        display: flex; flex-direction: column; justify-content: center; gap: 22px;
+        display: flex; flex-direction: column; justify-content: center; gap: 18px;
     }
     .ll-logo { display:flex; align-items:center; gap:16px; }
-    .ll-logo img { height:54px; width:auto; border-radius:12px; box-shadow:0 6px 20px rgba(154,52,18,0.18); }
+    .ll-logo img { height:62px; width:auto; border-radius:14px; box-shadow:0 6px 20px rgba(154,52,18,0.18); }
     .ll-wordmark { display:flex; flex-direction:column; line-height:1.05; }
-    .ll-wordmark b { font-family:'Poppins',sans-serif; font-size:22px; font-weight:800; color:#1c1917; }
-    .ll-wordmark span { font-size:11px; font-weight:800; letter-spacing:.16em; color:#ea580c; }
+    .ll-wordmark b { font-family:'Poppins',sans-serif; font-size:26px; font-weight:800; color:#1c1917; }
+    .ll-wordmark span { font-size:11.5px; font-weight:800; letter-spacing:.18em; color:#ea580c; }
 
     .ll-headline {
         font-family:'Poppins',sans-serif;
-        font-size:32px; font-weight:900; color:#1c1917;
+        font-size:28px; font-weight:900; color:#1c1917;
         line-height:1.18;
     }
     .ll-headline span { color:#ea580c; }
-    .ll-tagline { font-size:14px; color:#57534e; line-height:1.6; max-width:400px; }
+    .ll-tagline { font-size:13.5px; color:#57534e; line-height:1.55; max-width:400px; }
 
     .ll-about {
-        display:flex; gap:14px; align-items:flex-start;
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:16px;
-        padding:16px 18px; box-shadow:0 4px 16px rgba(154,52,18,0.06);
+        display:flex; gap:12px; align-items:flex-start;
+        background:#ffffff; border:1px solid #f3e3d3; border-radius:14px;
+        padding:13px 16px; box-shadow:0 4px 16px rgba(154,52,18,0.06);
     }
     .ll-about-icon {
-        flex-shrink:0; width:38px; height:38px; border-radius:10px;
+        flex-shrink:0; width:34px; height:34px; border-radius:9px;
         background:linear-gradient(135deg,#f97316,#ea580c);
-        display:flex; align-items:center; justify-content:center; font-size:17px;
+        display:flex; align-items:center; justify-content:center; font-size:15px;
     }
-    .ll-about-title { font-size:13px; font-weight:800; color:#ea580c; margin-bottom:3px; }
-    .ll-about-desc { font-size:12px; color:#6b6660; line-height:1.5; }
+    .ll-about-title { font-size:12.5px; font-weight:800; color:#ea580c; margin-bottom:2px; }
+    .ll-about-desc { font-size:11.5px; color:#6b6660; line-height:1.45; }
 
-    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:440px; }
+    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:9px; max-width:440px; }
     .ll-feat {
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:14px;
-        padding:12px 14px; box-shadow:0 3px 12px rgba(154,52,18,0.05);
+        background:#ffffff; border:1px solid #f3e3d3; border-radius:12px;
+        padding:10px 13px; box-shadow:0 3px 12px rgba(154,52,18,0.05);
     }
-    .ll-feat-icon { font-size:17px; margin-bottom:5px; }
-    .ll-feat-title { font-size:12px; font-weight:800; color:#1c1917; margin-bottom:2px; }
-    .ll-feat-desc { font-size:11px; color:#8a8580; line-height:1.4; }
+    .ll-feat-icon { font-size:15px; margin-bottom:4px; }
+    .ll-feat-title { font-size:11.5px; font-weight:800; color:#1c1917; margin-bottom:2px; }
+    .ll-feat-desc { font-size:10.5px; color:#8a8580; line-height:1.35; }
 
-    .ll-footer { display:flex; flex-wrap:wrap; gap:18px; align-items:center; }
-    .ll-footer span { font-size:11px; color:#8a8580; display:flex; align-items:center; gap:5px; white-space:nowrap; }
+    .ll-footer { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+    .ll-footer span { font-size:10.5px; color:#8a8580; display:flex; align-items:center; gap:5px; white-space:nowrap; }
 
-    /* RIGHT SIDE – white sub-card with the actual sign-in form */
+    /* RIGHT SIDE - a compact, independently-floating white card (not stretched) */
     .login-right-panel {
         background:#ffffff;
-        height:100%;
-        padding: 40px 46px;
-        display:flex; flex-direction:column; justify-content:center;
-        box-shadow: -8px 0 30px rgba(154,52,18,0.05);
+        width: 100%; max-width: 360px;
+        border-radius: 22px;
+        padding: 30px 32px;
+        box-shadow: 0 20px 50px -14px rgba(154,52,18,0.22), 0 0 0 1px rgba(249,115,22,0.08);
     }
-    .login-right-inner { width: 100%; max-width: 360px; margin: 0 auto; }
+    .login-right-inner { width: 100%; }
 
     .lr-eyebrow {
-        display:flex; align-items:center; gap:10px; margin-bottom:14px;
-        font-size:11px; font-weight:800; color:#ea580c;
-        text-transform:uppercase; letter-spacing:.14em;
+        display:flex; align-items:center; gap:10px; margin-bottom:12px;
+        font-size:10.5px; font-weight:800; color:#ea580c;
+        text-transform:uppercase; letter-spacing:.13em;
     }
     .lr-eyebrow::before, .lr-eyebrow::after {
         content:''; flex:1; height:1px; background:#f97316; opacity:0.4;
     }
     .lr-title {
         font-family:'Poppins',sans-serif;
-        font-size:30px; font-weight:900; color:#1c1917;
-        line-height:1.1; margin-bottom:6px; text-align:center;
+        font-size:26px; font-weight:900; color:#1c1917;
+        line-height:1.1; margin-bottom:5px; text-align:center;
     }
-    .lr-sub { font-size:13px; color:#78716c; margin-bottom:2px; text-align:center; }
-    .lr-divider { display:flex; align-items:center; justify-content:center; margin:10px 0 20px; color:#f97316; font-size:15px; }
+    .lr-sub { font-size:12px; color:#78716c; margin-bottom:2px; text-align:center; }
+    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 16px; color:#f97316; font-size:14px; }
 
     /* Form fields */
     div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] label {
-        font-size:13px !important; font-weight:700 !important;
+        font-size:12.5px !important; font-weight:700 !important;
         color:#1c1917 !important; margin-bottom:2px !important;
         letter-spacing:.02em !important;
     }
     div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input {
         background:#fafaf9 !important;
         border:1.5px solid #e7e5e4 !important;
-        border-radius:12px !important;
+        border-radius:11px !important;
         color:#1c1917 !important;
-        font-size:14px !important;
-        padding:12px 16px !important;
+        font-size:13.5px !important;
+        padding:11px 15px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
     }
     div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input:focus {
@@ -903,16 +913,16 @@ if not st.session_state.authenticated:
     /* Remember me / forgot password row */
     .lr-row { display:flex; align-items:center; justify-content:space-between; margin: 2px 0 4px; }
     div[data-testid="column"]:nth-of-type(2) div[data-testid="stCheckbox"] label p {
-        font-size:12.5px !important; color:#57534e !important; font-weight:600 !important;
+        font-size:12px !important; color:#57534e !important; font-weight:600 !important;
     }
-    .lr-forgot { font-size:12.5px; font-weight:700; color:#ea580c; text-align:right; }
+    .lr-forgot { font-size:12px; font-weight:700; color:#ea580c; text-align:right; }
 
-    /* Primary button – orange */
+    /* Primary button - orange */
     div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"] {
         background: linear-gradient(135deg,#ea580c,#f97316) !important;
         color:#ffffff !important; border:none !important;
-        border-radius:14px !important; font-size:15px !important;
-        font-weight:800 !important; padding:14px !important;
+        border-radius:13px !important; font-size:14.5px !important;
+        font-weight:800 !important; padding:12px !important;
         box-shadow:0 8px 24px rgba(234,88,12,0.40) !important;
         letter-spacing:.02em !important;
         transition:all 0.25s !important;
@@ -924,24 +934,25 @@ if not st.session_state.authenticated:
     }
 
     /* Bottom branding */
-    .lr-shield { text-align:center; margin-top:22px; font-size:20px; }
-    .lr-bottom { text-align:center; margin-top:6px; }
-    .lr-bottom-brand { font-size:15px; font-weight:800; color:#ea580c; margin-bottom:4px; }
-    .lr-bottom-desc { font-size:12px; color:#a8a29e; margin-bottom:6px; }
-    .lr-bottom-secure { font-size:11px; font-weight:700; color:#ea580c; }
+    .lr-shield { text-align:center; margin-top:18px; font-size:18px; }
+    .lr-bottom { text-align:center; margin-top:5px; }
+    .lr-bottom-brand { font-size:14px; font-weight:800; color:#ea580c; margin-bottom:3px; }
+    .lr-bottom-desc { font-size:11px; color:#a8a29e; margin-bottom:5px; }
+    .lr-bottom-secure { font-size:10.5px; font-weight:700; color:#ea580c; }
 
     /* Error msg */
     .login-err {
         background:#fff7f5; border:1.5px solid #fca5a5;
-        border-radius:10px; padding:11px 14px;
-        color:#dc2626; font-size:13px; font-weight:600;
-        margin-top:12px; text-align:center;
+        border-radius:10px; padding:10px 13px;
+        color:#dc2626; font-size:12.5px; font-weight:600;
+        margin-top:10px; text-align:center;
     }
 
     @media (max-width: 900px) {
         div[data-testid="stHorizontalBlock"] { flex-direction: column !important; }
-        .ll-headline { font-size:26px; }
+        .ll-headline { font-size:24px; }
         .ll-features { grid-template-columns:1fr; }
+        .login-right-panel { max-width: 100%; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1508,6 +1519,9 @@ _PRETTY_COL_MAP = {
     "LL_GST": "Late Lifting GST",
     "CC_Chg": "Carrying Charges",
     "CC_GST": "Carrying GST",
+    "Access_Shortage": "Access / Shortage",
+    "Receivable_Payable": "Payable / Receivable",
+    "Total_Payable": "Total Payable",
 }
 
 import re as _re
@@ -1543,6 +1557,18 @@ def branch_wise_summary(result_df):
         Total_CC=("Carry_Charges","sum"),
         Total_CC_GST=("Carry_GST","sum"),
     ).reset_index()
+    # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
+    # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
+    # CCI (Cash Discount, interest on our EMD deposit).
+    bs["Total_Payable"] = (
+        bs["Total_Bill"] + bs["Total_LL"] + bs["Total_LL_GST"]
+        + bs["Total_CC"] + bs["Total_CC_GST"]
+        - bs["Total_Cash_Disc"] - bs["Total_EMD_Interest"]
+    )
+    # Payable / Receivable = Total Payable − (Payment already made + EMD adjusted).
+    # Positive → we still owe this to CCI (Payable). Negative → we've paid CCI
+    # in excess, so CCI owes it back to us (Receivable).
+    bs["Receivable_Payable"] = bs["Total_Payable"] - (bs["Total_Payment"] + bs["Total_EMD"])
     bs_total = {c: "" for c in bs.columns}
     bs_total["Branch"] = "GRAND TOTAL"
     for c in bs.columns:
@@ -1606,6 +1632,17 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             Total_CC=("Carry_Charges","sum"),
             Total_CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        # Total amount WE owe CCI (the vendor) = base bill + charges WE pay to
+        # CCI (Late Lifting, Carrying) − amounts WE receive from CCI (Cash
+        # Discount, interest on our EMD deposit).
+        summary["Total_Payable"] = (
+            summary["Total_Bill"] + summary["Total_LL"] + summary["Total_LL_GST"]
+            + summary["Total_CC"] + summary["Total_CC_GST"]
+            - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
+        )
+        # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
+        # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
+        summary["Access_Shortage"] = (summary["Total_Payment"] + summary["Total_EMD"]) - summary["Total_Payable"]
         # Branch is contract-level data from PUR CONT DETAILS.
         branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
         summary.insert(1, "Branch", summary["Contract_No"].map(branch_map).fillna(""))
@@ -2264,6 +2301,17 @@ with tab_results:
             LL_GST=("Late_Lifting_GST","sum"), CC_Chg=("Carry_Charges","sum"),
             CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        # Total amount WE owe CCI (the vendor) = base bill + charges WE pay to
+        # CCI (Late Lifting, Carrying) − amounts WE receive from CCI (Cash
+        # Discount, interest on our EMD deposit).
+        summary["Total_Payable"] = (
+            summary["Total_Bill"] + summary["LL_Chg"] + summary["LL_GST"]
+            + summary["CC_Chg"] + summary["CC_GST"]
+            - summary["Cash_Disc"] - summary["EMD_Interest"]
+        )
+        # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
+        # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
+        summary["Access_Shortage"] = (summary["Payment"] + summary["EMD_Alloc"]) - summary["Total_Payable"]
         branch_map_ui = None
         # Branch mapping is preserved with the uploaded PUR CONT DETAILS data.
         if "Branch" in df.columns:
