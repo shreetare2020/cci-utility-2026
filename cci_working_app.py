@@ -1519,8 +1519,10 @@ _PRETTY_COL_MAP = {
     "LL_GST": "Late Lifting GST",
     "CC_Chg": "Carrying Charges",
     "CC_GST": "Carrying GST",
-    "Access_Shortage": "Access / Shortage",
-    "Receivable_Payable": "Payable / Receivable",
+    "Shortage_Excess": "Shortage / Excess",
+    "Shortage_Excess_Mark": "Status",
+    "Receivable_Payable": "Receivable / Payable",
+    "Receivable_Payable_Mark": "Status",
     "Total_Payable": "Total Payable",
 }
 
@@ -1560,20 +1562,27 @@ def branch_wise_summary(result_df):
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
     # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
     # CCI (Cash Discount, interest on our EMD deposit).
+    # Total Payable = Total Bill + Late Lifting + LL GST + Carrying + CC GST − Cash Discount − EMD Interest
     bs["Total_Payable"] = (
         bs["Total_Bill"] + bs["Total_LL"] + bs["Total_LL_GST"]
         + bs["Total_CC"] + bs["Total_CC_GST"]
         - bs["Total_Cash_Disc"] - bs["Total_EMD_Interest"]
     )
-    # Payable / Receivable = Total Payable − (Payment already made + EMD adjusted).
-    # Positive → we still owe this to CCI (Payable). Negative → we've paid CCI
-    # in excess, so CCI owes it back to us (Receivable).
+    # Receivable / Payable = Total Payable − (Payment kiya + EMD Adjusted)
+    # Positive → Payable   (abhi bhi CCI ko dena hai)
+    # Negative → Receivable (zyada payment ho gayi, CCI se wapas milega)
     bs["Receivable_Payable"] = bs["Total_Payable"] - (bs["Total_Payment"] + bs["Total_EMD"])
+    bs["Receivable_Payable_Mark"] = bs["Receivable_Payable"].apply(
+        lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
+        else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
+    )
     bs_total = {c: "" for c in bs.columns}
     bs_total["Branch"] = "GRAND TOTAL"
+    skip_cols = {"Branch", "Receivable_Payable_Mark"}
     for c in bs.columns:
-        if c != "Branch":
+        if c not in skip_cols:
             bs_total[c] = pd.to_numeric(bs[c], errors="coerce").sum()
+    bs_total["Receivable_Payable_Mark"] = ""
     bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
     return bs
 
@@ -1636,19 +1645,30 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         # CCI (Late Lifting, Carrying) − amounts WE receive from CCI (Cash
         # Discount, interest on our EMD deposit).
         summary["Total_Payable"] = (
-            summary["Total_Bill"] 
+            summary["Total_Bill"] + summary["Total_LL"] + summary["Total_LL_GST"]
+            + summary["Total_CC"] + summary["Total_CC_GST"]
+            - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
         )
-        # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
-        # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
-        summary["Access_Shortage"] = (summary["Total_Payment"] + summary["Total_EMD"]) - summary["Total_Payable"]
+        # Shortage / Excess = Total Bill Amount − (Total Payment + Total EMD Allocated)
+        # Positive → Shortage  (payment kiya hua kam hai, abhi baaki hai)
+        # Negative → Excess    (payment zyada ho gayi, refund banta hai)
+        summary["Shortage_Excess"] = (
+            summary["Total_Bill"] - (summary["Total_Payment"] + summary["Total_EMD"])
+        )
+        summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
+            lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
+            else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
+        )
         # Branch is contract-level data from PUR CONT DETAILS.
         branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
         summary.insert(1, "Branch", summary["Contract_No"].map(branch_map).fillna(""))
         summary_total = {c: "" for c in summary.columns}
         summary_total["Contract_No"] = "GRAND TOTAL"
+        _skip = {"Contract_No", "Branch", "Shortage_Excess_Mark"}
         for c in summary.columns:
-            if c != "Contract_No" and c != "Branch":
+            if c not in _skip:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
+        summary_total["Shortage_Excess_Mark"] = ""
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
 
@@ -2307,9 +2327,14 @@ with tab_results:
             + summary["CC_Chg"] + summary["CC_GST"]
             - summary["Cash_Disc"] - summary["EMD_Interest"]
         )
-        # Access / Shortage = (Payment already made + EMD adjusted) − Total Payable.
-        # Positive → we've paid CCI in excess (Access, refund due to us). Negative → we still owe CCI (Shortage).
-        summary["Access_Shortage"] = (summary["Payment"] + summary["EMD_Alloc"]) - summary["Total_Payable"]
+        # Shortage / Excess = Total Bill Amount − (Total Payment + Total EMD Allocated)
+        # Positive → Shortage (abhi bhi payment baaki hai)
+        # Negative → Excess   (zyada payment ho gayi)
+        summary["Shortage_Excess"] = summary["Total_Bill"] - (summary["Payment"] + summary["EMD_Alloc"])
+        summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
+            lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
+            else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
+        )
         branch_map_ui = None
         # Branch mapping is preserved with the uploaded PUR CONT DETAILS data.
         if "Branch" in df.columns:
@@ -2317,11 +2342,13 @@ with tab_results:
             summary.insert(1, "Branch", summary["Contract_No"].map(branch_map_ui).fillna(""))
         summary_total = {c: "" for c in summary.columns}
         summary_total["Contract_No"] = "GRAND TOTAL"
+        _skip_ui = {"Contract_No", "Branch", "Shortage_Excess_Mark"}
         for c in summary.columns:
-            if c not in ("Contract_No","Branch"):
+            if c not in _skip_ui:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
+        summary_total["Shortage_Excess_Mark"] = ""
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales")]
+        _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales","Shortage_Excess_Mark")]
         for c in _summary_money_cols:
             summary[c] = summary[c].apply(lambda x: fmt_inr(x, dash_on_zero=False))
         for _cnt_col in ("Bales", "GRNs"):
@@ -2333,7 +2360,7 @@ with tab_results:
         st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
         branch_summary_ui = branch_wise_summary(df).copy()
         if not branch_summary_ui.empty:
-            _branch_money_cols = [c for c in branch_summary_ui.columns if c not in ("Branch","Contracts","GRNs","Total_Bales")]
+            _branch_money_cols = [c for c in branch_summary_ui.columns if c not in ("Branch","Contracts","GRNs","Total_Bales","Receivable_Payable_Mark")]
             for c in _branch_money_cols:
                 branch_summary_ui[c] = branch_summary_ui[c].apply(lambda x: fmt_inr(x, dash_on_zero=False))
             for _cnt_col in ("Contracts", "GRNs", "Total_Bales"):
