@@ -1652,11 +1652,12 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             + summary["Total_CC"] + summary["Total_CC_GST"]
             - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
         )
-        # Shortage / Excess = Total Bill Amount − (Total Payment + Total EMD Allocated)
+        # Shortage / Excess = Total Payable − (Total Payment + Total EMD Allocated)
         # Positive → Shortage  (payment kiya hua kam hai, abhi baaki hai)
         # Negative → Excess    (payment zyada ho gayi, refund banta hai)
+        # Uses Total_Payable (all charges + credits included) — same logic as Branch Summary's Receivable/Payable.
         summary["Shortage_Excess"] = (
-            summary["Total_Bill"] - (summary["Total_Payment"] + summary["Total_EMD"])
+            summary["Total_Payable"] - (summary["Total_Payment"] + summary["Total_EMD"])
         )
         summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
             lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
@@ -2311,10 +2312,11 @@ with tab_results:
             + summary["CC_Chg"] + summary["CC_GST"]
             - summary["Cash_Disc"] - summary["EMD_Interest"]
         )
-        # Shortage / Excess = Total Bill Amount − (Total Payment + Total EMD Allocated)
+        # Shortage / Excess = Total Payable − (Total Payment + Total EMD Allocated)
         # Positive → Shortage (abhi bhi payment baaki hai)
         # Negative → Excess   (zyada payment ho gayi)
-        summary["Shortage_Excess"] = summary["Total_Bill"] - (summary["Payment"] + summary["EMD_Alloc"])
+        # Uses Total_Payable (all charges + credits included) — same logic as Branch Summary's Receivable/Payable.
+        summary["Shortage_Excess"] = summary["Total_Payable"] - (summary["Payment"] + summary["EMD_Alloc"])
         summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
             lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
             else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2379,13 +2381,13 @@ with tab_help:
     </div>
 
     <div class="fg-card">
-      <div class="fg-title">💹 EMD Interest</div>
+      <div class="fg-title">💰 EMD Interest</div>
       <div class="fg-line">EMD Interest = EMD Allocated × (Rate% ÷ 365) × (Pay Date − EMD Date)</div>
       <div class="fg-note">EMD Date = latest EMD voucher utilised. Pay Date = latest payment applied.</div>
     </div>
 
     <div class="fg-card">
-      <div class="fg-title">💸 Cash Discount</div>
+      <div class="fg-title">💵 Cash Discount</div>
       <div class="fg-line">Diff Days  = Lifting Date − Payment Date</div>
       <div class="fg-line">CD Amount  = Material Amt × CD% × (Diff Days ÷ 365)</div>
       <div class="fg-note">CD applies only when Payment Date &lt; Lifting Date and within slab days.</div>
@@ -2419,10 +2421,11 @@ with tab_help:
 
     <div class="fg-card">
       <div class="fg-title">📊 Shortage / Excess  (Contract Summary)</div>
-      <div class="fg-line">Shortage/Excess = Total Bill − (Total Payment + Total EMD Allocated)</div>
+      <div class="fg-line">Total Payable = Bill + LL + LL GST + CC + CC GST − CD − EMD Interest</div>
+      <div class="fg-line">Shortage/Excess = Total Payable − (Total Payment + Total EMD Allocated)</div>
       <div class="fg-line">Positive → SHORTAGE  (payment still pending)</div>
       <div class="fg-line">Negative → EXCESS    (overpaid, refund due)</div>
-      <div class="fg-note">Only compares bill vs payments — no charges included.</div>
+      <div class="fg-note">All charges and adjustments included — same logic as Branch Summary's Receivable/Payable.</div>
     </div>
 
     <div class="fg-card">
