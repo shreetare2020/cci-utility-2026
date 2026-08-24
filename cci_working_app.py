@@ -1523,6 +1523,7 @@ _PRETTY_COL_MAP = {
     "Shortage_Excess_Mark": "Status",
     "Receivable_Payable": "Receivable / Payable",
     "Receivable_Payable_Mark": "Status",
+    "Total_Payment_And_EMD": "Total Payment + EMD",
     "Total_Payable": "Total Payable",
 }
 
@@ -1559,6 +1560,8 @@ def branch_wise_summary(result_df):
         Total_CC=("Carry_Charges","sum"),
         Total_CC_GST=("Carry_GST","sum"),
     ).reset_index()
+    # Total Payment + EMD = Total Payment kiya + Total EMD Allocated
+    bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD"]
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
     # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
     # CCI (Cash Discount, interest on our EMD deposit).
@@ -2080,51 +2083,32 @@ with tab_masters:
                 _cd_slabs = c.get('cd_slabs', []) or []
                 _ll_slabs = c.get('ll_slabs', []) or []
                 _cc_slabs = c.get('cc_slabs', []) or []
+                _ll_cpd = '✓' if c.get('ll_compound') else '✗'
+                _cc_cpd = '✓' if c.get('cc_compound') else '✗'
 
-                def _slab_rows(slabs, suffix=""):
-                    if not slabs:
-                        return "<div class=\"empty-slab\">No slab defined</div>"
-                    parts = []
-                    for n, slab in enumerate(slabs, 1):
-                        parts.append(f"<div class=\"slab-row\"><span>Slab {n}</span><b>{slab.get('days', 0)} Days</b><b>{slab.get('pct', 0)}%{suffix}</b></div>")
-                    return ''.join(parts)
-
-                _ll_cpd = 'Applicable' if c.get('ll_compound') else 'Not Applicable'
-                _cc_cpd = 'Applicable' if c.get('cc_compound') else 'Not Applicable'
+                def _slab_txt(slabs, suffix=""):
+                    if not slabs: return "—"
+                    return "  |  ".join([f"S{n}: {s.get('days',0)}d @ {s.get('pct',0)}%{suffix}" for n,s in enumerate(slabs,1)])
 
                 st.markdown(f"""
-                <div class="contract-card clean-contract-card">
-                  <div class="contract-head">
-                    <div>
-                      <div class="contract-no">{c.get('contract_no','—')}</div>
-                      <div class="contract-party">{c.get('party','—')}</div>
-                    </div>
-                    <div class="contract-project">{c.get('project','—')}</div>
+                <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #c2410c;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11.5px;color:#374151">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <span style="font-weight:700;font-size:13px;color:#c2410c">{c.get('contract_no','—')}</span>
+                    <span style="color:#64748b;font-size:11px">{c.get('project','—')}</span>
                   </div>
-                  <div class="basic-grid">
-                    <div><span>📅 Contract Date</span><b>{c.get('contract_date','—')}</b></div>
-                    <div><span>📅 Effective Date</span><b>{c.get('effective_date','—')}</b></div>
-                    <div><span>🌾 Contracted Bales</span><b>{c.get('bales','—'):,}</b></div>
-                    <div><span>💰 EMD Rate</span><b>{c.get('emd_percent','—')}% p.a.</b></div>
-                    <div><span>📌 EMD Days</span><b>{c.get('emd_days','—')}</b></div>
-                    <div><span>🚛 CC Free Days</span><b>{c.get('cc_free_days',0)}</b></div>
+                  <div style="color:#475569;margin-bottom:3px">{c.get('party','—')}</div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px 10px;color:#64748b;font-size:11px;margin-bottom:4px">
+                    <span>📅 Eff: <b>{c.get('effective_date','—')}</b></span>
+                    <span>🌾 Bales: <b>{c.get('bales','—')}</b></span>
+                    <span>💰 EMD: <b>{c.get('emd_percent','—')}% pa</b></span>
+                    <span>🚛 CC Free: <b>{c.get('cc_free_days',0)}d</b></span>
+                    <span>📌 EMD Days: <b>{c.get('emd_days','—')}</b></span>
+                    <span>🏢 CC GST: <b>{c.get('cc_gst',0)}%</b></span>
                   </div>
-                  <div class="condition-grid">
-                    <div class="condition-box">
-                      <div class="condition-title">💸 CASH DISCOUNT</div>
-                      <div class="condition-sub">GST: {c.get('cd_gst',0)}%</div>
-                      {_slab_rows(_cd_slabs, '')}
-                    </div>
-                    <div class="condition-box">
-                      <div class="condition-title">⏰ LATE LIFTING</div>
-                      <div class="condition-sub">GST: {c.get('ll_gst',0)}% &nbsp; | &nbsp; Compound: {_ll_cpd}</div>
-                      {_slab_rows(_ll_slabs, '/month')}
-                    </div>
-                    <div class="condition-box">
-                      <div class="condition-title">🚛 CARRYING CHARGES</div>
-                      <div class="condition-sub">Free Days: {c.get('cc_free_days',0)} &nbsp; | &nbsp; GST: {c.get('cc_gst',0)}% &nbsp; | &nbsp; Compound: {_cc_cpd}</div>
-                      {_slab_rows(_cc_slabs, '/month')}
-                    </div>
+                  <div style="font-size:10.5px;color:#64748b;border-top:1px solid #f1f5f9;padding-top:3px;display:grid;grid-template-columns:1fr;gap:1px">
+                    <span>💸 CD: {_slab_txt(_cd_slabs)} | GST: {c.get('cd_gst',0)}%</span>
+                    <span>⏰ LL: {_slab_txt(_ll_slabs,'/mo')} | GST: {c.get('ll_gst',0)}% | Cpd: {_ll_cpd}</span>
+                    <span>🚛 CC: {_slab_txt(_cc_slabs,'/mo')} | Cpd: {_cc_cpd}</span>
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -2374,42 +2358,83 @@ with tab_results:
 # TAB 4: FORMULA GUIDE
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_help:
-    st.markdown('<div class="sec-label">📖 Formula & Calculation Reference</div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2, gap="medium")
-    with c1:
-        for title, formula in [
-            ("📌 Per Bale EMD",
-             "Per Bale EMD  =  Total EMD Payment  ÷  Contracted Bales\n\nEMD is allocated FIFO — earliest EMD payment first,\nmatched against each GRN in order of receipt date."),
-            ("💹 EMD Interest",
-             "EMD Interest  =  EMD Allocated  ×  (EMD Rate % p.a. ÷ 365)\n             ×  (Payment Date − EMD Date)\n\nEMD Date    = Latest voucher date of EMD utilised\nPayment Date = Latest payment voucher date applied"),
-            ("💸 Cash Discount",
-             "CD Due Date  =  Effective Date + Free Days for CD\n\nCD Eligibility:\n  If Payment Date ≤ CD Due Date → Cash Discount applies\n  If Payment Date > CD Due Date → Cash Discount = 0\n\nDifference Days  =  Payment Date − Effective Date\n\nCD Amount  =  Material Amount × CD % × (Difference Days ÷ 365)\n\nFor a SPECIFIC Sauda/Contract:\n  Effective Date = Effective Date from Contract Master\n\nFor DEFAULT Sauda:\n  Effective Date = Effective Date supplied in the uploaded Excel\n\nImportant: Free Days only decides whether CD is applicable.\nThe CD amount days are always counted from Effective Date to Payment Date."),
-            ("🧾 Bill Amounts",
-             "GST on Material   =  IGST column from GRN Booking sheet\nTotal Bill Amount  =  Material Amount + GST on Material\nPayment Amount    =  Total final payments for the contract\nNet Amount        =  Payment Amount − EMD Allocated"),
-        ]:
-            st.markdown(f'<div class="sec-label">{title}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="formula-box">{formula}</div>', unsafe_allow_html=True)
-
-    with c2:
-        for title, formula in [
-            ("⏰ Late Lifting Charges",
-             "Free Period End  =  Payment Date + 15 days\n\nIf Lifting Date > Free Period End:\n  Late Days  =  Lifting Date − Free Period End\n\n  Slab 1  (Day   1–30) :  Amount × 0.50% / month\n  Slab 2  (Day  31–60) :  Amount × 0.75% / month\n  Slab 3  (Day 61–90+) :  Amount × 1.00% / month\n\nCharged prorata for partial months.\n+ GST on total Late Lifting Charges as applicable."),
-            ("🚛 Carrying Charges",
-             "CC Free End  =  Effective Date + CC Free Period Days\nExample:  02-Apr-2025 + 45 days  =  17-May-2025\n\nCC Days  =  Payment Date − CC Free End\n\nIf CC Days ≤ 0  →  No Carrying Charges apply.\n\nIf CC Days > 0  →  Compound Prorata (unlimited slabs):\n\n  Slab 1  (Day   1–30) :  Material Amt × Slab1 Rate% × (days÷30)\n  Slab 2  (Day  31–60) :  Running Amt  × Slab2 Rate% × (days÷30)\n  Slab 3  (Day 61–90+) :  Running Amt  × Slab2 Rate% × (days÷30)\n  ... every 30 days, compounding continues indefinitely\n\nRunning Amt  =  Principal + all accumulated prior slab charges\n\n+ GST on total Carry Charges as applicable."),
-        ]:
-            st.markdown(f'<div class="sec-label">{title}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="formula-box">{formula}</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
     st.markdown("""
-    <div style="font-size:12px;color:#6b7280;line-height:1.7;padding:8px 0;">
-    <b>Notes:</b>&nbsp;
-    All rate percentages are per month (not per annum) unless stated otherwise.&nbsp;
-    Prorata means partial 30-day windows are charged proportionally (days÷30).&nbsp;
-    Compounding means each slab charges on principal + all prior slab charges combined.&nbsp;
-    Slab rates and free periods are configurable per contract in the Contract Master.
-    </div>
+    <style>
+    .fg-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .fg-card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:10px 13px; }
+    .fg-title { font-size:11px; font-weight:700; color:#c2410c; text-transform:uppercase; letter-spacing:.07em; margin-bottom:5px; }
+    .fg-line { font-size:11.5px; color:#374151; font-family:'Courier New',monospace; line-height:1.65; margin:0; }
+    .fg-note { font-size:10.5px; color:#6b7280; margin-top:4px; line-height:1.5; }
+    </style>
     """, unsafe_allow_html=True)
+
+    st.markdown('<div class="sec-label" style="margin-bottom:8px">📖 Formula Reference</div>', unsafe_allow_html=True)
+
+    st.markdown("""<div class="fg-grid">
+
+    <div class="fg-card">
+      <div class="fg-title">📌 Per Bale EMD</div>
+      <div class="fg-line">Per Bale EMD = Total EMD ÷ Contracted Bales</div>
+      <div class="fg-note">FIFO allocation — earliest EMD voucher matched first per GRN.</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">💹 EMD Interest</div>
+      <div class="fg-line">EMD Interest = EMD Allocated × (Rate% ÷ 365) × (Pay Date − EMD Date)</div>
+      <div class="fg-note">EMD Date = latest EMD voucher utilised. Pay Date = latest payment applied.</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">💸 Cash Discount</div>
+      <div class="fg-line">Diff Days  = Lifting Date − Payment Date</div>
+      <div class="fg-line">CD Amount  = Material Amt × CD% × (Diff Days ÷ 365)</div>
+      <div class="fg-note">CD applies only when Payment Date &lt; Lifting Date and within slab days.</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">🧾 Bill Amounts</div>
+      <div class="fg-line">GST on Material   = IGST from GRN Booking sheet</div>
+      <div class="fg-line">Total Bill Amount  = Material Amount + GST</div>
+      <div class="fg-line">Net Amount         = Total Bill − EMD Allocated</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">⏰ Late Lifting Charges</div>
+      <div class="fg-line">Free Period End = Payment Date + 15 days</div>
+      <div class="fg-line">Late Days = Lifting Date − Free Period End  (if &gt; 0)</div>
+      <div class="fg-line">Slab 1 (1–30d)   : Amt × 0.50%/month</div>
+      <div class="fg-line">Slab 2 (31–60d)  : Amt × 0.75%/month</div>
+      <div class="fg-line">Slab 3 (61d+)    : Amt × 1.00%/month</div>
+      <div class="fg-note">Prorata for partial months. + GST as applicable.</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">🚛 Carrying Charges</div>
+      <div class="fg-line">CC Free End = Effective Date + CC Free Days</div>
+      <div class="fg-line">CC Days     = Payment Date − CC Free End  (if &gt; 0)</div>
+      <div class="fg-line">Slab 1 (1–30d)  : Material Amt × Slab1% × (days÷30)</div>
+      <div class="fg-line">Slab 2 (31d+)   : Running Amt × Slab2% × (days÷30)</div>
+      <div class="fg-note">Running Amt = Principal + all prior slab charges (compounding). + GST.</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">📊 Shortage / Excess  (Contract Summary)</div>
+      <div class="fg-line">Shortage/Excess = Total Bill − (Total Payment + Total EMD Allocated)</div>
+      <div class="fg-line">Positive → SHORTAGE  (payment still pending)</div>
+      <div class="fg-line">Negative → EXCESS    (overpaid, refund due)</div>
+      <div class="fg-note">Only compares bill vs payments — no charges included.</div>
+    </div>
+
+    <div class="fg-card">
+      <div class="fg-title">💼 Receivable / Payable  (Branch Summary)</div>
+      <div class="fg-line">Total Payable = Bill + LL + LL GST + CC + CC GST − CD − EMD Interest</div>
+      <div class="fg-line">Rec/Payable   = Total Payable − (Payment + EMD Allocated)</div>
+      <div class="fg-line">Positive → PAYABLE     (still owe to CCI)</div>
+      <div class="fg-line">Negative → RECEIVABLE  (CCI owes refund)</div>
+      <div class="fg-note">All charges and adjustments included.</div>
+    </div>
+
+    </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5: USER MASTER
