@@ -1644,6 +1644,15 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             Total_CC=("Carry_Charges","sum"),
             Total_CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        # Shortage / Excess (original, simple) = Total Bill − Total Payment − Total EMD Allocated
+        # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
+        summary["Shortage_Excess"] = (
+            summary["Total_Bill"] - summary["Total_Payment"] - summary["Total_EMD"]
+        )
+        summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
+            lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
+            else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
+        )
         # Total amount WE owe CCI (the vendor) = base bill + charges WE pay to
         # CCI (Late Lifting, Carrying) − amounts WE receive from CCI (Cash
         # Discount, interest on our EMD deposit).
@@ -1652,27 +1661,25 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             + summary["Total_CC"] + summary["Total_CC_GST"]
             - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
         )
-        # Shortage / Excess = Total Payable − (Total Payment + Total EMD Allocated)
-        # Positive → Shortage  (payment kiya hua kam hai, abhi baaki hai)
-        # Negative → Excess    (payment zyada ho gayi, refund banta hai)
-        # Uses Total_Payable (all charges + credits included) — same logic as Branch Summary's Receivable/Payable.
-        summary["Shortage_Excess"] = (
-            summary["Total_Payable"] - (summary["Total_Payment"] + summary["Total_EMD"])
-        )
-        summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
-            lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
-            else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
+        # Receivable / Payable = Total Payable − (Total Payment + Total EMD Allocated)
+        # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
+        # Same logic as Branch-wise Summary's Receivable/Payable.
+        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Total_Payment"] + summary["Total_EMD"])
+        summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
+            lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
+            else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
         )
         # Branch is contract-level data from PUR CONT DETAILS.
         branch_map = cont.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
         summary.insert(1, "Branch", summary["Contract_No"].map(branch_map).fillna(""))
         summary_total = {c: "" for c in summary.columns}
         summary_total["Contract_No"] = "GRAND TOTAL"
-        _skip = {"Contract_No", "Branch", "Shortage_Excess_Mark"}
+        _skip = {"Contract_No", "Branch", "Shortage_Excess_Mark", "Receivable_Payable_Mark"}
         for c in summary.columns:
             if c not in _skip:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary_total["Shortage_Excess_Mark"] = ""
+        summary_total["Receivable_Payable_Mark"] = ""
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
 
@@ -2304,6 +2311,13 @@ with tab_results:
             LL_GST=("Late_Lifting_GST","sum"), CC_Chg=("Carry_Charges","sum"),
             CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        # Shortage / Excess (original, simple) = Total Bill − Payment − EMD Allocated
+        # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
+        summary["Shortage_Excess"] = summary["Total_Bill"] - summary["Payment"] - summary["EMD_Alloc"]
+        summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
+            lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
+            else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
+        )
         # Total amount WE owe CCI (the vendor) = base bill + charges WE pay to
         # CCI (Late Lifting, Carrying) − amounts WE receive from CCI (Cash
         # Discount, interest on our EMD deposit).
@@ -2312,14 +2326,13 @@ with tab_results:
             + summary["CC_Chg"] + summary["CC_GST"]
             - summary["Cash_Disc"] - summary["EMD_Interest"]
         )
-        # Shortage / Excess = Total Payable − (Total Payment + Total EMD Allocated)
-        # Positive → Shortage (abhi bhi payment baaki hai)
-        # Negative → Excess   (zyada payment ho gayi)
-        # Uses Total_Payable (all charges + credits included) — same logic as Branch Summary's Receivable/Payable.
-        summary["Shortage_Excess"] = summary["Total_Payable"] - (summary["Payment"] + summary["EMD_Alloc"])
-        summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
-            lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
-            else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
+        # Receivable / Payable = Total Payable − (Payment + EMD Allocated)
+        # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
+        # Same logic as Branch-wise Summary's Receivable/Payable.
+        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Payment"] + summary["EMD_Alloc"])
+        summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
+            lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
+            else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
         )
         branch_map_ui = None
         # Branch mapping is preserved with the uploaded PUR CONT DETAILS data.
@@ -2328,13 +2341,14 @@ with tab_results:
             summary.insert(1, "Branch", summary["Contract_No"].map(branch_map_ui).fillna(""))
         summary_total = {c: "" for c in summary.columns}
         summary_total["Contract_No"] = "GRAND TOTAL"
-        _skip_ui = {"Contract_No", "Branch", "Shortage_Excess_Mark"}
+        _skip_ui = {"Contract_No", "Branch", "Shortage_Excess_Mark", "Receivable_Payable_Mark"}
         for c in summary.columns:
             if c not in _skip_ui:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
         summary_total["Shortage_Excess_Mark"] = ""
+        summary_total["Receivable_Payable_Mark"] = ""
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
-        _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales","Shortage_Excess_Mark")]
+        _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales","Shortage_Excess_Mark","Receivable_Payable_Mark")]
         for c in _summary_money_cols:
             summary[c] = summary[c].apply(lambda x: fmt_inr(x, dash_on_zero=False))
         for _cnt_col in ("Bales", "GRNs"):
@@ -2421,20 +2435,19 @@ with tab_help:
 
     <div class="fg-card">
       <div class="fg-title">📊 Shortage / Excess  (Contract Summary)</div>
-      <div class="fg-line">Total Payable = Bill + LL + LL GST + CC + CC GST − CD − EMD Interest</div>
-      <div class="fg-line">Shortage/Excess = Total Payable − (Total Payment + Total EMD Allocated)</div>
+      <div class="fg-line">Shortage/Excess = Total Bill − Total Payment − Total EMD Allocated</div>
       <div class="fg-line">Positive → SHORTAGE  (payment still pending)</div>
       <div class="fg-line">Negative → EXCESS    (overpaid, refund due)</div>
-      <div class="fg-note">All charges and adjustments included — same logic as Branch Summary's Receivable/Payable.</div>
+      <div class="fg-note">Only compares bill vs payments — no charges included.</div>
     </div>
 
     <div class="fg-card">
-      <div class="fg-title">💼 Receivable / Payable  (Branch Summary)</div>
+      <div class="fg-title">💼 Receivable / Payable  (Contract &amp; Branch Summary)</div>
       <div class="fg-line">Total Payable = Bill + LL + LL GST + CC + CC GST − CD − EMD Interest</div>
       <div class="fg-line">Rec/Payable   = Total Payable − (Payment + EMD Allocated)</div>
       <div class="fg-line">Positive → PAYABLE     (still owe to CCI)</div>
       <div class="fg-line">Negative → RECEIVABLE  (CCI owes refund)</div>
-      <div class="fg-note">All charges and adjustments included.</div>
+      <div class="fg-note">All charges and adjustments included. Same logic used in both Contract-wise and Branch-wise Summary.</div>
     </div>
 
     </div>""", unsafe_allow_html=True)
