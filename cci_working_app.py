@@ -20,6 +20,11 @@ from firebase_admin import credentials, firestore
 FIREBASE_KEY_FILE = "firebase_key.json"   # local JSON file path
 
 def init_firebase():
+    # Firestore's default database ID is literally "(default)".
+    # Pass it explicitly so the Admin SDK does not inherit a malformed/
+    # encoded database identifier from the runtime environment.
+    FIRESTORE_DATABASE_ID = "(default)"
+
     if not firebase_admin._apps:
         # ── Try Streamlit Secrets first (Streamlit Cloud) ──
         try:
@@ -36,8 +41,16 @@ def init_firebase():
                 )
                 st.stop()
             cred = credentials.Certificate(FIREBASE_KEY_FILE)
-        firebase_admin.initialize_app(cred)
-    return firestore.client()
+        app = firebase_admin.initialize_app(cred)
+    else:
+        app = firebase_admin.get_app()
+
+    # Explicit database_id is supported by current Firebase Admin Python SDKs.
+    # Keep a compatibility fallback for older SDKs that do not accept it.
+    try:
+        return firestore.client(app=app, database_id=FIRESTORE_DATABASE_ID)
+    except TypeError:
+        return firestore.client(app=app)
 
 db = init_firebase()
 
