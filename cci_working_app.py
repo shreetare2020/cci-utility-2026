@@ -9,192 +9,50 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-# ─── FIREBASE / FIRESTORE (REST — avoids SDK "Invalid database id %28default%29") ───
-# This app uses only three Firestore documents.  We keep the rest of the
-# application unchanged and access those documents through the Firestore REST
-# API so the saved data in the existing Firebase project/database is preserved.
-import requests
-from google.auth.transport.requests import AuthorizedSession
-from google.oauth2 import service_account
+# ─── FIREBASE ────────────────────────────────────────────────────────────────
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-FIREBASE_KEY_FILE = "firebase_key.json"
-_FIRESTORE_COLLECTION = "cci_utility"
-_FIRESTORE_DB_ID = "(default)"
-_FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore"
+# ─── FIREBASE INIT (works both locally and on Streamlit Cloud) ───────────────
+# Local:  place your service account JSON as  firebase_key.json  next to app
+# Cloud:  add credentials in Streamlit Secrets as [firebase] section
 
+FIREBASE_KEY_FILE = "firebase_key.json"   # local JSON file path
 
-def _load_firebase_credentials():
-    # Streamlit Cloud: [firebase] secrets section.
-    try:
-        cred_dict = dict(st.secrets["firebase"])
-        if "private_key" in cred_dict:
-            cred_dict["private_key"] = str(cred_dict["private_key"]).replace("\\n", "\n")
-        cred = service_account.Credentials.from_service_account_info(
-            cred_dict, scopes=[_FIRESTORE_SCOPE]
-        )
-        project_id = cred_dict.get("project_id") or cred.project_id
-        if not project_id:
-            raise ValueError("Firebase service account does not contain project_id")
-        return cred, project_id
-    except Exception as cloud_exc:
-        # Localhost: same firebase_key.json as the previous implementation.
-        if not os.path.exists(FIREBASE_KEY_FILE):
-            st.error(
-                "❌ Firebase credentials not found.\n\n"
-                "For Streamlit Cloud, configure [firebase] in Secrets. "
-                "For localhost, place firebase_key.json beside the app."
-            )
-            st.stop()
+def init_firebase():
+    if not firebase_admin._apps:
+        # ── Try Streamlit Secrets first (Streamlit Cloud) ──
         try:
-            cred = service_account.Credentials.from_service_account_file(
-                FIREBASE_KEY_FILE, scopes=[_FIRESTORE_SCOPE]
-            )
-            project_id = cred.project_id
-            if not project_id:
-                raise ValueError("firebase_key.json does not contain project_id")
-            return cred, project_id
-        except Exception as local_exc:
-            st.error(f"❌ Firebase credentials error: {local_exc}")
-            st.stop()
-
-
-class _RestSnapshot:
-    def __init__(self, exists, data=None):
-        self.exists = bool(exists)
-        self._data = data or {}
-
-    def to_dict(self):
-        return dict(self._data)
-
-
-def _fs_encode(value):
-    if value is None:
-        return {"nullValue": None}
-    if isinstance(value, bool):
-        return {"booleanValue": value}
-    if isinstance(value, int) and not isinstance(value, bool):
-        return {"integerValue": str(value)}
-    if isinstance(value, float):
-        # Firestore JSON accepts doubleValue as a number.
-        return {"doubleValue": value}
-    if isinstance(value, str):
-        return {"stringValue": value}
-    if isinstance(value, (list, tuple)):
-        return {"arrayValue": {"values": [_fs_encode(v) for v in value]}}
-    if isinstance(value, dict):
-        return {"mapValue": {"fields": {str(k): _fs_encode(v) for k, v in value.items()}}}
-    # Pandas/numpy scalars and other simple objects: preserve as text instead of
-    # changing any application data structure.
-    try:
-        import numpy as np
-        if isinstance(value, np.integer):
-            return {"integerValue": str(int(value))}
-        if isinstance(value, np.floating):
-            return {"doubleValue": float(value)}
-    except Exception:
-        pass
-    return {"stringValue": str(value)}
-
-
-def _fs_decode(value):
-    if not isinstance(value, dict):
-        return None
-    if "nullValue" in value:
-        return None
-    if "stringValue" in value:
-        return value["stringValue"]
-    if "booleanValue" in value:
-        return value["booleanValue"]
-    if "integerValue" in value:
-        try:
-            return int(value["integerValue"])
+            cred_dict = dict(st.secrets["firebase"])
+            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            cred = credentials.Certificate(cred_dict)
         except Exception:
-            return value["integerValue"]
-    if "doubleValue" in value:
-        return value["doubleValue"]
-    if "timestampValue" in value:
-        return value["timestampValue"]
-    if "bytesValue" in value:
-        return value["bytesValue"]
-    if "referenceValue" in value:
-        return value["referenceValue"]
-    if "geoPointValue" in value:
-        return value["geoPointValue"]
-    if "arrayValue" in value:
-        return [_fs_decode(v) for v in value.get("arrayValue", {}).get("values", [])]
-    if "mapValue" in value:
-        return {k: _fs_decode(v) for k, v in value.get("mapValue", {}).get("fields", {}).items()}
-    return None
+            # ── Fallback: local JSON file (localhost) ──
+            if not os.path.exists(FIREBASE_KEY_FILE):
+                st.error(
+                    f"❌ Firebase key not found!\n\n"
+                    f"**Localhost fix:** Place your Firebase service account JSON "
+                    f"as **`firebase_key.json`** in the same folder as `cci_working_app.py`"
+                )
+                st.stop()
+            cred = credentials.Certificate(FIREBASE_KEY_FILE)
+        firebase_admin.initialize_app(cred)
+    return firestore.client()
 
-
-def _firestore_document_url(collection, document):
-    from urllib.parse import quote
-    # The Firestore REST API identifies the default database as (default).
-    # Quote collection/document names only; keep the database marker literal.
-    return (
-        f"https://firestore.googleapis.com/v1/projects/{quote(_firebase_project_id, safe='')}/"
-        f"databases/{_FIRESTORE_DB_ID}/documents/{quote(collection, safe='')}/{quote(document, safe='')}"
-    )
-
-
-class _RestDocument:
-    def __init__(self, collection, document):
-        self.collection = collection
-        self.document = document
-
-    def get(self):
-        url = _firestore_document_url(self.collection, self.document)
-        response = _firebase_session.get(url, timeout=25)
-        if response.status_code == 404:
-            return _RestSnapshot(False, {})
-        response.raise_for_status()
-        payload = response.json()
-        fields = payload.get("fields", {})
-        return _RestSnapshot(True, {k: _fs_decode(v) for k, v in fields.items()})
-
-    def set(self, data):
-        url = _firestore_document_url(self.collection, self.document)
-        payload = {"fields": {str(k): _fs_encode(v) for k, v in dict(data).items()}}
-        response = _firebase_session.patch(url, json=payload, timeout=25)
-        response.raise_for_status()
-        return response.json()
-
-
-class _RestCollection:
-    def __init__(self, collection):
-        self.collection = collection
-
-    def document(self, document):
-        return _RestDocument(self.collection, document)
-
-
-class _RestFirestore:
-    def collection(self, collection):
-        return _RestCollection(collection)
-
-
-cred, _firebase_project_id = _load_firebase_credentials()
-_firebase_session = AuthorizedSession(cred)
-db = _RestFirestore()
-
+db = init_firebase()
 
 def fs_load():
     try:
-        doc = db.collection(_FIRESTORE_COLLECTION).document("masters").get()
+        doc = db.collection("cci_utility").document("masters").get()
         if doc.exists:
-            data = doc.to_dict()
-            # Preserve the app's expected master structure even if a field is missing.
-            data.setdefault("projects", [])
-            data.setdefault("contracts", [])
-            return data
+            return doc.to_dict()
     except Exception as e:
         st.warning(f"Firebase read error: {e}")
     return {"projects": [], "contracts": []}
 
-
 def fs_save(data):
     try:
-        db.collection(_FIRESTORE_COLLECTION).document("masters").set(data)
+        db.collection("cci_utility").document("masters").set(data)
     except Exception as e:
         st.error(f"Firebase save error: {e}")
 
@@ -2528,71 +2386,90 @@ with tab_help:
 
     st.markdown('<div class="sec-label" style="margin-bottom:8px">📖 Formula Reference</div>', unsafe_allow_html=True)
 
-    st.markdown("""<div class="fg-grid">
+    # Formula Guide kept aligned with the actual run_calculations() logic.
+    formula_cards = [
+        ("📥 Data & Date Sources", [
+            "Effective Date = PUR CONT DETAILS (uploaded Excel) per Contract No.",
+            "Branch = PUR CONT DETAILS (uploaded Excel) per Contract No.",
+            "GST on Material = IGST from GRN BOOKING row.",
+            "Party Bill / Lifting Date = Party Bill Date from GRN BOOKING.",
+            "CC Free Days / slabs / GST / compound flag = matched Contract Master.",
+        ], "PUR CONT DETAILS is the authoritative source for Effective Date and Branch."),
+        ("📌 Per Bale EMD & FIFO Allocation", [
+            "Per Bale EMD = Contract Total EMD Amount ÷ Contracted Bales.",
+            "EMD Required for GRN = Per Bale EMD × GRN Bales (Accepted Qty AUM).",
+            "EMD Allocation = FIFO draw from EMD vouchers for that Contract until the GRN requirement is met.",
+            "EMD Date = latest EMD voucher date used for that GRN.",
+        ], "Each EMD voucher keeps a Remaining balance for subsequent GRNs."),
+        ("💰 EMD Interest", [
+            "EMD Days = Payment Date − EMD Date.",
+            "EMD Interest = EMD Allocated × (EMD Rate % ÷ 365) × EMD Days.",
+        ], "Calculated only when EMD Date, Payment Date and EMD allocation are available."),
+        ("💵 Bill & Net Amount", [
+            "GST on Material = IGST from GRN Booking.",
+            "Total Bill Amount = Material Amount + GST on Material.",
+            "Net Amount = Total Bill Amount − EMD Allocated.",
+        ], "Material Amount and IGST come from the uploaded GRN Booking data."),
+        ("💳 Payment Allocation", [
+            "Payment is allocated FIFO from Final Payments against the Contract.",
+            "Payment allocation stops when Net Amount is fully covered.",
+            "Payment Date = latest payment date actually used for that GRN.",
+            "Mode of Transaction = mode belonging to that latest applied payment.",
+        ], "Each payment voucher keeps a Remaining balance for subsequent GRNs."),
+        ("💸 Cash Discount (CD)", [
+            "CD Due Date = Effective Date + highest valid CD slab days.",
+            "Eligibility = Payment Date ≤ CD Due Date.",
+            "CD Days = CD Due Date − Payment Date.",
+            "CD % = percentage of the highest-days valid CD slab.",
+            "Cash Discount = Material Amount × CD % × (CD Days ÷ 365).",
+            "Payment after CD Due Date → Cash Discount = 0.",
+        ], "Effective Date is from PUR CONT DETAILS; CD slab days and % are from Contract Master."),
+        ("⏰ Late Lifting Charges (LL)", [
+            "Free Period End = Payment Date + 15 days.",
+            "Late Lift Days = Lifting Date − Free Period End (only when positive).",
+            "Each slab charge = applicable base × slab % × (days in slab ÷ 30).",
+            "Compound = ON → next slab uses Principal + all prior slab charges as running base.",
+            "Compound = OFF → every slab uses the original Material Amount as base.",
+            "Late Lifting GST = Late Lifting Charges × LL GST % ÷ 100.",
+        ], "LL slab days, percentages, GST and compound setting come from Contract Master; no fixed slab rate is displayed."),
+        ("🚛 Carrying Charges (CC)", [
+            "CC Free End = Effective Date + CC Free Days from Contract Master.",
+            "CC Days = Payment Date − CC Free End (only when positive).",
+            "Slab 1 charge = Material Amount × Slab 1 % × (days ÷ 30).",
+            "Slab 2+ charge = Running Amount × applicable slab % × (days ÷ 30).",
+            "Running Amount = Principal + all previous slab charges (compounding).",
+            "CC continues through unlimited 30-day slabs until all CC Days are consumed.",
+            "Carrying GST = Carrying Charges × CC GST % ÷ 100.",
+        ], "CC Free Days, slab days, percentages, GST and compound setting come from Contract Master. No fixed 60-day CC free period is used."),
+        ("📊 Shortage / Excess", [
+            "Shortage / Excess = Total Bill − Total Payment − Total EMD Allocated.",
+            "Positive → SHORTAGE (payment still pending).",
+            "Negative → EXCESS (overpaid / refund due).",
+            "Zero → CLEAR.",
+        ], "This intentionally excludes LL, CC, CD and EMD Interest."),
+        ("💼 Total Payable", [
+            "Total Payable = Total Bill + Total LL + Total LL GST + Total CC + Total CC GST − Total Cash Discount − Total EMD Interest.",
+        ], "Charges are added; Cash Discount and EMD Interest are deducted."),
+        ("↔️ Receivable / Payable", [
+            "Receivable / Payable = Total Payable − (Total Payment + Total EMD Allocated).",
+            "Positive → PAYABLE (amount still owed to CCI).",
+            "Negative → RECEIVABLE (amount refundable / owed by CCI).",
+            "Zero → CLEAR.",
+        ], "Same logic is used for Contract-wise and Branch-wise summaries."),
+        ("🏢 Branch-wise Summary", [
+            "Contracts = distinct Contract No. per Branch.",
+            "GRNs = count of calculated GRN rows per Branch.",
+            "Bales, Material, GST, Bill, Payment, EMD, Interest, CD, LL and CC totals = sum of GRN-level values.",
+            "Receivable / Payable uses the same Total Payable formula as Contract Summary.",
+        ], "Branch is sourced from PUR CONT DETAILS and then aggregated after calculation."),
+    ]
 
-    <div class="fg-card">
-      <div class="fg-title">📌 Per Bale EMD</div>
-      <div class="fg-line">Per Bale EMD = Total EMD ÷ Contracted Bales</div>
-      <div class="fg-note">FIFO allocation — earliest EMD voucher matched first per GRN.</div>
-    </div>
+    cards_html = []
+    for title, lines, note in formula_cards:
+        rows = ''.join(f'<div class="fg-line">{line}</div>' for line in lines)
+        cards_html.append(f'<div class="fg-card"><div class="fg-title">{title}</div>{rows}<div class="fg-note">{note}</div></div>')
 
-    <div class="fg-card">
-      <div class="fg-title">💰 EMD Interest</div>
-      <div class="fg-line">EMD Interest = EMD Allocated × (Rate% ÷ 365) × (Pay Date − EMD Date)</div>
-      <div class="fg-note">EMD Date = latest EMD voucher utilised. Pay Date = latest payment applied.</div>
-    </div>
-
-    <div class="fg-card">
-      <div class="fg-title">💵 Cash Discount</div>
-      <div class="fg-line">Diff Days  = Lifting Date − Payment Date</div>
-      <div class="fg-line">CD Amount  = Material Amt × CD% × (Diff Days ÷ 365)</div>
-      <div class="fg-note">CD applies only when Payment Date &lt; Lifting Date and within slab days.</div>
-    </div>
-
-    <div class="fg-card">
-      <div class="fg-title">🧾 Bill Amounts</div>
-      <div class="fg-line">GST on Material   = IGST from GRN Booking sheet</div>
-      <div class="fg-line">Total Bill Amount  = Material Amount + GST</div>
-      <div class="fg-line">Net Amount         = Total Bill − EMD Allocated</div>
-    </div>
-
-    <div class="fg-card">
-      <div class="fg-title">⏰ Late Lifting Charges</div>
-      <div class="fg-line">Free Period End = Payment Date + 15 days</div>
-      <div class="fg-line">Late Days = Lifting Date − Free Period End  (if &gt; 0)</div>
-      <div class="fg-line">Slab 1 (1–30d)   : Amt × 0.50%/month</div>
-      <div class="fg-line">Slab 2 (31–60d)  : Amt × 0.75%/month</div>
-      <div class="fg-line">Slab 3 (61d+)    : Amt × 1.00%/month</div>
-      <div class="fg-note">Prorata for partial months. + GST as applicable.</div>
-    </div>
-
-    <div class="fg-card">
-      <div class="fg-title">🚛 Carrying Charges</div>
-      <div class="fg-line">CC Free End = Effective Date + CC Free Days</div>
-      <div class="fg-line">CC Days     = Payment Date − CC Free End  (if &gt; 0)</div>
-      <div class="fg-line">Slab 1 (1–30d)  : Material Amt × Slab1% × (days÷30)</div>
-      <div class="fg-line">Slab 2 (31d+)   : Running Amt × Slab2% × (days÷30)</div>
-      <div class="fg-note">Running Amt = Principal + all prior slab charges (compounding). + GST.</div>
-    </div>
-
-    <div class="fg-card">
-      <div class="fg-title">📊 Shortage / Excess  (Contract Summary)</div>
-      <div class="fg-line">Shortage/Excess = Total Bill − Total Payment − Total EMD Allocated</div>
-      <div class="fg-line">Positive → SHORTAGE  (payment still pending)</div>
-      <div class="fg-line">Negative → EXCESS    (overpaid, refund due)</div>
-      <div class="fg-note">Only compares bill vs payments — no charges included.</div>
-    </div>
-
-    <div class="fg-card">
-      <div class="fg-title">💼 Receivable / Payable  (Contract &amp; Branch Summary)</div>
-      <div class="fg-line">Total Payable = Bill + LL + LL GST + CC + CC GST − CD − EMD Interest</div>
-      <div class="fg-line">Rec/Payable   = Total Payable − (Payment + EMD Allocated)</div>
-      <div class="fg-line">Positive → PAYABLE     (still owe to CCI)</div>
-      <div class="fg-line">Negative → RECEIVABLE  (CCI owes refund)</div>
-      <div class="fg-note">All charges and adjustments included. Same logic used in both Contract-wise and Branch-wise Summary.</div>
-    </div>
-
-    </div>""", unsafe_allow_html=True)
+    st.markdown('<div class="fg-grid">' + ''.join(cards_html) + '</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5: USER MASTER
