@@ -1520,9 +1520,9 @@ _PRETTY_COL_MAP = {
     "CC_Chg": "Carrying Charges",
     "CC_GST": "Carrying GST",
     "Shortage_Excess": "Shortage / Excess",
-    "Shortage_Excess_Mark": "Status",
+    "Shortage_Excess_Mark": "Shortage/Excess Status",
     "Receivable_Payable": "Receivable / Payable",
-    "Receivable_Payable_Mark": "Status",
+    "Receivable_Payable_Mark": "Receivable/Payable Status",
     "Total_Payment_And_EMD": "Total Payment + EMD",
     "Total_Payable": "Total Payable",
 }
