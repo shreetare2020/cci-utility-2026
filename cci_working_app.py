@@ -13,26 +13,111 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# Optional: used only to discover named Firestore databases so existing data
+# is not lost when a project has more than one database.
+try:
+    from google.cloud import firestore_admin_v1
+    from google.oauth2 import service_account as google_service_account
+except Exception:
+    firestore_admin_v1 = None
+    google_service_account = None
+
 # ─── FIREBASE INIT (works both locally and on Streamlit Cloud) ───────────────
 # Local:  place your service account JSON as  firebase_key.json  next to app
 # Cloud:  add credentials in Streamlit Secrets as [firebase] section
 
 FIREBASE_KEY_FILE = "firebase_key.json"   # local JSON file path
+_GOOGLE_SERVICE_ACCOUNT_INFO = None
+
+
+def _firebase_candidates():
+    """Return only valid/normalized Firestore database IDs.
+
+    Empty string means the normal Firestore database.  Treat common encoded
+    spellings of the default database as empty so they are never sent to the
+    API as a literal database ID (which can produce INVALID_DATABASE_ID).
+    """
+    candidates = []
+
+    def _add(value):
+        if value is None:
+            return
+        value = str(value).strip()
+        if not value or value in {"(default)", "%28default%29", "default"}:
+            value = ""
+        if value not in candidates:
+            candidates.append(value)
+
+    try:
+        if "firebase" in st.secrets:
+            _add(dict(st.secrets["firebase"]).get("database_id"))
+    except Exception:
+        pass
+
+    _add(os.getenv("FIRESTORE_DATABASE_ID", ""))
+
+    # Always try the SDK's normal/default Firestore database last.
+    if "" not in candidates:
+        candidates.append("")
+    return candidates
+
+
+def _client_for_database(app, database_id):
+    # firebase-admin explicitly documents an empty database_id as equivalent
+    # to the default Firestore database.  This avoids ever sending the special
+    # string "(default)" as a database ID.
+    if database_id == "":
+        try:
+            return firestore.client(app=app, database_id="")
+        except TypeError:
+            return firestore.client(app=app)
+    return firestore.client(app=app, database_id=database_id)
+
+
+def _discover_firestore_database_ids(app):
+    """Discover Firestore databases in the current Firebase/GCP project.
+
+    This is only a read-side discovery step. It never creates or changes a
+    database. The goal is to find the database that already contains
+    cci_utility/masters when the project uses a named database.
+    """
+    if firestore_admin_v1 is None or google_service_account is None:
+        return []
+    if not _GOOGLE_SERVICE_ACCOUNT_INFO:
+        return []
+    try:
+        creds = google_service_account.Credentials.from_service_account_info(
+            _GOOGLE_SERVICE_ACCOUNT_INFO
+        )
+        admin_client = firestore_admin_v1.FirestoreAdminClient(credentials=creds)
+        parent = f"projects/{app.project_id}"
+        ids = []
+        for item in admin_client.list_databases(request={"parent": parent}):
+            name = getattr(item, "name", "")
+            if name:
+                dbid = name.rsplit("/", 1)[-1]
+                if dbid == "(default)":
+                    dbid = ""
+                if dbid not in ids:
+                    ids.append(dbid)
+        return ids
+    except Exception:
+        return []
+
 
 def init_firebase():
-    # Firestore's default database ID is literally "(default)".
-    # Pass it explicitly so the Admin SDK does not inherit a malformed/
-    # encoded database identifier from the runtime environment.
-    FIRESTORE_DATABASE_ID = "(default)"
-
-    if not firebase_admin._apps:
-        # ── Try Streamlit Secrets first (Streamlit Cloud) ──
+    if firebase_admin._apps:
+        app = firebase_admin.get_app()
+    else:
+        # Streamlit Cloud: credentials from [firebase] secrets.
+        # Local: firebase_key.json beside the app.
         try:
+            global _GOOGLE_SERVICE_ACCOUNT_INFO
             cred_dict = dict(st.secrets["firebase"])
             cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            _GOOGLE_SERVICE_ACCOUNT_INFO = dict(cred_dict)
             cred = credentials.Certificate(cred_dict)
         except Exception:
-            # ── Fallback: local JSON file (localhost) ──
             if not os.path.exists(FIREBASE_KEY_FILE):
                 st.error(
                     f"❌ Firebase key not found!\n\n"
@@ -40,17 +125,40 @@ def init_firebase():
                     f"as **`firebase_key.json`** in the same folder as `cci_working_app.py`"
                 )
                 st.stop()
+            import json as _json
+            with open(FIREBASE_KEY_FILE, "r", encoding="utf-8") as _fk:
+                _GOOGLE_SERVICE_ACCOUNT_INFO = _json.load(_fk)
             cred = credentials.Certificate(FIREBASE_KEY_FILE)
         app = firebase_admin.initialize_app(cred)
-    else:
-        app = firebase_admin.get_app()
 
-    # Explicit database_id is supported by current Firebase Admin Python SDKs.
-    # Keep a compatibility fallback for older SDKs that do not accept it.
+    # IMPORTANT: choose the same Firestore database that already contains the
+    # application's saved masters document.  Do not write/create an empty
+    # replacement database just because one read attempt fails.
+    last_error = None
+    candidates = _firebase_candidates()
+    for database_id in _discover_firestore_database_ids(app):
+        if database_id not in candidates:
+            candidates.append(database_id)
+
+    for database_id in candidates:
+        try:
+            client = _client_for_database(app, database_id)
+            doc = client.collection("cci_utility").document("masters").get()
+            if doc.exists:
+                return client
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    # If the document is not readable, return the normal default client so the
+    # rest of the application can report the real read error rather than
+    # silently pointing to a different database.
     try:
-        return firestore.client(app=app, database_id=FIRESTORE_DATABASE_ID)
-    except TypeError:
-        return firestore.client(app=app)
+        return _client_for_database(app, "")
+    except Exception as exc:
+        st.error(f"Firebase connection error: {last_error or exc}")
+        st.stop()
+
 
 db = init_firebase()
 
@@ -58,7 +166,11 @@ def fs_load():
     try:
         doc = db.collection("cci_utility").document("masters").get()
         if doc.exists:
-            return doc.to_dict()
+            data = doc.to_dict() or {}
+            # Keep the shape expected by the existing application.
+            data.setdefault("projects", [])
+            data.setdefault("contracts", [])
+            return data
     except Exception as e:
         st.warning(f"Firebase read error: {e}")
     return {"projects": [], "contracts": []}
