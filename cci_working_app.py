@@ -10,34 +10,177 @@ import pandas as pd
 import streamlit as st
 
 # ─── FIREBASE ────────────────────────────────────────────────────────────────
-import firebase_admin
-from firebase_admin import credentials, firestore
+# Firestore REST adapter used here to avoid the Python Admin SDK sending
+# the default database id as %28default%29 on older/incompatible SDK builds.
+# Existing calculations and all other application logic remain unchanged.
+import requests
+from types import SimpleNamespace
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request as GoogleAuthRequest
 
-# ─── FIREBASE INIT (works both locally and on Streamlit Cloud) ───────────────
-# Local:  place your service account JSON as  firebase_key.json  next to app
-# Cloud:  add credentials in Streamlit Secrets as [firebase] section
+FIREBASE_KEY_FILE = "firebase_key.json"
+_FIREBASE_SCOPES = ["https://www.googleapis.com/auth/datastore"]
 
-FIREBASE_KEY_FILE = "firebase_key.json"   # local JSON file path
+
+def _firebase_credentials():
+    try:
+        cred_dict = dict(st.secrets["firebase"])
+        if cred_dict.get("private_key"):
+            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+        return service_account.Credentials.from_service_account_info(
+            cred_dict, scopes=_FIREBASE_SCOPES
+        ), cred_dict.get("project_id", "")
+    except Exception:
+        if not os.path.exists(FIREBASE_KEY_FILE):
+            st.error(
+                "❌ Firebase key not found!\n\n"
+                "**Localhost fix:** Place your Firebase service account JSON "
+                "as **`firebase_key.json`** in the same folder as `cci_working_app.py`"
+            )
+            st.stop()
+        cred = service_account.Credentials.from_service_account_file(
+            FIREBASE_KEY_FILE, scopes=_FIREBASE_SCOPES
+        )
+        try:
+            with open(FIREBASE_KEY_FILE, "r", encoding="utf-8") as f:
+                project_id = json.load(f).get("project_id", "")
+        except Exception:
+            project_id = ""
+        return cred, project_id
+
+
+class _RestDoc:
+    def __init__(self, data=None, exists=False):
+        self._data = data or {}
+        self.exists = exists
+
+    def to_dict(self):
+        return dict(self._data)
+
+
+class _RestDocumentRef:
+    def __init__(self, db, collection_name, document_name):
+        self.db = db
+        self.collection_name = collection_name
+        self.document_name = document_name
+
+    def get(self):
+        url = self.db._document_url(self.collection_name, self.document_name)
+        r = self.db._request("GET", url)
+        if r.status_code == 404:
+            return _RestDoc({}, False)
+        r.raise_for_status()
+        payload = r.json()
+        return _RestDoc(self.db._decode_fields(payload.get("fields", {})), True)
+
+    def set(self, data):
+        url = self.db._document_url(self.collection_name, self.document_name)
+        payload = {"fields": self.db._encode_fields(data)}
+        r = self.db._request("PATCH", url, json=payload)
+        r.raise_for_status()
+        return _RestDoc(data, True)
+
+
+class _RestCollectionRef:
+    def __init__(self, db, collection_name):
+        self.db = db
+        self.collection_name = collection_name
+
+    def document(self, document_name):
+        return _RestDocumentRef(self.db, self.collection_name, document_name)
+
+
+class _FirebaseRestDB:
+    def __init__(self, credentials_obj, project_id):
+        if not project_id:
+            raise RuntimeError("Firebase service account is missing project_id")
+        self.credentials = credentials_obj
+        self.project_id = project_id
+        # Firestore's actual default database id is the literal '(default)'.
+        # Build this URL directly so parentheses are not percent-encoded.
+        self.base = f"https://firestore.googleapis.com/v1/projects/{project_id}/databases/(default)/documents"
+
+    def collection(self, collection_name):
+        return _RestCollectionRef(self, collection_name)
+
+    def _document_url(self, collection_name, document_name):
+        return f"{self.base}/{collection_name}/{document_name}"
+
+    def _request(self, method, url, **kwargs):
+        self.credentials.refresh(GoogleAuthRequest())
+        headers = kwargs.pop("headers", {})
+        headers["Authorization"] = f"Bearer {self.credentials.token}"
+        headers["Content-Type"] = "application/json"
+        return requests.request(method, url, headers=headers, timeout=30, **kwargs)
+
+    @classmethod
+    def _encode_value(cls, value):
+        if value is None:
+            return {"nullValue": None}
+        if isinstance(value, bool):
+            return {"booleanValue": value}
+        if isinstance(value, int) and not isinstance(value, bool):
+            return {"integerValue": str(value)}
+        if isinstance(value, float):
+            return {"doubleValue": value}
+        if isinstance(value, str):
+            return {"stringValue": value}
+        if isinstance(value, list):
+            return {"arrayValue": {"values": [cls._encode_value(v) for v in value]}}
+        if isinstance(value, tuple):
+            return {"arrayValue": {"values": [cls._encode_value(v) for v in value]}}
+        if isinstance(value, dict):
+            return {"mapValue": {"fields": cls._encode_fields(value)}}
+        # pandas/numpy scalar fallback
+        try:
+            if hasattr(value, "item"):
+                return cls._encode_value(value.item())
+        except Exception:
+            pass
+        return {"stringValue": str(value)}
+
+    @classmethod
+    def _encode_fields(cls, data):
+        return {str(k): cls._encode_value(v) for k, v in (data or {}).items()}
+
+    @classmethod
+    def _decode_value(cls, value):
+        if "nullValue" in value:
+            return None
+        if "booleanValue" in value:
+            return value["booleanValue"]
+        if "integerValue" in value:
+            try:
+                return int(value["integerValue"])
+            except Exception:
+                return value["integerValue"]
+        if "doubleValue" in value:
+            return value["doubleValue"]
+        if "stringValue" in value:
+            return value["stringValue"]
+        if "timestampValue" in value:
+            return value["timestampValue"]
+        if "arrayValue" in value:
+            return [cls._decode_value(v) for v in value["arrayValue"].get("values", [])]
+        if "mapValue" in value:
+            return cls._decode_fields(value["mapValue"].get("fields", {}))
+        if "referenceValue" in value:
+            return value["referenceValue"]
+        if "geoPointValue" in value:
+            return value["geoPointValue"]
+        if "bytesValue" in value:
+            return value["bytesValue"]
+        return None
+
+    @classmethod
+    def _decode_fields(cls, fields):
+        return {k: cls._decode_value(v) for k, v in (fields or {}).items()}
+
 
 def init_firebase():
-    if not firebase_admin._apps:
-        # ── Try Streamlit Secrets first (Streamlit Cloud) ──
-        try:
-            cred_dict = dict(st.secrets["firebase"])
-            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-            cred = credentials.Certificate(cred_dict)
-        except Exception:
-            # ── Fallback: local JSON file (localhost) ──
-            if not os.path.exists(FIREBASE_KEY_FILE):
-                st.error(
-                    f"❌ Firebase key not found!\n\n"
-                    f"**Localhost fix:** Place your Firebase service account JSON "
-                    f"as **`firebase_key.json`** in the same folder as `cci_working_app.py`"
-                )
-                st.stop()
-            cred = credentials.Certificate(FIREBASE_KEY_FILE)
-        firebase_admin.initialize_app(cred)
-    return firestore.client()
+    cred, project_id = _firebase_credentials()
+    return _FirebaseRestDB(cred, project_id)
+
 
 db = init_firebase()
 
@@ -45,10 +188,16 @@ def fs_load():
     try:
         doc = db.collection("cci_utility").document("masters").get()
         if doc.exists:
-            return doc.to_dict()
+            data = doc.to_dict()
+            # Never silently lose the saved masters if Firebase returns a partial/empty payload.
+            if isinstance(data, dict):
+                data.setdefault("projects", [])
+                data.setdefault("contracts", [])
+                return data
     except Exception as e:
         st.warning(f"Firebase read error: {e}")
     return {"projects": [], "contracts": []}
+
 
 def fs_save(data):
     try:
