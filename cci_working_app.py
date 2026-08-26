@@ -1736,7 +1736,11 @@ def branch_wise_summary(result_df):
     for c in bs.columns:
         if c not in skip_cols:
             bs_total[c] = pd.to_numeric(bs[c], errors="coerce").sum()
-    bs_total["Receivable_Payable_Mark"] = ""
+    _total_rp = bs_total.get("Receivable_Payable", 0)
+    bs_total["Receivable_Payable_Mark"] = (
+        "PAYABLE" if pd.notna(_total_rp) and float(_total_rp) > 0
+        else ("RECEIVABLE" if pd.notna(_total_rp) and float(_total_rp) < 0 else "CLEAR")
+    )
     bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
     return bs
 
@@ -1829,8 +1833,16 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         for c in summary.columns:
             if c not in _skip:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
-        summary_total["Shortage_Excess_Mark"] = ""
-        summary_total["Receivable_Payable_Mark"] = ""
+        _total_se = summary_total.get("Shortage_Excess", 0)
+        summary_total["Shortage_Excess_Mark"] = (
+            "SHORTAGE" if pd.notna(_total_se) and float(_total_se) > 0
+            else ("EXCESS" if pd.notna(_total_se) and float(_total_se) < 0 else "CLEAR")
+        )
+        _total_rp = summary_total.get("Receivable_Payable", 0)
+        summary_total["Receivable_Payable_Mark"] = (
+            "PAYABLE" if pd.notna(_total_rp) and float(_total_rp) > 0
+            else ("RECEIVABLE" if pd.notna(_total_rp) and float(_total_rp) < 0 else "CLEAR")
+        )
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
 
@@ -2496,8 +2508,16 @@ with tab_results:
         for c in summary.columns:
             if c not in _skip_ui:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
-        summary_total["Shortage_Excess_Mark"] = ""
-        summary_total["Receivable_Payable_Mark"] = ""
+        _total_se_ui = summary_total.get("Shortage_Excess", 0)
+        summary_total["Shortage_Excess_Mark"] = (
+            "SHORTAGE" if pd.notna(_total_se_ui) and float(_total_se_ui) > 0
+            else ("EXCESS" if pd.notna(_total_se_ui) and float(_total_se_ui) < 0 else "CLEAR")
+        )
+        _total_rp_ui = summary_total.get("Receivable_Payable", 0)
+        summary_total["Receivable_Payable_Mark"] = (
+            "PAYABLE" if pd.notna(_total_rp_ui) and float(_total_rp_ui) > 0
+            else ("RECEIVABLE" if pd.notna(_total_rp_ui) and float(_total_rp_ui) < 0 else "CLEAR")
+        )
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales","Shortage_Excess_Mark","Receivable_Payable_Mark")]
         for c in _summary_money_cols:
