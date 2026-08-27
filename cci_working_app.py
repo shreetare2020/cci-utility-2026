@@ -2309,9 +2309,7 @@ with tab_masters:
                 st.markdown(f"""
                 <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #c2410c;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11.5px;color:#374151">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                    <span style="font-weight:700;font-size:13px;color:#c2410c">{c.get('contract_no','—')}
-                    {"&nbsp;<span style='background:#c2410c;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;letter-spacing:.05em'>GROUP</span>" if str(c.get('contract_no','')).strip().upper().startswith('GROUP') or str(c.get('contract_no','')).strip().upper()=='DEFAULT' else ""}
-                    </span>
+                    <span style="font-weight:700;font-size:13px;color:#c2410c">{c.get('contract_no','—')}{("&nbsp;<span style='background:#c2410c;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;letter-spacing:.05em'>GROUP</span>" if str(c.get('contract_no','')).strip().upper().startswith('GROUP') or str(c.get('contract_no','')).strip().upper()=='DEFAULT' else "")}</span>
                     <span style="color:#64748b;font-size:11px">{c.get('project','—')}</span>
                   </div>
                   <div style="color:#475569;margin-bottom:3px">{c.get('party','—')}</div>
