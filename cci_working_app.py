@@ -1260,6 +1260,9 @@ def parse_excel(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheets = xl.sheet_names
     cont = pd.read_excel(xl, sheet_name=sheets[0], header=0)
+    # Sheet may have 4 columns (Contract_No, Effective_Date, Bales, Branch)
+    # or 5+ columns — assign only the first 4, drop the rest
+    cont = cont.iloc[:, :4].copy()
     cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
     cont = cont.dropna(subset=["Contract_No"])
     cont["Effective_Date"] = pd.to_datetime(cont["Effective_Date"], errors="coerce")
