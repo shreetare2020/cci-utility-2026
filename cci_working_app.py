@@ -1607,7 +1607,18 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "CC_Days":cc_days, "Carry_Charges":cc_charges, "Carry_GST":cc_gst_amt,
             "_cc_slab_breakdown": cc_slab_breakdown,  # dynamic slab columns built in df_to_excel_bytes & display
         })
-    return pd.DataFrame(results)
+    result_df = pd.DataFrame(results)
+    if not result_df.empty:
+        # Actual_Payment_Total = total payment from uploaded Payment sheet per contract
+        # This is the TRUE total payment, not FIFO-allocated per GRN
+        actual_pay_map = {}
+        for cn_raw, g in pay.groupby("Contract_No"):
+            key = str(cn_raw).strip().upper()
+            actual_pay_map[key] = g["Payment_Amount"].sum()
+        result_df["Actual_Payment_Total"] = result_df["Contract_No"].apply(
+            lambda x: actual_pay_map.get(str(x).strip().upper(), 0)
+        )
+    return result_df
 
 def fmt_date(v):
     try:
@@ -1699,13 +1710,19 @@ def branch_wise_summary(result_df):
     """Aggregate the GRN-wise result into a Branch-level summary."""
     if "Branch" not in result_df.columns:
         return pd.DataFrame()
+    # For Total_Payment: use Actual_Payment_Total (from uploaded Payment sheet)
+    # grouped by contract first (to avoid double-counting across GRNs), then by Branch
+    pay_col = "Actual_Payment_Total" if "Actual_Payment_Total" in result_df.columns else "Payment_Amount"
+    # Contract-wise actual payment (deduplicated per contract)
+    cn_pay = result_df.drop_duplicates("Contract_No")[["Contract_No","Branch", pay_col]].copy()
+    branch_actual_pay = cn_pay.groupby("Branch")[pay_col].sum()
+
     bs = result_df.groupby("Branch").agg(
         Contracts=("Contract_No","nunique"),
         GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
         Total_Material=("Material_Amount","sum"),
         Total_GST=("GST_On_Material","sum"),
         Total_Bill=("Total_Bill_Amount","sum"),
-        Total_Payment=("Payment_Amount","sum"),
         Total_EMD=("EMD_Allocated","sum"),
         Total_EMD_Interest=("EMD_Interest","sum"),
         Total_Cash_Disc=("Cash_Discount","sum"),
@@ -1714,6 +1731,8 @@ def branch_wise_summary(result_df):
         Total_CC=("Carry_Charges","sum"),
         Total_CC_GST=("Carry_GST","sum"),
     ).reset_index()
+    # Actual payment from uploaded Payment sheet (not FIFO-allocated per GRN)
+    bs["Total_Payment"] = bs["Branch"].map(branch_actual_pay).fillna(0)
     # Total Payment + EMD = Total Payment kiya + Total EMD Allocated
     bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD"]
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
@@ -1791,12 +1810,13 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
                 detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
         detail_export = pd.concat([detail_export, pd.DataFrame([detail_total])], ignore_index=True)
         pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
+        pay_col = "Actual_Payment_Total" if "Actual_Payment_Total" in result_df.columns else "Payment_Amount"
+        cn_actual_pay = result_df.drop_duplicates("Contract_No").set_index("Contract_No")[pay_col]
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
             Total_Material=("Material_Amount","sum"),
             Total_GST=("GST_On_Material","sum"),
             Total_Bill=("Total_Bill_Amount","sum"),
-            Total_Payment=("Payment_Amount","sum"),
             Total_EMD=("EMD_Allocated","sum"),
             Total_EMD_Interest=("EMD_Interest","sum"),
             Total_Cash_Disc=("Cash_Discount","sum"),
@@ -1805,7 +1825,9 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             Total_CC=("Carry_Charges","sum"),
             Total_CC_GST=("Carry_GST","sum"),
         ).reset_index()
-        # Shortage / Excess (original, simple) = Total Bill − Total Payment − Total EMD Allocated
+        # Actual payment from uploaded Payment sheet (not FIFO per GRN)
+        summary["Total_Payment"] = summary["Contract_No"].map(cn_actual_pay).fillna(0)
+        # Shortage / Excess
         # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
         summary["Shortage_Excess"] = (
             summary["Total_Bill"] - summary["Total_Payment"] - summary["Total_EMD"]
@@ -2474,15 +2496,19 @@ with tab_results:
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">📋 Contract-wise Summary</div>', unsafe_allow_html=True)
+        pay_col_ui = "Actual_Payment_Total" if "Actual_Payment_Total" in df.columns else "Payment_Amount"
+        cn_actual_pay_ui = df.drop_duplicates("Contract_No").set_index("Contract_No")[pay_col_ui]
         summary = df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Bales=("Bales","sum"),
             Material=("Material_Amount","sum"), GST=("GST_On_Material","sum"),
-            Total_Bill=("Total_Bill_Amount","sum"), Payment=("Payment_Amount","sum"),
+            Total_Bill=("Total_Bill_Amount","sum"),
             EMD_Alloc=("EMD_Allocated","sum"), EMD_Interest=("EMD_Interest","sum"),
             Cash_Disc=("Cash_Discount","sum"), LL_Chg=("Late_Lifting_Chg","sum"),
             LL_GST=("Late_Lifting_GST","sum"), CC_Chg=("Carry_Charges","sum"),
             CC_GST=("Carry_GST","sum"),
         ).reset_index()
+        # Actual payment from uploaded Payment sheet (not FIFO per GRN)
+        summary["Payment"] = summary["Contract_No"].map(cn_actual_pay_ui).fillna(0)
         # Shortage / Excess (original, simple) = Total Bill − Payment − EMD Allocated
         # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
         summary["Shortage_Excess"] = summary["Total_Bill"] - summary["Payment"] - summary["EMD_Alloc"]
