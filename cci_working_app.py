@@ -1260,21 +1260,10 @@ def parse_excel(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheets = xl.sheet_names
     cont = pd.read_excel(xl, sheet_name=sheets[0], header=0)
-    # Sheet 1 supports optional 5th column "Group"
-    # Layout: Contract No | Effective Date | Bales | Branch | Group (optional)
-    if cont.shape[1] >= 5:
-        cont = cont.iloc[:, :5].copy()
-        cont.columns = ["Contract_No","Effective_Date","Bales","Branch","Group"]
-    else:
-        cont = cont.iloc[:, :4].copy()
-        cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
-        cont["Group"] = ""
+    cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
     cont = cont.dropna(subset=["Contract_No"])
     cont["Effective_Date"] = pd.to_datetime(cont["Effective_Date"], errors="coerce")
     cont["Bales"] = pd.to_numeric(cont["Bales"], errors="coerce")
-    cont["Group"] = cont["Group"].apply(
-        lambda x: str(x).strip().upper() if pd.notna(x) and str(x).strip() not in ("","NAN","NONE") else ""
-    )
     raw2 = pd.read_excel(xl, sheet_name=sheets[1], header=None)
     emd = raw2.iloc[1:,[0,1,2]].copy()
     emd.columns = ["Contract_No","EMD_Date","EMD_Amount"]
@@ -1315,35 +1304,23 @@ def parse_excel(file_bytes):
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
-def _get_mc_for_contract(cn, all_contracts, group_name=""):
+def _get_mc_for_contract(cn, all_contracts):
     """
-    Master lookup — priority order:
-    1. Exact match on contract_no  (specific contract)
-    2. Group match  — if upload sheet has a Group column, find master whose
-       contract_no == group_name (e.g. "GROUP-A")
-    3. DEFAULT fallback — master whose contract_no == "DEFAULT"
-    4. Last resort: first available master
+    EITHER/OR master lookup:
+    1. Check if a contract master exists whose contract_no matches cn exactly.
+    2. If found → use that master's conditions.
+    3. If NOT found → fall back to DEFAULT contract master.
     """
-    cn_str    = str(cn).strip().upper()
-    grp_str   = str(group_name).strip().upper() if group_name else ""
-
-    # Pass 1: exact contract number match
+    cn_str = str(cn).strip().upper()
+    # First pass: exact match on contract_no (case-insensitive)
     for c in all_contracts:
         if str(c.get("contract_no", "")).strip().upper() == cn_str:
             return c
-
-    # Pass 2: group match (only when upload sheet has a non-empty Group value)
-    if grp_str:
-        for c in all_contracts:
-            if str(c.get("contract_no", "")).strip().upper() == grp_str:
-                return c
-
-    # Pass 3: DEFAULT fallback
+    # Second pass: DEFAULT fallback
     for c in all_contracts:
         if str(c.get("contract_no", "")).strip().upper() == "DEFAULT":
             return c
-
-    # Last resort
+    # Last resort: return first available master
     return all_contracts[0] if all_contracts else {}
 
 
@@ -1356,20 +1333,9 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     _contracts_list = mc_or_contracts if isinstance(mc_or_contracts, list) else None
     _single_mc      = mc_or_contracts if not isinstance(mc_or_contracts, list) else None
 
-    # Build contract → group map from upload sheet (cont DataFrame)
-    # Key: contract_no (upper), Value: group name (upper) or ""
-    _group_map = {}
-    if "Group" in cont.columns:
-        for _, _r in cont.iterrows():
-            _k = str(_r["Contract_No"]).strip().upper()
-            _v = str(_r.get("Group","")).strip().upper()
-            if _v not in ("","NAN","NONE"):
-                _group_map[_k] = _v
-
     def _mc(cn):
-        grp = _group_map.get(str(cn).strip().upper(), "")
         if _contracts_list is not None:
-            return _get_mc_for_contract(cn, _contracts_list, group_name=grp)
+            return _get_mc_for_contract(cn, _contracts_list)
         return _single_mc
 
     # Pre-compute maps (contract-level, not row-level)
@@ -1759,7 +1725,10 @@ def branch_wise_summary(result_df):
     # Receivable / Payable = Total Payable − (Payment kiya + EMD Adjusted)
     # Positive → Payable   (abhi bhi CCI ko dena hai)
     # Negative → Receivable (zyada payment ho gayi, CCI se wapas milega)
-    bs["Receivable_Payable"] = bs["Total_Payable"] - (bs["Total_Payment"] + bs["Total_EMD"])
+    # Receivable / Payable = Total Payable − Total Payment (uploaded sheet) − Total EMD Allocated
+    # Positive → PAYABLE   (CCI ko abhi dena hai)
+    # Negative → RECEIVABLE (CCI se wapas milega)
+    bs["Receivable_Payable"] = bs["Total_Payable"] - bs["Total_Payment"] - bs["Total_EMD"]
     bs["Receivable_Payable_Mark"] = bs["Receivable_Payable"].apply(
         lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
         else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -1853,7 +1822,10 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         # Receivable / Payable = Total Payable − (Total Payment + Total EMD Allocated)
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
         # Same logic as Branch-wise Summary's Receivable/Payable.
-        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Total_Payment"] + summary["Total_EMD"])
+        # Receivable / Payable = Total Payable − Total Payment (uploaded sheet) − Total EMD Allocated
+        # Positive → PAYABLE   (CCI ko abhi dena hai)
+        # Negative → RECEIVABLE (CCI se wapas milega)
+        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Total_Payment"] - summary["Total_EMD"]
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2057,22 +2029,11 @@ with tab_masters:
                     st.session_state.cc_gst = float(pending_edit.get("cc_gst", 5.0) or 5.0)
                     st.session_state.cc_compound = "Applicable" if pending_edit.get("cc_compound") else "Not Applicable"
 
-                # Master type selector
-                st.markdown("""
-                <div style="background:rgba(234,88,12,0.08);border:1px solid rgba(234,88,12,0.25);
-                border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:#c2410c;font-weight:600">
-                💡 <b>Specific Contract</b> — enter actual contract number (e.g. VC25Y-00004)<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>Group Master</b> — enter group name (e.g. GROUP-A, GROUP-COTTON) —
-                all contracts in that group use these conditions
-                </div>""", unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
                 cproj  = c1.selectbox("Project ✱", open_projs, key="cproj")
-                cparty = c2.text_input("Party Name", key="cparty", placeholder="e.g. ABC Cotton Ltd. (optional for groups)")
+                cparty = c2.text_input("Party Name", key="cparty", placeholder="e.g. ABC Cotton Ltd.")
                 c3, c4 = st.columns(2)
-                cno    = c3.text_input(
-                    "Contract No / Group Name ✱", key="cno",
-                    placeholder="e.g. VC25Y-00004  OR  GROUP-A"
-                )
+                cno    = c3.text_input("Contract No ✱", key="cno", placeholder="e.g. RAY-110425")
                 cdt    = c4.date_input("Contract Date", key="cdt", value=None)
                 c5, c6 = st.columns(2)
                 ceff   = c5.date_input("Effective Date", key="ceff", value=None)
@@ -2309,7 +2270,7 @@ with tab_masters:
                 st.markdown(f"""
                 <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #c2410c;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:11.5px;color:#374151">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                    <span style="font-weight:700;font-size:13px;color:#c2410c">{c.get('contract_no','—')}{("&nbsp;<span style='background:#c2410c;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;letter-spacing:.05em'>GROUP</span>" if str(c.get('contract_no','')).strip().upper().startswith('GROUP') or str(c.get('contract_no','')).strip().upper()=='DEFAULT' else "")}</span>
+                    <span style="font-weight:700;font-size:13px;color:#c2410c">{c.get('contract_no','—')}</span>
                     <span style="color:#64748b;font-size:11px">{c.get('project','—')}</span>
                   </div>
                   <div style="color:#475569;margin-bottom:3px">{c.get('party','—')}</div>
@@ -2371,14 +2332,6 @@ with tab_upload:
 
             st.markdown('<div class="sec-label">📂 Upload Excel File</div>', unsafe_allow_html=True)
             st.caption("📋 Excel must have 3 sheets: PUR CONT DETAILS  |  EMD PAYMENT DETAILS  |  GRN BOOKING")
-            st.markdown("""
-            <div style="background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.22);
-            border-radius:8px;padding:8px 14px;margin-bottom:6px;font-size:11.5px;color:#92400e">
-            🗂️ <b>Group column (optional):</b> Add a 5th column <b>GROUP</b> in Sheet 1 (PUR CONT DETAILS).
-            Write the group name (e.g. <code>GROUP-A</code>) against each contract.
-            The engine will use that group's master conditions for calculation.
-            Contracts without a group use exact match or DEFAULT.
-            </div>""", unsafe_allow_html=True)
             uploaded_file = st.file_uploader("Choose Excel file (.xlsx)", type=["xlsx","xls"], label_visibility="collapsed")
 
             if uploaded_file:
@@ -2402,7 +2355,7 @@ with tab_upload:
     with col_u2:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
-            ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI | GROUP (optional)"),
+            ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI"),
             ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
@@ -2545,7 +2498,10 @@ with tab_results:
         # Receivable / Payable = Total Payable − (Payment + EMD Allocated)
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
         # Same logic as Branch-wise Summary's Receivable/Payable.
-        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Payment"] + summary["EMD_Alloc"])
+        # Receivable / Payable = Total Payable − Total Payment (uploaded sheet) − Total EMD Allocated
+        # Positive → PAYABLE   (CCI ko abhi dena hai)
+        # Negative → RECEIVABLE (CCI se wapas milega)
+        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Payment"] - summary["EMD_Alloc"]
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
