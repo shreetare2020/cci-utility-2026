@@ -1690,6 +1690,7 @@ _PRETTY_COL_MAP = {
     "Receivable_Payable_Mark": "Receivable/Payable Status",
     "Total_Payment_And_EMD": "Total Payment + EMD",
     "Total_Payable": "Total Payable",
+    "Actual_Payment_Total": "Actual Payment (Uploaded Sheet)",
 }
 
 import re as _re
@@ -1734,6 +1735,8 @@ def branch_wise_summary(result_df):
     # Actual payment from uploaded Payment sheet (not FIFO-allocated per GRN)
     bs["Total_Payment"] = bs["Branch"].map(branch_actual_pay).fillna(0)
     # Total Payment + EMD = Total Payment kiya + Total EMD Allocated
+    # Actual Payment column — visible in report, directly from uploaded Payment sheet
+    bs["Actual_Payment_Total"] = bs["Total_Payment"]
     bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD"]
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
     # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
@@ -1827,6 +1830,8 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         ).reset_index()
         # Actual payment from uploaded Payment sheet (not FIFO per GRN)
         summary["Total_Payment"] = summary["Contract_No"].map(cn_actual_pay).fillna(0)
+        # Actual Payment column — visible in report
+        summary["Actual_Payment_Total"] = summary["Total_Payment"]
         # Shortage / Excess
         # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
         summary["Shortage_Excess"] = (
@@ -2509,6 +2514,8 @@ with tab_results:
         ).reset_index()
         # Actual payment from uploaded Payment sheet (not FIFO per GRN)
         summary["Payment"] = summary["Contract_No"].map(cn_actual_pay_ui).fillna(0)
+        # Actual Payment column — visible in UI report
+        summary["Actual_Payment_Total"] = summary["Payment"]
         # Shortage / Excess (original, simple) = Total Bill − Payment − EMD Allocated
         # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
         summary["Shortage_Excess"] = summary["Total_Bill"] - summary["Payment"] - summary["EMD_Alloc"]
