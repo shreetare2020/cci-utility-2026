@@ -1260,7 +1260,6 @@ def parse_excel(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheets = xl.sheet_names
     cont = pd.read_excel(xl, sheet_name=sheets[0], header=0)
-    cont = cont.iloc[:, :4].copy()
     cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
     cont = cont.dropna(subset=["Contract_No"])
     cont["Effective_Date"] = pd.to_datetime(cont["Effective_Date"], errors="coerce")
@@ -1675,7 +1674,6 @@ _PRETTY_COL_MAP = {
     "Shortage_Excess_Mark": "Shortage/Excess Status",
     "Receivable_Payable": "Receivable / Payable",
     "Receivable_Payable_Mark": "Receivable/Payable Status",
-    "Actual_Payment_Total": "Actual Payment (Uploaded Sheet)",
     "Total_Payment_And_EMD": "Total Payment + EMD",
     "Total_Payable": "Total Payable",
 }
@@ -1694,7 +1692,7 @@ def pretty_columns(df):
     """Return a copy of df with human-readable column headers."""
     return df.rename(columns={c: pretty_col(c) for c in df.columns})
 
-def branch_wise_summary(result_df, pay=None):
+def branch_wise_summary(result_df):
     """Aggregate the GRN-wise result into a Branch-level summary."""
     if "Branch" not in result_df.columns:
         return pd.DataFrame()
@@ -1717,28 +1715,17 @@ def branch_wise_summary(result_df, pay=None):
     bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD"]
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
     # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
-    # CCI (Cash Discount, interest on our EMD deposit).\
+    # CCI (Cash Discount, interest on our EMD deposit).
     # Total Payable = Total Bill + Late Lifting + LL GST + Carrying + CC GST − Cash Discount − EMD Interest
     bs["Total_Payable"] = (
         bs["Total_Bill"] + bs["Total_LL"] + bs["Total_LL_GST"]
         + bs["Total_CC"] + bs["Total_CC_GST"]
         - bs["Total_Cash_Disc"] - bs["Total_EMD_Interest"]
     )
-    # Actual Payment from uploaded Payment sheet — used ONLY for Receivable/Payable
-    # branch_map: contract → branch (from result_df)
-    if pay is not None:
-        branch_map_cn = result_df.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
-        pay_cn_key = pay.copy()
-        pay_cn_key["_key"] = pay_cn_key["Contract_No"].astype(str).str.strip().str.upper()
-        pay_cn_key["_branch"] = pay_cn_key["_key"].map(
-            {str(k).strip().upper(): v for k, v in branch_map_cn.items()}
-        )
-        branch_actual_pay = pay_cn_key.groupby("_branch")["Payment_Amount"].sum()
-        bs["Actual_Payment_Total"] = bs["Branch"].map(branch_actual_pay).fillna(0)
-    else:
-        bs["Actual_Payment_Total"] = bs["Total_Payment"]
-    # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − Total EMD Allocated
-    bs["Receivable_Payable"] = bs["Total_Payable"] - bs["Actual_Payment_Total"] - bs["Total_EMD"]
+    # Receivable / Payable = Total Payable − (Payment kiya + EMD Adjusted)
+    # Positive → Payable   (abhi bhi CCI ko dena hai)
+    # Negative → Receivable (zyada payment ho gayi, CCI se wapas milega)
+    bs["Receivable_Payable"] = bs["Total_Payable"] - (bs["Total_Payment"] + bs["Total_EMD"])
     bs["Receivable_Payable_Mark"] = bs["Receivable_Payable"].apply(
         lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
         else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -1829,12 +1816,10 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             + summary["Total_CC"] + summary["Total_CC_GST"]
             - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
         )
-        # Actual payment from uploaded Payment sheet per contract (for Rec/Pay only)
-        _pay_cn_map = pay.groupby(pay["Contract_No"].astype(str).str.strip().str.upper())["Payment_Amount"].sum()
-        summary["Actual_Payment_Total"] = summary["Contract_No"].astype(str).str.strip().str.upper().map(_pay_cn_map).fillna(0)
-        # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − Total EMD Allocated
+        # Receivable / Payable = Total Payable − (Total Payment + Total EMD Allocated)
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
-        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["Total_EMD"]
+        # Same logic as Branch-wise Summary's Receivable/Payable.
+        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Total_Payment"] + summary["Total_EMD"])
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -1862,7 +1847,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
 
         # ── Branch-wise Summary ──────────────────────────────────────────────
-        branch_summary = branch_wise_summary(result_df, pay=pay)
+        branch_summary = branch_wise_summary(result_df)
         if not branch_summary.empty:
             pretty_columns(branch_summary).to_excel(w, sheet_name="Branch Summary", index=False)
 
@@ -2354,7 +2339,6 @@ with tab_upload:
                             result_df  = run_calculations(cont_df, emd_df, pay_df, grn_df, contracts)
                             excel_bytes = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df)
                             st.session_state["result_df"]   = result_df
-                            st.session_state["pay_df"]      = pay_df
                             st.session_state["excel_bytes"] = excel_bytes
                             st.markdown(f'<div class="success-msg">✅ {len(result_df)} GRNs calculated successfully! Switch to Results tab.</div>', unsafe_allow_html=True)
                         except Exception as e:
@@ -2383,7 +2367,6 @@ with tab_results:
         st.info("📭 No results yet. Upload an Excel file and run calculations.")
     else:
         df = st.session_state["result_df"]
-        _pay_df_ui = st.session_state.get("pay_df", None)
         tot_bill = df["Total_Bill_Amount"].sum()
         tot_emd  = df["EMD_Interest"].sum()
         tot_cd   = df["Cash_Discount"].sum()
@@ -2506,15 +2489,10 @@ with tab_results:
             + summary["CC_Chg"] + summary["CC_GST"]
             - summary["Cash_Disc"] - summary["EMD_Interest"]
         )
-        # Actual payment from uploaded Payment sheet per contract (for Rec/Pay only)
-        if _pay_df_ui is not None:
-            _pay_cn_map_ui = _pay_df_ui.groupby(_pay_df_ui["Contract_No"].astype(str).str.strip().str.upper())["Payment_Amount"].sum()
-            summary["Actual_Payment_Total"] = summary["Contract_No"].astype(str).str.strip().str.upper().map(_pay_cn_map_ui).fillna(0)
-        else:
-            summary["Actual_Payment_Total"] = summary["Payment"]
-        # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − EMD Allocated
+        # Receivable / Payable = Total Payable − (Payment + EMD Allocated)
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
-        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["EMD_Alloc"]
+        # Same logic as Branch-wise Summary's Receivable/Payable.
+        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Payment"] + summary["EMD_Alloc"])
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2551,7 +2529,7 @@ with tab_results:
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
-        branch_summary_ui = branch_wise_summary(df, pay=_pay_df_ui).copy()
+        branch_summary_ui = branch_wise_summary(df).copy()
         if not branch_summary_ui.empty:
             _branch_money_cols = [c for c in branch_summary_ui.columns if c not in ("Branch","Contracts","GRNs","Total_Bales","Receivable_Payable_Mark")]
             for c in _branch_money_cols:
