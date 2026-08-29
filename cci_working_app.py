@@ -1706,7 +1706,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 def fmt_date(v):
     try:
         if pd.isna(v): return "—"
-        return pd.Timestamp(v).strftime("%d-%b-%Y")
+        return pd.Timestamp(v).strftime("%d-%m-%Y")
     except:
         return "—"
 
@@ -1897,7 +1897,22 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             if c in detail_export.columns:
                 detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
         detail_export = pd.concat([detail_export, pd.DataFrame([detail_total])], ignore_index=True)
+        # Force date-only Excel values BEFORE writing.  This prevents Excel from
+        # inheriting pandas datetime display (HH:MM:SS).  Python date objects
+        # are written as true Excel dates and formatted as DD-MM-YYYY.
+        _excel_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End"]
+        for _dc in _excel_date_cols:
+            if _dc in detail_export.columns:
+                detail_export[_dc] = pd.to_datetime(detail_export[_dc], errors="coerce").dt.date
         pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
+        _ws_tmp = w.book["GRN Calculation"]
+        _hdr_tmp = {c.value: c.column for c in _ws_tmp[1]}
+        for _h in ["Effective Date", "Party Bill Date", "EMD Date", "Payment Date", "CD Due Date", "CC Free End"]:
+            if _h in _hdr_tmp:
+                for _cell in _ws_tmp.iter_cols(min_col=_hdr_tmp[_h], max_col=_hdr_tmp[_h], min_row=2, max_row=_ws_tmp.max_row):
+                    for _c in _cell:
+                        if _c.value is not None:
+                            _c.number_format = "dd-mm-yyyy"
         summary = result_df.groupby("Contract_No").agg(
             GRNs=("GRN_No","count"), Total_Bales=("Bales","sum"),
             Total_Material=("Material_Amount","sum"),
@@ -1970,6 +1985,37 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
         grn.to_excel(w, sheet_name="GRN Booking", index=False)
+
+        # ── FINAL EXCEL DATE FORMAT SAFETY ──────────────────────────────────
+        # All exported date columns are forced to date-only values and shown
+        # as DD-MM-YYYY.  This changes only the display/value type, never row
+        # order or the underlying calculation sequence.
+        _date_columns_by_sheet = {
+            "GRN Calculation": ["Effective Date", "Party Bill Date", "EMD Date", "Payment Date", "CD Due Date", "CC Free End"],
+            "PUR CONT": ["Effective_Date"],
+            "EMD Payments": ["EMD_Date"],
+            "Final Payments": ["Payment_Date"],
+            "GRN Booking": ["Party_Bill_Date", "Final_Indent_Date"],
+        }
+        for _ws_name, _headers in _date_columns_by_sheet.items():
+            _ws = w.book[_ws_name]
+            _header_pos = {cell.value: cell.column for cell in _ws[1]}
+            for _header in _headers:
+                _col_idx = _header_pos.get(_header)
+                if _col_idx is None:
+                    continue
+                for _row in range(2, _ws.max_row + 1):
+                    _c = _ws.cell(_row, _col_idx)
+                    if _c.value is None:
+                        continue
+                    try:
+                        _d = pd.to_datetime(_c.value, errors="coerce", dayfirst=True)
+                        if not pd.isna(_d):
+                            _c.value = _d.date()
+                            _c.number_format = "dd-mm-yyyy"
+                    except Exception:
+                        pass
+
     buf.seek(0)
     return buf.getvalue()
 
