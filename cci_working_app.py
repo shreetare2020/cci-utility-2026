@@ -1327,33 +1327,43 @@ def _norm_key(v):
 
 def _get_mc_for_contract(cn, all_contracts, upload_group=""):
     """
-    Contract Master priority:
-      1. Exact Contract No match -> contract-specific conditions.
-      2. If no exact match, upload Group == Contract Master Group
-         -> group conditions apply to the whole upload group.
+    Resolve the Contract Master condition for one uploaded contract.
+
+    STRICT PRIORITY:
+      1. Exact Contract No match.
+      2. If no exact Contract No, match the uploaded Group against the
+         Contract Master's Group field.
       3. If neither matches, use DEFAULT.
 
-    Exact Contract No always overrides Group.
+    Compatibility: older Firebase records may store Group as `group`,
+    `Group`, `group_name`, `group_no`, or `group_code`.
     """
     cn_key = _norm_key(cn)
     group_key = _norm_key(upload_group)
 
-    # 1) Exact contract match has highest priority.
+    # 1) Exact Contract No always wins.
     if cn_key:
         for c in all_contracts:
-            if _norm_key(c.get("contract_no", "")) == cn_key:
+            if _norm_key(c.get("contract_no", c.get("Contract_No", ""))) == cn_key:
                 return c
 
-    # 2) No exact contract match -> Group match.
+    # 2) Group match. The upload Group is the authoritative group for the
+    # contract, so do NOT read Group from GRN BOOKING.
     if group_key:
         for c in all_contracts:
-            master_group = c.get("group", c.get("Group", c.get("group_name", "")))
+            master_group = (
+                c.get("group", "") or
+                c.get("Group", "") or
+                c.get("group_name", "") or
+                c.get("group_no", "") or
+                c.get("group_code", "")
+            )
             if _norm_key(master_group) == group_key:
                 return c
 
-    # 3) Final fallback -> DEFAULT.
+    # 3) DEFAULT only after both checks fail.
     for c in all_contracts:
-        if _norm_key(c.get("contract_no", "")) == "DEFAULT":
+        if _norm_key(c.get("contract_no", c.get("Contract_No", ""))) == "DEFAULT":
             return c
 
     return all_contracts[0] if all_contracts else {}
@@ -1411,16 +1421,40 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
 
     branch_map = {}
+    group_map = {}
     for _, r in cont.drop_duplicates("Contract_No").iterrows():
-        key = str(r["Contract_No"]).strip().upper()
-        branch_map[key] = str(r.get("Branch", "") or "")
+        key = _norm_key(r.get("Contract_No", ""))
+        branch_map[key] = str(r.get("Branch", "") or "").strip()
+        # IMPORTANT: Group belongs to PUR CONT DETAILS, not GRN BOOKING.
+        # Build a Contract -> Group map so every GRN row can inherit its
+        # upload group's master conditions.
+        group_map[key] = str(r.get("Group", "") or "").strip()
     results = []
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
 
         # ── PER-ROW MASTER LOOKUP (CONTRACT > GROUP > DEFAULT) ─────────────
-        row_group    = str(row.get("Group", "") or "").strip()
-        row_mc       = _mc(cn, row_group)
+        # GRN BOOKING does NOT contain Group. Group is defined in PUR CONT DETAILS,
+        # therefore it MUST be obtained from the Contract -> Group map above.
+        cn_key_for_group = _norm_key(cn)
+        row_group = group_map.get(cn_key_for_group, "")
+        row_mc = _mc(cn, row_group)
+        # Record exactly which master rule was selected so a report can never
+        # silently hide a wrong 30-day/default match.
+        matched_contract_key = _norm_key(row_mc.get("contract_no", row_mc.get("Contract_No", "")))
+        matched_group_key = _norm_key(
+            row_mc.get("group", "") or row_mc.get("Group", "") or
+            row_mc.get("group_name", "") or row_mc.get("group_no", "") or
+            row_mc.get("group_code", "")
+        )
+        if matched_contract_key == cn_key_for_group:
+            match_rule = "CONTRACT"
+        elif row_group and matched_group_key == _norm_key(row_group):
+            match_rule = "GROUP"
+        elif matched_contract_key == "DEFAULT":
+            match_rule = "DEFAULT"
+        else:
+            match_rule = "FALLBACK"
         emd_rate     = sf(row_mc.get("emd_percent"), 5.0)
         cd_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cd_slabs",[])]
         ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("ll_slabs",[])]
@@ -1626,7 +1660,15 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         results.append({
             "Contract_No":cn, "GRN_No":row["GRN_No"], "Branch": branch,
-            "Group": row_group, "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
+            "Group": row_group,
+            "Matched_Master_Contract": str(row_mc.get("contract_no", row_mc.get("Contract_No", "")) or ""),
+            "Matched_Master_Group": str(
+                row_mc.get("group", "") or row_mc.get("Group", "") or
+                row_mc.get("group_name", "") or row_mc.get("group_no", "") or
+                row_mc.get("group_code", "") or ""
+            ),
+            "Match_Rule": match_rule,
+            "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
             "Payment_Amount":round(pay_alloc,2),
@@ -1658,6 +1700,9 @@ _PRETTY_COL_MAP = {
     "GRN_No": "GRN No",
     "Branch": "Branch",
     "Group": "Group",
+    "Matched_Master_Contract": "Matched Master Contract",
+    "Matched_Master_Group": "Matched Master Group",
+    "Match_Rule": "Match Rule",
     "Effective_Date": "Effective Date",
     "Party_Bill_Date": "Party Bill Date",
     "Bales": "Bales",
@@ -2405,7 +2450,7 @@ with tab_upload:
     with col_u2:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
-            ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI"),
+            ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI | GROUP"),
             ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
@@ -2624,6 +2669,8 @@ with tab_help:
         ("📥 Data & Date Sources", [
             "Effective Date = PUR CONT DETAILS (uploaded Excel) per Contract No.",
             "Branch = PUR CONT DETAILS (uploaded Excel) per Contract No.",
+            "Group = PUR CONT DETAILS (uploaded Excel) per Contract No.",
+            "Master priority = exact Contract No > Group > DEFAULT.",
             "GST on Material = IGST from GRN BOOKING row.",
             "Party Bill / Lifting Date = Party Bill Date from GRN BOOKING.",
             "CC Free Days / slabs / GST / compound flag = matched Contract Master.",
