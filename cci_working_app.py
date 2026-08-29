@@ -1212,6 +1212,10 @@ if "editing_contract_no" not in st.session_state:
     st.session_state.editing_contract_no = None
 if "clear_contract_flag" not in st.session_state:
     st.session_state.clear_contract_flag = False
+if "cgroup" not in st.session_state:
+    st.session_state.cgroup = ""
+if "cd_free" not in st.session_state:
+    st.session_state.cd_free = 0
 
 def persist():
     fs_save(st.session_state.masters)
@@ -1219,7 +1223,9 @@ def persist():
 # ─── SAFE FLOAT ───────────────────────────────────────────────────────────────
 def sf(val, default=0.0):
     try:
-        return float(val) if val not in ('', None) else default
+        if val in ('', None) or pd.isna(val):
+            return default
+        return float(val)
     except:
         return default
 
@@ -1260,8 +1266,29 @@ def parse_excel(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheets = xl.sheet_names
     cont = pd.read_excel(xl, sheet_name=sheets[0], header=0)
-    cont = cont.iloc[:, :4].copy()
-    cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
+    # PUR CONT DETAILS: detect columns by header so Group is not discarded.
+    _cols = {str(c).strip().lower().replace(" ", "_"): c for c in cont.columns}
+    def _find_col(*names):
+        for n in names:
+            k = n.strip().lower().replace(" ", "_")
+            if k in _cols:
+                return _cols[k]
+        return None
+    _cn = _find_col("contract_no", "contract no", "contractno")
+    _ed = _find_col("effective_date", "effective date", "effectivedate")
+    _ba = _find_col("bales", "contracted_bales")
+    _br = _find_col("branch")
+    _gr = _find_col("group", "group_name", "group name")
+    if _cn is None or _ed is None:
+        raise ValueError("PUR CONT DETAILS must contain Contract No and Effective Date columns.")
+    out = pd.DataFrame({
+        "Contract_No": cont[_cn],
+        "Effective_Date": cont[_ed],
+        "Bales": cont[_ba] if _ba is not None else 0,
+        "Branch": cont[_br] if _br is not None else "",
+        "Group": cont[_gr] if _gr is not None else "",
+    })
+    cont = out.copy()
     cont = cont.dropna(subset=["Contract_No"])
     cont["Effective_Date"] = pd.to_datetime(cont["Effective_Date"], errors="coerce")
     cont["Bales"] = pd.to_numeric(cont["Bales"], errors="coerce")
@@ -1305,24 +1332,38 @@ def parse_excel(file_bytes):
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
-def _get_mc_for_contract(cn, all_contracts):
+def _norm_key(val):
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return ""
+    txt = str(val).strip().upper()
+    # Normalize Excel/string formatting differences.
+    if txt.endswith(".0") and txt[:-2].replace(".", "", 1).isdigit():
+        txt = txt[:-2]
+    # Group names may be entered as GROUP-1 / Group - 1 / group 1.
+    # Treat those as the same logical group key.
+    txt = txt.replace(" ", "").replace("-", "").replace("_", "")
+    return txt
+
+def _get_mc_for_contract(cn, group_name, all_contracts):
+    """Resolve applicable Contract Master conditions.
+
+    Priority required by business rule:
+      1) Exact Contract No master ALWAYS wins, regardless of upload Group.
+      2) Otherwise, if upload Group is populated, use the master for that Group.
+      3) No unrelated DEFAULT/first-contract fallback is allowed.
     """
-    EITHER/OR master lookup:
-    1. Check if a contract master exists whose contract_no matches cn exactly.
-    2. If found → use that master's conditions.
-    3. If NOT found → fall back to DEFAULT contract master.
-    """
-    cn_str = str(cn).strip().upper()
-    # First pass: exact match on contract_no (case-insensitive)
+    cn_key = _norm_key(cn)
+    grp_key = _norm_key(group_name)
+    # Contract-wise condition has highest priority.
     for c in all_contracts:
-        if str(c.get("contract_no", "")).strip().upper() == cn_str:
+        if _norm_key(c.get("contract_no", "")) == cn_key and cn_key:
             return c
-    # Second pass: DEFAULT fallback
-    for c in all_contracts:
-        if str(c.get("contract_no", "")).strip().upper() == "DEFAULT":
-            return c
-    # Last resort: return first available master
-    return all_contracts[0] if all_contracts else {}
+    # Group-wise condition applies only when no contract-specific master exists.
+    if grp_key:
+        for c in all_contracts:
+            if _norm_key(c.get("group", "")) == grp_key:
+                return c
+    return {}
 
 
 def run_calculations(cont, emd, pay, grn, mc_or_contracts):
@@ -1334,13 +1375,13 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     _contracts_list = mc_or_contracts if isinstance(mc_or_contracts, list) else None
     _single_mc      = mc_or_contracts if not isinstance(mc_or_contracts, list) else None
 
-    def _mc(cn):
+    def _mc(cn, group_name=""):
         if _contracts_list is not None:
-            return _get_mc_for_contract(cn, _contracts_list)
+            return _get_mc_for_contract(cn, group_name, _contracts_list)
         return _single_mc
 
     # Pre-compute maps (contract-level, not row-level)
-    mc_dummy = _mc("DEFAULT") or (_contracts_list[0] if _contracts_list else {})
+    mc_dummy = _mc("DEFAULT", "") or {}
     # We read slabs PER ROW now; the dummy is used only as a fallback reference
     _ = mc_dummy  # suppress unused warning
 
@@ -1378,23 +1419,32 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
     branch_map = {}
     for _, r in cont.drop_duplicates("Contract_No").iterrows():
-        key = str(r["Contract_No"]).strip().upper()
+        key = _norm_key(r["Contract_No"])
         branch_map[key] = str(r.get("Branch", "") or "")
     results = []
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
 
         # ── PER-ROW MASTER LOOKUP (EITHER/OR) ──────────────────────────────
-        row_mc       = _mc(cn)
+        row_group = ""
+        if "Group" in cont.columns:
+            _grows = cont.loc[cont["Contract_No"].map(_norm_key) == _norm_key(cn), "Group"]
+            if len(_grows):
+                row_group = str(_grows.iloc[0] if pd.notna(_grows.iloc[0]) else "").strip()
+        row_mc       = _mc(cn, row_group)
         emd_rate     = sf(row_mc.get("emd_percent"), 5.0)
         cd_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cd_slabs",[])]
         ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("ll_slabs",[])]
         ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
         cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
+        # CD Free Days is taken ONLY from the applicable Contract Master record.
+        # Do not infer it from a CD slab; the dedicated master field controls the due date.
+        cd_free_days = int(sf(row_mc.get("cd_free_days"), 0))
 
-        # CC FREE DAYS — from the same matched Contract Master (row_mc).
-        # row_mc is already the correct master for this contract (exact match or DEFAULT).
+        # CC FREE DAYS — from the SAME applicable master selected by priority:
+        # 1) exact Contract No match, otherwise 2) upload Group match.
+        # Never use another contract's/default value.
         cc_free_days = int(sf(row_mc.get("cc_free_days"), 0))
 
         ll_compound      = bool(row_mc.get("ll_compound", False))
@@ -1471,13 +1521,15 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         cd_due_days = 0
 
         if cd_slabs and not pd.isna(eff_date):
-            # Step 1: CD Due Date = Effective Date + highest slab days
+            # Step 1: CD Due Date = Effective Date + Contract Master CD Free Days
             valid_slabs = [s for s in cd_slabs if sf(s.get("days"), 0) > 0]
             if valid_slabs:
                 # Highest-days slab wins for both the due date and the rate
                 best_slab  = max(valid_slabs, key=lambda x: sf(x.get("days"), 0))
-                cd_due_days = int(sf(best_slab.get("days"), 0))
-                cd_pct_used = sf(best_slab.get("pct"), 0)
+                cd_due_days = int(cd_free_days)
+                # Prefer the slab whose days exactly equal CD Free Days.
+                _cd_match = next((x for x in valid_slabs if int(sf(x.get("days"), 0)) == cd_due_days), best_slab)
+                cd_pct_used = sf(_cd_match.get("pct"), 0)
                 cd_due_date = eff_date + pd.Timedelta(days=cd_due_days)
 
                 # Step 2: Check eligibility
@@ -2005,6 +2057,8 @@ with tab_masters:
                     _proj = pending_edit.get("project", open_projs[0])
                     st.session_state.cproj = _proj if _proj in open_projs else open_projs[0]
                     st.session_state.cparty = pending_edit.get("party", "")
+                    st.session_state.cgroup = pending_edit.get("group", "")
+                    st.session_state.cd_free = int(pending_edit.get("cd_free_days", 0) or 0)
                     st.session_state.cno = pending_edit.get("contract_no", "")
                     st.session_state.cdt = _edit_date(pending_edit.get("contract_date"))
                     st.session_state.ceff = _edit_date(pending_edit.get("effective_date"))
@@ -2044,6 +2098,9 @@ with tab_masters:
                 c3, c4 = st.columns(2)
                 cno    = c3.text_input("Contract No ✱", key="cno", placeholder="e.g. RAY-110425")
                 cdt    = c4.date_input("Contract Date", key="cdt", value=None)
+                c5g, c6g = st.columns(2)
+                cgroup = c5g.text_input("Group", key="cgroup", placeholder="e.g. Group-1")
+                c6g.caption("Upload sheet Group applies when no exact Contract No master exists.")
                 c5, c6 = st.columns(2)
                 ceff   = c5.date_input("Effective Date", key="ceff", value=None)
                 cbales = c6.number_input("Contracted Bales", key="cbales", min_value=0, value=0)
@@ -2056,6 +2113,8 @@ with tab_masters:
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 with st.expander("💸 Cash Discount (CD) Slabs — Click to expand/collapse", expanded=False):
+                    cd_free = st.number_input("CD Free Days — Contract Master", key="cd_free", min_value=0, value=0,
+                        help="CD Due Date = PUR CONT DETAILS Effective Date + this Contract Master CD Free Days. If 0, exact CD slab days are used for backward compatibility.")
                     cd1a,cd1b = st.columns(2)
                     cd1d = cd1a.number_input("Slab 1 Days", key="cd1d", min_value=0, value=0)
                     cd1p = cd1b.number_input("Slab 1 %", key="cd1p", min_value=0.0, value=0.0, step=0.01)
@@ -2138,11 +2197,13 @@ with tab_masters:
                                 "project": st.session_state.cproj,
                                 "party": st.session_state.cparty,
                                 "contract_no": st.session_state.cno,
+                                "group": str(st.session_state.get("cgroup", "")).strip(),
                                 "contract_date": str(st.session_state.cdt) if st.session_state.cdt else "",
                                 "effective_date": str(st.session_state.ceff) if st.session_state.ceff else "",
                                 "bales": int(st.session_state.cbales),
                                 "emd_days": int(st.session_state.emd_d),
                                 "emd_percent": float(st.session_state.emd_p),
+                                "cd_free_days": int(st.session_state.get("cd_free", 0)),
                                 "cd_slabs": [s for s in [
                                     {"days":int(st.session_state.cd1d),"pct":float(st.session_state.cd1p)},
                                     {"days":int(st.session_state.cd2d),"pct":float(st.session_state.cd2p)},
