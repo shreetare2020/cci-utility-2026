@@ -1904,6 +1904,20 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         for _dc in _excel_date_cols:
             if _dc in detail_export.columns:
                 detail_export[_dc] = pd.to_datetime(detail_export[_dc], errors="coerce").dt.date
+        # Convert calculation-report date cells to explicit DD-MM-YYYY TEXT before Excel write.
+        # This guarantees Excel cannot display a trailing 00:00:00, while preserving
+        # the exact existing row order (no sorting/reordering is performed).
+        _report_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End"]
+        for _dc in _report_date_cols:
+            if _dc in detail_export.columns:
+                def _date_text(_v):
+                    if pd.isna(_v) or _v == "":
+                        return ""
+                    try:
+                        return pd.Timestamp(_v).strftime("%d-%m-%Y")
+                    except Exception:
+                        return str(_v).split(" ")[0]
+                detail_export[_dc] = detail_export[_dc].apply(_date_text)
         pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
         _ws_tmp = w.book["GRN Calculation"]
         _hdr_tmp = {c.value: c.column for c in _ws_tmp[1]}
@@ -1998,6 +2012,9 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             "GRN Booking": ["Party_Bill_Date", "Final_Indent_Date"],
         }
         for _ws_name, _headers in _date_columns_by_sheet.items():
+            # GRN Calculation dates are already written as explicit DD-MM-YYYY text above.
+            if _ws_name == "GRN Calculation":
+                continue
             _ws = w.book[_ws_name]
             _header_pos = {cell.value: cell.column for cell in _ws[1]}
             for _header in _headers:
