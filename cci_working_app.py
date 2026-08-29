@@ -9,50 +9,192 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-# ─── FIREBASE ────────────────────────────────────────────────────────────────
-import firebase_admin
-from firebase_admin import credentials, firestore
+# ─── FIREBASE / FIRESTORE (REST) ──────────────────────────────────────────────
+# Use Firestore REST so the app can explicitly discover the existing database
+# instead of getting the SDK error: Invalid database id %28default%29.
+import requests
+from google.auth.transport.requests import AuthorizedSession
+from google.oauth2 import service_account
 
-# ─── FIREBASE INIT (works both locally and on Streamlit Cloud) ───────────────
-# Local:  place your service account JSON as  firebase_key.json  next to app
-# Cloud:  add credentials in Streamlit Secrets as [firebase] section
+FIREBASE_KEY_FILE = "firebase_key.json"
+_FIRESTORE_COLLECTION = "cci_utility"
+_FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore"
 
-FIREBASE_KEY_FILE = "firebase_key.json"   # local JSON file path
 
-def init_firebase():
-    if not firebase_admin._apps:
-        # ── Try Streamlit Secrets first (Streamlit Cloud) ──
-        try:
-            cred_dict = dict(st.secrets["firebase"])
-            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-            cred = credentials.Certificate(cred_dict)
-        except Exception:
-            # ── Fallback: local JSON file (localhost) ──
-            if not os.path.exists(FIREBASE_KEY_FILE):
-                st.error(
-                    f"❌ Firebase key not found!\n\n"
-                    f"**Localhost fix:** Place your Firebase service account JSON "
-                    f"as **`firebase_key.json`** in the same folder as `cci_working_app.py`"
-                )
-                st.stop()
-            cred = credentials.Certificate(FIREBASE_KEY_FILE)
-        firebase_admin.initialize_app(cred)
-    return firestore.client()
+def _load_firebase_credentials():
+    try:
+        cred_dict = dict(st.secrets["firebase"])
+        if "private_key" in cred_dict:
+            cred_dict["private_key"] = str(cred_dict["private_key"]).replace("\\n", "\n")
+        cred = service_account.Credentials.from_service_account_info(
+            cred_dict, scopes=[_FIRESTORE_SCOPE]
+        )
+        project_id = cred_dict.get("project_id") or cred.project_id
+        if not project_id:
+            raise ValueError("Firebase service account does not contain project_id")
+        return cred, project_id
+    except Exception:
+        if not os.path.exists(FIREBASE_KEY_FILE):
+            st.error(
+                "❌ Firebase credentials not found. Configure [firebase] in Streamlit Secrets "
+                "or place firebase_key.json beside the app."
+            )
+            st.stop()
+        cred = service_account.Credentials.from_service_account_file(
+            FIREBASE_KEY_FILE, scopes=[_FIRESTORE_SCOPE]
+        )
+        if not cred.project_id:
+            st.error("❌ Firebase service account does not contain project_id.")
+            st.stop()
+        return cred, cred.project_id
 
-db = init_firebase()
+
+class _RestSnapshot:
+    def __init__(self, exists, data=None):
+        self.exists = bool(exists)
+        self._data = data or {}
+    def to_dict(self):
+        return dict(self._data)
+
+
+def _fs_encode(value):
+    if value is None:
+        return {"nullValue": None}
+    if isinstance(value, bool):
+        return {"booleanValue": value}
+    if isinstance(value, int) and not isinstance(value, bool):
+        return {"integerValue": str(value)}
+    if isinstance(value, float):
+        return {"doubleValue": value}
+    if isinstance(value, str):
+        return {"stringValue": value}
+    if isinstance(value, (list, tuple)):
+        return {"arrayValue": {"values": [_fs_encode(v) for v in value]}}
+    if isinstance(value, dict):
+        return {"mapValue": {"fields": {str(k): _fs_encode(v) for k, v in value.items()}}}
+    try:
+        import numpy as np
+        if isinstance(value, np.integer):
+            return {"integerValue": str(int(value))}
+        if isinstance(value, np.floating):
+            return {"doubleValue": float(value)}
+    except Exception:
+        pass
+    return {"stringValue": str(value)}
+
+
+def _fs_decode(value):
+    if not isinstance(value, dict):
+        return None
+    if "nullValue" in value: return None
+    if "stringValue" in value: return value["stringValue"]
+    if "booleanValue" in value: return value["booleanValue"]
+    if "integerValue" in value:
+        try: return int(value["integerValue"])
+        except Exception: return value["integerValue"]
+    if "doubleValue" in value: return value["doubleValue"]
+    if "timestampValue" in value: return value["timestampValue"]
+    if "bytesValue" in value: return value["bytesValue"]
+    if "referenceValue" in value: return value["referenceValue"]
+    if "geoPointValue" in value: return value["geoPointValue"]
+    if "arrayValue" in value:
+        return [_fs_decode(v) for v in value.get("arrayValue", {}).get("values", [])]
+    if "mapValue" in value:
+        return {k: _fs_decode(v) for k, v in value.get("mapValue", {}).get("fields", {}).items()}
+    return None
+
+
+cred, _firebase_project_id = _load_firebase_credentials()
+_firebase_session = AuthorizedSession(cred)
+
+
+def _discover_firestore_database():
+    """Return an actual database id from this Firebase project.
+    Prefer (default); otherwise use the only available Firestore database.
+    """
+    from urllib.parse import quote
+    url = f"https://firestore.googleapis.com/v1/projects/{quote(_firebase_project_id, safe='')}/databases"
+    r = _firebase_session.get(url, timeout=25)
+    r.raise_for_status()
+    items = r.json().get("databases", [])
+    db_ids = []
+    for item in items:
+        name = str(item.get("name", ""))
+        if "/databases/" in name:
+            db_ids.append(name.split("/databases/", 1)[1])
+    if "(default)" in db_ids:
+        return "(default)"
+    if len(db_ids) == 1:
+        return db_ids[0]
+    if db_ids:
+        # Prefer a database explicitly named default-ish; otherwise first listed.
+        for preferred in ("default", "firestore", "cci"):
+            for dbid in db_ids:
+                if dbid.lower() == preferred:
+                    return dbid
+        return db_ids[0]
+    raise RuntimeError("No Firestore database was found in the Firebase project.")
+
+
+_FIRESTORE_DB_ID = _discover_firestore_database()
+
+
+def _document_url(collection, document):
+    from urllib.parse import quote
+    # IMPORTANT: keep parentheses in the default database id unescaped.
+    db_id = quote(_FIRESTORE_DB_ID, safe="()")
+    return (
+        f"https://firestore.googleapis.com/v1/projects/{quote(_firebase_project_id, safe='')}"
+        f"/databases/{db_id}/documents/{quote(collection, safe='')}/{quote(document, safe='')}"
+    )
+
+
+class _RestDocument:
+    def __init__(self, collection, document):
+        self.collection = collection
+        self.document = document
+    def get(self):
+        response = _firebase_session.get(_document_url(self.collection, self.document), timeout=25)
+        if response.status_code == 404:
+            return _RestSnapshot(False, {})
+        response.raise_for_status()
+        payload = response.json()
+        return _RestSnapshot(True, {k: _fs_decode(v) for k, v in payload.get("fields", {}).items()})
+    def set(self, data):
+        payload = {"fields": {str(k): _fs_encode(v) for k, v in dict(data).items()}}
+        response = _firebase_session.patch(_document_url(self.collection, self.document), json=payload, timeout=25)
+        response.raise_for_status()
+        return response.json()
+
+
+class _RestCollection:
+    def __init__(self, collection): self.collection = collection
+    def document(self, document): return _RestDocument(self.collection, document)
+
+
+class _RestFirestore:
+    def collection(self, collection): return _RestCollection(collection)
+
+
+db = _RestFirestore()
+
 
 def fs_load():
     try:
-        doc = db.collection("cci_utility").document("masters").get()
+        doc = db.collection(_FIRESTORE_COLLECTION).document("masters").get()
         if doc.exists:
-            return doc.to_dict()
+            data = doc.to_dict()
+            data.setdefault("projects", [])
+            data.setdefault("contracts", [])
+            return data
     except Exception as e:
         st.warning(f"Firebase read error: {e}")
     return {"projects": [], "contracts": []}
 
+
 def fs_save(data):
     try:
-        db.collection("cci_utility").document("masters").set(data)
+        db.collection(_FIRESTORE_COLLECTION).document("masters").set(data)
     except Exception as e:
         st.error(f"Firebase save error: {e}")
 
@@ -673,22 +815,30 @@ div[data-testid="stFileUploader"] button {
 _DEFAULT_USERS = {"admin": "cci@2025", "softview": "sv@admin"}
 
 def _load_users():
-    """Returns dict: {username: {"password": str, "mobile": str, "email": str}} """
+    """Load users from the same existing Firestore project/database as all masters."""
     try:
         doc = db.collection("cci_utility").document("app_users").get()
         if doc.exists:
-            raw = doc.to_dict().get("users", {})
-            # Migrate legacy flat {user: password} format to rich format
+            raw = doc.to_dict().get("users", {}) or {}
             migrated = {}
             for k, v in raw.items():
                 if isinstance(v, str):
                     migrated[k] = {"password": v, "mobile": "", "email": ""}
-                else:
-                    migrated[k] = v
+                elif isinstance(v, dict):
+                    migrated[k] = {
+                        "password": str(v.get("password", "")),
+                        "mobile": str(v.get("mobile", "")),
+                        "email": str(v.get("email", "")),
+                    }
             return migrated if migrated else _get_default_users_rich()
-    except Exception:
-        pass
-    return _get_default_users_rich()
+        # First run only: create the default user document once.
+        defaults = _get_default_users_rich()
+        db.collection("cci_utility").document("app_users").set({"users": defaults})
+        return defaults
+    except Exception as e:
+        st.warning(f"Firebase users read error: {e}")
+        return _get_default_users_rich()
+
 
 def _get_default_users_rich():
     rich = {}
@@ -696,11 +846,14 @@ def _get_default_users_rich():
         rich[k] = {"password": v, "mobile": "", "email": ""}
     return rich
 
+
 def _save_users(users_dict):
     try:
         db.collection("cci_utility").document("app_users").set({"users": users_dict})
+        return True
     except Exception as e:
         st.error(f"User save error: {e}")
+        return False
 
 
 # ─── CLEAN CONTRACT CARD STYLES ──────────────────────────────────────────────
@@ -751,14 +904,12 @@ def _do_login():
             import datetime as _dt2
             _ts = _dt2.datetime.now().strftime("%d-%b-%Y %H:%M:%S")
             _hist_doc = db.collection("cci_utility").document("login_history").get()
-            _hist_data = _hist_doc.to_dict().get("history", {}) if _hist_doc.exists else {}
-            if u not in _hist_data:
-                _hist_data[u] = []
-            _hist_data[u].append(_ts)
-            _hist_data[u] = _hist_data[u][-20:]  # keep last 20
+            _hist_data = (_hist_doc.to_dict().get("history", {}) if _hist_doc.exists else {}) or {}
+            _hist_data.setdefault(u, [])
+            _hist_data[u] = list(_hist_data[u])[-19:] + [_ts]
             db.collection("cci_utility").document("login_history").set({"history": _hist_data})
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"Login history save error: {e}")
     else:
         st.session_state._login_error = "❌ Invalid username or password."
 
@@ -1109,6 +1260,7 @@ def parse_excel(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheets = xl.sheet_names
     cont = pd.read_excel(xl, sheet_name=sheets[0], header=0)
+    cont = cont.iloc[:, :4].copy()
     cont.columns = ["Contract_No","Effective_Date","Bales","Branch"]
     cont = cont.dropna(subset=["Contract_No"])
     cont["Effective_Date"] = pd.to_datetime(cont["Effective_Date"], errors="coerce")
@@ -1523,6 +1675,7 @@ _PRETTY_COL_MAP = {
     "Shortage_Excess_Mark": "Shortage/Excess Status",
     "Receivable_Payable": "Receivable / Payable",
     "Receivable_Payable_Mark": "Receivable/Payable Status",
+    "Actual_Payment_Total": "Actual Payment (Uploaded Sheet)",
     "Total_Payment_And_EMD": "Total Payment + EMD",
     "Total_Payable": "Total Payable",
 }
@@ -1541,7 +1694,7 @@ def pretty_columns(df):
     """Return a copy of df with human-readable column headers."""
     return df.rename(columns={c: pretty_col(c) for c in df.columns})
 
-def branch_wise_summary(result_df):
+def branch_wise_summary(result_df, pay=None):
     """Aggregate the GRN-wise result into a Branch-level summary."""
     if "Branch" not in result_df.columns:
         return pd.DataFrame()
@@ -1564,17 +1717,28 @@ def branch_wise_summary(result_df):
     bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD"]
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
     # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
-    # CCI (Cash Discount, interest on our EMD deposit).
+    # CCI (Cash Discount, interest on our EMD deposit).\
     # Total Payable = Total Bill + Late Lifting + LL GST + Carrying + CC GST − Cash Discount − EMD Interest
     bs["Total_Payable"] = (
         bs["Total_Bill"] + bs["Total_LL"] + bs["Total_LL_GST"]
         + bs["Total_CC"] + bs["Total_CC_GST"]
         - bs["Total_Cash_Disc"] - bs["Total_EMD_Interest"]
     )
-    # Receivable / Payable = Total Payable − (Payment kiya + EMD Adjusted)
-    # Positive → Payable   (abhi bhi CCI ko dena hai)
-    # Negative → Receivable (zyada payment ho gayi, CCI se wapas milega)
-    bs["Receivable_Payable"] = bs["Total_Payable"] - (bs["Total_Payment"] + bs["Total_EMD"])
+    # Actual Payment from uploaded Payment sheet — used ONLY for Receivable/Payable
+    # branch_map: contract → branch (from result_df)
+    if pay is not None:
+        branch_map_cn = result_df.drop_duplicates("Contract_No").set_index("Contract_No")["Branch"].to_dict()
+        pay_cn_key = pay.copy()
+        pay_cn_key["_key"] = pay_cn_key["Contract_No"].astype(str).str.strip().str.upper()
+        pay_cn_key["_branch"] = pay_cn_key["_key"].map(
+            {str(k).strip().upper(): v for k, v in branch_map_cn.items()}
+        )
+        branch_actual_pay = pay_cn_key.groupby("_branch")["Payment_Amount"].sum()
+        bs["Actual_Payment_Total"] = bs["Branch"].map(branch_actual_pay).fillna(0)
+    else:
+        bs["Actual_Payment_Total"] = bs["Total_Payment"]
+    # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − Total EMD Allocated
+    bs["Receivable_Payable"] = bs["Total_Payable"] - bs["Actual_Payment_Total"] - bs["Total_EMD"]
     bs["Receivable_Payable_Mark"] = bs["Receivable_Payable"].apply(
         lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
         else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -1585,7 +1749,11 @@ def branch_wise_summary(result_df):
     for c in bs.columns:
         if c not in skip_cols:
             bs_total[c] = pd.to_numeric(bs[c], errors="coerce").sum()
-    bs_total["Receivable_Payable_Mark"] = ""
+    _total_rp = bs_total.get("Receivable_Payable", 0)
+    bs_total["Receivable_Payable_Mark"] = (
+        "PAYABLE" if pd.notna(_total_rp) and float(_total_rp) > 0
+        else ("RECEIVABLE" if pd.notna(_total_rp) and float(_total_rp) < 0 else "CLEAR")
+    )
     bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
     return bs
 
@@ -1661,10 +1829,12 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             + summary["Total_CC"] + summary["Total_CC_GST"]
             - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
         )
-        # Receivable / Payable = Total Payable − (Total Payment + Total EMD Allocated)
+        # Actual payment from uploaded Payment sheet per contract (for Rec/Pay only)
+        _pay_cn_map = pay.groupby(pay["Contract_No"].astype(str).str.strip().str.upper())["Payment_Amount"].sum()
+        summary["Actual_Payment_Total"] = summary["Contract_No"].astype(str).str.strip().str.upper().map(_pay_cn_map).fillna(0)
+        # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − Total EMD Allocated
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
-        # Same logic as Branch-wise Summary's Receivable/Payable.
-        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Total_Payment"] + summary["Total_EMD"])
+        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["Total_EMD"]
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -1678,13 +1848,21 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         for c in summary.columns:
             if c not in _skip:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
-        summary_total["Shortage_Excess_Mark"] = ""
-        summary_total["Receivable_Payable_Mark"] = ""
+        _total_se = summary_total.get("Shortage_Excess", 0)
+        summary_total["Shortage_Excess_Mark"] = (
+            "SHORTAGE" if pd.notna(_total_se) and float(_total_se) > 0
+            else ("EXCESS" if pd.notna(_total_se) and float(_total_se) < 0 else "CLEAR")
+        )
+        _total_rp = summary_total.get("Receivable_Payable", 0)
+        summary_total["Receivable_Payable_Mark"] = (
+            "PAYABLE" if pd.notna(_total_rp) and float(_total_rp) > 0
+            else ("RECEIVABLE" if pd.notna(_total_rp) and float(_total_rp) < 0 else "CLEAR")
+        )
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         pretty_columns(summary).to_excel(w, sheet_name="Summary", index=False)
 
         # ── Branch-wise Summary ──────────────────────────────────────────────
-        branch_summary = branch_wise_summary(result_df)
+        branch_summary = branch_wise_summary(result_df, pay=pay)
         if not branch_summary.empty:
             pretty_columns(branch_summary).to_excel(w, sheet_name="Branch Summary", index=False)
 
@@ -2176,6 +2354,7 @@ with tab_upload:
                             result_df  = run_calculations(cont_df, emd_df, pay_df, grn_df, contracts)
                             excel_bytes = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df)
                             st.session_state["result_df"]   = result_df
+                            st.session_state["pay_df"]      = pay_df
                             st.session_state["excel_bytes"] = excel_bytes
                             st.markdown(f'<div class="success-msg">✅ {len(result_df)} GRNs calculated successfully! Switch to Results tab.</div>', unsafe_allow_html=True)
                         except Exception as e:
@@ -2204,6 +2383,7 @@ with tab_results:
         st.info("📭 No results yet. Upload an Excel file and run calculations.")
     else:
         df = st.session_state["result_df"]
+        _pay_df_ui = st.session_state.get("pay_df", None)
         tot_bill = df["Total_Bill_Amount"].sum()
         tot_emd  = df["EMD_Interest"].sum()
         tot_cd   = df["Cash_Discount"].sum()
@@ -2326,10 +2506,15 @@ with tab_results:
             + summary["CC_Chg"] + summary["CC_GST"]
             - summary["Cash_Disc"] - summary["EMD_Interest"]
         )
-        # Receivable / Payable = Total Payable − (Payment + EMD Allocated)
+        # Actual payment from uploaded Payment sheet per contract (for Rec/Pay only)
+        if _pay_df_ui is not None:
+            _pay_cn_map_ui = _pay_df_ui.groupby(_pay_df_ui["Contract_No"].astype(str).str.strip().str.upper())["Payment_Amount"].sum()
+            summary["Actual_Payment_Total"] = summary["Contract_No"].astype(str).str.strip().str.upper().map(_pay_cn_map_ui).fillna(0)
+        else:
+            summary["Actual_Payment_Total"] = summary["Payment"]
+        # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − EMD Allocated
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
-        # Same logic as Branch-wise Summary's Receivable/Payable.
-        summary["Receivable_Payable"] = summary["Total_Payable"] - (summary["Payment"] + summary["EMD_Alloc"])
+        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["EMD_Alloc"]
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2345,8 +2530,16 @@ with tab_results:
         for c in summary.columns:
             if c not in _skip_ui:
                 summary_total[c] = pd.to_numeric(summary[c], errors="coerce").sum()
-        summary_total["Shortage_Excess_Mark"] = ""
-        summary_total["Receivable_Payable_Mark"] = ""
+        _total_se_ui = summary_total.get("Shortage_Excess", 0)
+        summary_total["Shortage_Excess_Mark"] = (
+            "SHORTAGE" if pd.notna(_total_se_ui) and float(_total_se_ui) > 0
+            else ("EXCESS" if pd.notna(_total_se_ui) and float(_total_se_ui) < 0 else "CLEAR")
+        )
+        _total_rp_ui = summary_total.get("Receivable_Payable", 0)
+        summary_total["Receivable_Payable_Mark"] = (
+            "PAYABLE" if pd.notna(_total_rp_ui) and float(_total_rp_ui) > 0
+            else ("RECEIVABLE" if pd.notna(_total_rp_ui) and float(_total_rp_ui) < 0 else "CLEAR")
+        )
         summary = pd.concat([summary, pd.DataFrame([summary_total])], ignore_index=True)
         _summary_money_cols = [c for c in summary.columns if c not in ("Contract_No","Branch","GRNs","Bales","Shortage_Excess_Mark","Receivable_Payable_Mark")]
         for c in _summary_money_cols:
@@ -2358,7 +2551,7 @@ with tab_results:
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sec-label">🏢 Branch-wise Summary</div>', unsafe_allow_html=True)
-        branch_summary_ui = branch_wise_summary(df).copy()
+        branch_summary_ui = branch_wise_summary(df, pay=_pay_df_ui).copy()
         if not branch_summary_ui.empty:
             _branch_money_cols = [c for c in branch_summary_ui.columns if c not in ("Branch","Contracts","GRNs","Total_Bales","Receivable_Payable_Mark")]
             for c in _branch_money_cols:
@@ -2475,25 +2668,22 @@ with tab_help:
 # TAB 5: USER MASTER
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_users:
-    # Only admin can manage users
-    current_user = st.session_state.get("_logged_user","")
+    current_user = st.session_state.get("_logged_user", "")
     if current_user != "admin":
         st.warning("⚠️ Only **admin** user can manage User Master.")
     else:
         st.markdown('<div class="sec-label">👤 User Management</div>', unsafe_allow_html=True)
         st.caption("Add, edit or delete application users. Admin account cannot be deleted.")
 
-        # Load users from Firebase
         all_users = _load_users()
 
-        # ── Add New User ──
         with st.expander("➕  Add New User", expanded=False):
             ua1, ua2 = st.columns(2)
-            new_uname   = ua1.text_input("Username ✱",    key="new_uname",   placeholder="e.g. user1")
-            new_upass   = ua2.text_input("Password ✱",    key="new_upass",   type="password", placeholder="Min 6 chars")
-            ua3, ua4    = st.columns(2)
-            new_umobile = ua3.text_input("Mobile No.",     key="new_umobile", placeholder="e.g. 9876543210")
-            new_uemail  = ua4.text_input("Email ID",       key="new_uemail",  placeholder="e.g. user@example.com")
+            new_uname = ua1.text_input("Username ✱", key="new_uname", placeholder="e.g. user1")
+            new_upass = ua2.text_input("Password ✱", key="new_upass", type="password", placeholder="Min 6 chars")
+            ua3, ua4 = st.columns(2)
+            new_umobile = ua3.text_input("Mobile No.", key="new_umobile", placeholder="e.g. 9876543210")
+            new_uemail = ua4.text_input("Email ID", key="new_uemail", placeholder="e.g. user@example.com")
             if st.button("💾  Add User", type="primary", key="btn_add_user"):
                 nu = st.session_state.new_uname.strip().lower()
                 np = st.session_state.new_upass.strip()
@@ -2507,104 +2697,91 @@ with tab_users:
                     st.error(f"❌ Username '{nu}' already exists.")
                 else:
                     all_users[nu] = {"password": np, "mobile": nm, "email": ne}
-                    _save_users(all_users)
-                    st.success(f"✅ User '{nu}' added successfully!")
-                    st.rerun()
+                    if _save_users(all_users):
+                        st.success(f"✅ User '{nu}' added successfully!")
+                        st.rerun()
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
-
-        # ── List + Edit + Delete Users ──
         st.markdown('<div class="sec-label">📋 Registered Users</div>', unsafe_allow_html=True)
 
-        # Load login history from Firebase
-        def _load_login_history():
-            try:
-                doc = db.collection("cci_utility").document("login_history").get()
-                if doc.exists:
-                    return doc.to_dict().get("history", {})
-            except Exception:
-                pass
-            return {}
-        
-        login_hist = _load_login_history()
+        # Load login history. Show a real error instead of silently hiding it.
+        login_hist = {}
+        login_hist_error = ""
+        try:
+            doc = db.collection("cci_utility").document("login_history").get()
+            if doc.exists:
+                raw_hist = doc.to_dict().get("history", {}) or {}
+                if isinstance(raw_hist, dict):
+                    login_hist = raw_hist
+            else:
+                login_hist = {}
+        except Exception as e:
+            login_hist_error = str(e)
+
+        if login_hist_error:
+            st.error(f"⚠️ Firebase Login History read error: {login_hist_error}")
 
         for uname in list(all_users.keys()):
-            is_admin = (uname == "admin")
-            with st.container():
-                udata  = all_users[uname] if isinstance(all_users[uname], dict) else {"password": all_users[uname], "mobile": "", "email": ""}
-                umob   = udata.get("mobile", "")
-                uemail = udata.get("email", "")
-                # Get login history for this user
-                _user_hist = login_hist.get(uname, [])
-                _hist_html = ""
-                if _user_hist:
-                    _hist_rows = "".join([
-                        f'<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f3f4f6"><span style="color:#374151;font-family:monospace;font-size:11px">🕐 {h}</span></div>'
-                        for h in _user_hist[-5:][::-1]  # last 5 logins, newest first
-                    ])
-                    _hist_html = f'<div style="margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px"><div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Recent Logins</div>{_hist_rows}</div>'
-                else:
-                    _hist_html = '<div style="margin-top:8px;font-size:11px;color:#9ca3af;font-style:italic">No login history recorded yet</div>'
-                
-                st.markdown(f"""
-                <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <span style="font-size:22px;background:{"#fef9c3" if is_admin else "#fff7ed"};border-radius:50%;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center">{"👑" if is_admin else "👤"}</span>
-                      <div>
-                        <div style="font-weight:700;color:#111827;font-size:14px">{uname}
-                          {"&nbsp;<span style='background:#fef3c7;color:#d97706;font-size:10px;padding:1px 8px;border-radius:20px;font-weight:700;border:1px solid #fde68a'>ADMIN</span>" if is_admin else ""}
-                        </div>
-                        <div style="font-size:11px;color:#6b7280;margin-top:1px">
-                          {"📱 " + umob if umob else ""}{"&nbsp;&nbsp;✉️ " + uemail if uemail else ""}{"<em style='color:#d1d5db'>No contact info</em>" if not umob and not uemail else ""}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {_hist_html}
-                </div>""", unsafe_allow_html=True)
+            is_admin = uname == "admin"
+            udata = all_users[uname] if isinstance(all_users[uname], dict) else {"password": all_users[uname], "mobile": "", "email": ""}
+            umob = str(udata.get("mobile", ""))
+            uemail = str(udata.get("email", ""))
+            _user_hist = login_hist.get(uname, [])
+            if not isinstance(_user_hist, list):
+                _user_hist = [str(_user_hist)] if _user_hist else []
 
-                ub1, ub2, ub3 = st.columns([2, 1, 1])
-                # Password change input
+            with st.container(border=True):
+                h1, h2 = st.columns([3.2, 1.2])
+                with h1:
+                    badge = " 👑 ADMIN" if is_admin else ""
+                    st.markdown(f"**{uname}**{badge}")
+                    contact = " · ".join(x for x in [f"📱 {umob}" if umob else "", f"✉️ {uemail}" if uemail else ""] if x)
+                    st.caption(contact if contact else "No contact info")
+                with h2:
+                    if _user_hist:
+                        st.caption(f"🕘 {len(_user_hist)} login record(s)")
+                    else:
+                        st.caption("No login history recorded yet")
+
+                if _user_hist:
+                    with st.expander("Recent Login History", expanded=False):
+                        for h in list(_user_hist)[-10:][::-1]:
+                            st.write(f"🕐 {h}")
+
+                p1, p2, p3 = st.columns([2, 1, 1])
                 new_pass_key = f"chpass_{uname}"
-                new_p = ub1.text_input(
-                    f"New password for {uname}",
-                    key=new_pass_key,
-                    type="password",
-                    placeholder="Enter new password to change",
-                    label_visibility="collapsed"
-                )
-                if ub2.button("🔑 Change Password", key=f"chpbtn_{uname}", use_container_width=True):
-                    np2 = st.session_state.get(new_pass_key,"").strip()
+                new_p = p1.text_input("New password", key=new_pass_key, type="password", placeholder="Enter new password to change", label_visibility="collapsed")
+                if p2.button("🔑 Change Password", key=f"chpbtn_{uname}", use_container_width=True):
+                    np2 = st.session_state.get(new_pass_key, "").strip()
                     if len(np2) < 6:
                         st.error(f"❌ Password must be at least 6 characters for '{uname}'.")
                     else:
                         udata["password"] = np2
                         all_users[uname] = udata
-                        _save_users(all_users)
-                        st.success(f"✅ Password changed for '{uname}'!")
-                        st.rerun()
+                        if _save_users(all_users):
+                            st.success(f"✅ Password changed for '{uname}'!")
+                            st.rerun()
                 if not is_admin:
-                    if ub3.button("🗑 Delete", key=f"delbtn_{uname}", use_container_width=True):
+                    if p3.button("🗑 Delete", key=f"delbtn_{uname}", use_container_width=True):
                         del all_users[uname]
-                        _save_users(all_users)
-                        st.success(f"✅ User '{uname}' deleted.")
-                        st.rerun()
+                        if _save_users(all_users):
+                            st.success(f"✅ User '{uname}' deleted.")
+                            st.rerun()
                 else:
-                    ub3.markdown('<span style="color:rgba(255,255,255,0.25);font-size:11px">Admin protected</span>', unsafe_allow_html=True)
-                # Mobile + Email edit row
-                uc1, uc2, uc3 = st.columns([2, 2, 1])
-                mob_key   = f"mob_{uname}"
+                    p3.caption("🔒 Admin protected")
+
+                c1, c2, c3 = st.columns([2, 2, 1])
+                mob_key = f"mob_{uname}"
                 email_key = f"eml_{uname}"
-                new_mob   = uc1.text_input("📱 Mobile",   key=mob_key,   value=umob,   placeholder="Mobile no.", label_visibility="collapsed")
-                new_email = uc2.text_input("✉️ Email",    key=email_key, value=uemail, placeholder="Email ID",   label_visibility="collapsed")
-                if uc3.button("💾 Update", key=f"updbtn_{uname}", use_container_width=True):
+                c1.text_input("📱 Mobile", key=mob_key, value=umob, placeholder="Mobile no.", label_visibility="collapsed")
+                c2.text_input("✉️ Email", key=email_key, value=uemail, placeholder="Email ID", label_visibility="collapsed")
+                if c3.button("💾 Update", key=f"updbtn_{uname}", use_container_width=True):
                     udata["mobile"] = st.session_state.get(mob_key, "").strip()
-                    udata["email"]  = st.session_state.get(email_key, "").strip()
+                    udata["email"] = st.session_state.get(email_key, "").strip()
                     all_users[uname] = udata
-                    _save_users(all_users)
-                    st.success(f"✅ Contact info updated for '{uname}'!")
-                    st.rerun()
+                    if _save_users(all_users):
+                        st.success(f"✅ Contact info updated for '{uname}'!")
+                        st.rerun()
 
         st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
         st.markdown(f"""
