@@ -1329,14 +1329,17 @@ def _get_mc_for_contract(cn, all_contracts, upload_group=""):
     """
     Resolve the Contract Master condition for one uploaded contract.
 
-    STRICT PRIORITY:
+    Priority:
       1. Exact Contract No match.
-      2. If no exact Contract No, match the uploaded Group against the
-         Contract Master's Group field.
-      3. If neither matches, use DEFAULT.
+      2. Group match.
+         - First use the master Group field (new format).
+         - For backward compatibility, also treat a master record whose
+           Contract No itself is the Group name as a Group Master record.
+           Example: Contract No = GROUP-A, Group field blank.
+      3. DEFAULT.
 
-    Compatibility: older Firebase records may store Group as `group`,
-    `Group`, `group_name`, `group_no`, or `group_code`.
+    This supports the existing master data visible in the UI where GROUP-A
+    was saved in the Contract No field and its CC Free Days = 60.
     """
     cn_key = _norm_key(cn)
     group_key = _norm_key(upload_group)
@@ -1344,11 +1347,14 @@ def _get_mc_for_contract(cn, all_contracts, upload_group=""):
     # 1) Exact Contract No always wins.
     if cn_key:
         for c in all_contracts:
-            if _norm_key(c.get("contract_no", c.get("Contract_No", ""))) == cn_key:
+            master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
+            if master_cn == cn_key:
                 return c
 
-    # 2) Group match. The upload Group is the authoritative group for the
-    # contract, so do NOT read Group from GRN BOOKING.
+    # 2) Group match.
+    # New format: Group field contains GROUP-A.
+    # Legacy/current UI format: the Group Master itself has Contract No
+    # equal to GROUP-A (as shown in the saved master card).
     if group_key:
         for c in all_contracts:
             master_group = (
@@ -1361,13 +1367,25 @@ def _get_mc_for_contract(cn, all_contracts, upload_group=""):
             if _norm_key(master_group) == group_key:
                 return c
 
-    # 3) DEFAULT only after both checks fail.
+        # Backward-compatible Group Master: Contract No is the group name.
+        for c in all_contracts:
+            master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
+            master_group = _norm_key(
+                c.get("group", "") or
+                c.get("Group", "") or
+                c.get("group_name", "") or
+                c.get("group_no", "") or
+                c.get("group_code", "")
+            )
+            if master_cn == group_key and not master_group:
+                return c
+
+    # 3) DEFAULT only after exact Contract and Group matching fail.
     for c in all_contracts:
         if _norm_key(c.get("contract_no", c.get("Contract_No", ""))) == "DEFAULT":
             return c
 
     return all_contracts[0] if all_contracts else {}
-
 
 def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     """
