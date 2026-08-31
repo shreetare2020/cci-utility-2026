@@ -1897,7 +1897,10 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
         cols = base_cols + slab_col_names
-        detail_export = result_df[cols].copy()
+        if "Payment_Mode" not in result_df.columns:
+            result_df["Payment_Mode"] = ""
+        result_df["Payment_Mode"] = result_df["Payment_Mode"].fillna("").astype(str)
+        detail_export = result_df.reindex(columns=cols).copy()
         # Add a clear GRAND TOTAL row at the bottom of the detail report.
         detail_total = {c: "" for c in detail_export.columns}
         detail_total["Contract_No"] = "GRAND TOTAL"
