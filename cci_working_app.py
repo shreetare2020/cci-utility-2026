@@ -1899,7 +1899,17 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
         cols = base_cols + slab_col_names
-        detail_export = result_df[cols].copy()
+
+        # Payment_Mode is produced by the calculation engine, but older
+        # cached/result paths may not contain it.  Never let one optional
+        # column abort the complete Excel export.
+        if "Payment_Mode" not in result_df.columns:
+            result_df["Payment_Mode"] = ""
+
+        # Use reindex instead of [] so an absent optional column cannot raise
+        # KeyError.  This is especially important for Mode Of Transaction,
+        # which is optional in some calculation/result paths.
+        detail_export = result_df.reindex(columns=cols).copy()
         # Add a clear GRAND TOTAL row at the bottom of the detail report.
         detail_total = {c: "" for c in detail_export.columns}
         detail_total["Contract_No"] = "GRAND TOTAL"
