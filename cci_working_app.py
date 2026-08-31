@@ -202,17 +202,31 @@ def _set_doc(doc_name, data):
 
 
 def _ensure_xyz_migration():
-    """One-time migration: old single masters become firm XYZ Company data."""
+    """One-time legacy migration and bootstrap of the XYZ firm tenant.
+
+    This function is deliberately safe to call before login: the legacy XYZ
+    tenant must be discoverable by the normal firm-login path. It migrates the
+    old masters and old app_users only when the corresponding XYZ documents do
+    not already exist, so existing XYZ data is not overwritten.
+    """
     try:
         reg = _get_doc("firm_registry")
+        if not isinstance(reg, dict):
+            reg = {}
         firms = reg.get("firms", {}) or {}
+        registry_changed = False
+
         if "XYZ" not in firms:
             old = _get_doc("masters")
             legacy = {
                 "projects": old.get("projects", []) if isinstance(old, dict) else [],
                 "contracts": old.get("contracts", []) if isinstance(old, dict) else [],
             }
-            _set_doc("firm_data_XYZ", legacy)
+            # Do not overwrite an already-created tenant document.
+            existing_xyz = _get_doc("firm_data_XYZ")
+            if not existing_xyz:
+                _set_doc("firm_data_XYZ", legacy)
+
             firms["XYZ"] = {
                 "firm_id": "XYZ",
                 "firm_name": "XYZ Company",
@@ -230,8 +244,66 @@ def _ensure_xyz_migration():
                 "subscription_end": "2099-12-31T23:59:59",
                 "included_users": _system_policy()["included_users"],
                 "extra_users": 0,
+                "legacy": True,
             }
-            _set_doc("firm_registry", {"firms": firms})
+            registry_changed = True
+
+        if registry_changed:
+            # Preserve any existing registry keys such as pricing/logs.
+            reg["firms"] = firms
+            _set_doc("firm_registry", reg)
+
+        # IMPORTANT: old users must be copied before the login gate. The old
+        # version copied them only after a successful login, which meant XYZ
+        # could never be discovered when the user was not already authenticated.
+        xyz_users_doc = _get_doc("users_XYZ")
+        xyz_users = xyz_users_doc.get("users", {}) if isinstance(xyz_users_doc, dict) else {}
+        if not xyz_users:
+            old_users_doc = _get_doc("app_users")
+            old_users = old_users_doc.get("users", {}) if isinstance(old_users_doc, dict) else {}
+            if old_users:
+                migrated = {}
+                for uname, value in old_users.items():
+                    if isinstance(value, str):
+                        migrated[str(uname).strip().lower()] = {
+                            "password": value,
+                            "mobile": "",
+                            "email": "",
+                            "user_key": "",
+                            "role": "Firm Admin" if str(uname).strip().lower() == "admin" else "User",
+                            "rights": ["masters", "upload", "results", "help", "user_master"] if str(uname).strip().lower() == "admin" else ["upload", "results"],
+                            "active": True,
+                            "legacy_migrated": True,
+                        }
+                    elif isinstance(value, dict):
+                        rec = dict(value)
+                        rec.setdefault("password", "")
+                        rec.setdefault("mobile", "")
+                        rec.setdefault("email", "")
+                        rec.setdefault("user_key", "")
+                        rec.setdefault("role", "Firm Admin" if str(uname).strip().lower() == "admin" else "User")
+                        rec.setdefault("rights", ["masters", "upload", "results", "help", "user_master"] if str(uname).strip().lower() == "admin" else ["upload", "results"])
+                        rec.setdefault("active", True)
+                        rec["legacy_migrated"] = True
+                        migrated[str(uname).strip().lower()] = rec
+                if migrated:
+                    _save_firm_users("XYZ", migrated)
+            else:
+                # If there is no legacy app_users document, create the
+                # documented XYZ Firm Admin bootstrap only when no XYZ users
+                # exist. This keeps the legacy tenant usable after migration.
+                _save_firm_users("XYZ", {
+                    "admin": {
+                        "password": "cci@2025",
+                        "mobile": "",
+                        "email": "",
+                        "user_key": "",
+                        "role": "Firm Admin",
+                        "rights": ["masters", "upload", "results", "help", "user_master"],
+                        "active": True,
+                        "legacy_migrated": True,
+                    }
+                })
     except Exception as e:
         st.warning(f"Firm migration warning: {e}")
 
@@ -1024,20 +1096,7 @@ def _save_firm_users(firm_id, users):
 
 def _load_users():
     firm_id = st.session_state.get("_firm_id", "XYZ")
-    users = _all_firm_users(firm_id)
-    # One-time compatibility migration of old app_users into XYZ firm.
-    if firm_id == "XYZ" and not users:
-        old = _get_doc("app_users")
-        raw = old.get("users", {}) if isinstance(old, dict) else {}
-        if raw:
-            users = {}
-            for k, v in raw.items():
-                if isinstance(v, str):
-                    users[k] = {"password": v, "mobile": "", "email": "", "user_key": "", "role": "Firm Admin" if k == "admin" else "User", "rights": ["masters","upload","results","help","user_master"] if k == "admin" else ["upload","results"]}
-                elif isinstance(v, dict):
-                    users[k] = dict(v)
-            _save_firm_users("XYZ", users)
-    return users
+    return _all_firm_users(firm_id)
 
 
 def _save_users(users_dict):
@@ -1185,13 +1244,19 @@ def _audit(action, firm_id="", username="", details=None):
 
 
 def _find_firm_for_user(username):
+    username_norm = str(username or "").strip().lower()
+    if not username_norm:
+        return None, None
+    # Ensure legacy XYZ is available before the login lookup.
+    _ensure_xyz_migration()
     reg = _load_registry()
     for fid, firm in (reg.get("firms", {}) or {}).items():
-        if str(firm.get("owner_username", "")).lower() == username.lower():
+        if str(firm.get("owner_username", "")).strip().lower() == username_norm:
             return fid, firm
         users = _all_firm_users(fid)
-        if username in users:
-            return fid, firm
+        for stored_username in users.keys():
+            if str(stored_username).strip().lower() == username_norm:
+                return fid, firm
     return None, None
 
 
@@ -1242,7 +1307,7 @@ def _create_firm_registration(firm_name, owner_username, password, mobile, email
     }
     _save_registry(reg)
     _notify_admin("New Firm Registration", f"Firm: {firm_name}\nOwner: {owner_username}\nMobile: {mobile_norm}\nRequest: {request_id}\nRegistration Key: {reg_key}\nIP: {ip}", mobile_norm)
-    return True, "Registration submitted. Your 12-character key is valid for 2 hours and requires Super User authentication.", {"request_id": request_id, "key": reg_key, "firm_id": fid}
+    return True, f"Registration submitted. Your 12-character key is valid for {policy["registration_key_hours"]} hours and requires Super User authentication.", {"request_id": request_id, "key": reg_key, "firm_id": fid}
 
 
 def _approve_registration(request_id):
@@ -1254,7 +1319,7 @@ def _approve_registration(request_id):
         if datetime.now() >= datetime.fromisoformat(str(req["expires_at"])):
             req["status"] = "EXPIRED"
             _save_registry(reg)
-            return False, "The 2-hour registration key has expired."
+            return False, f"The { _system_policy()["registration_key_hours"] }-hour registration key has expired."
     except Exception:
         pass
     fid = req["firm_id"]
@@ -1283,7 +1348,7 @@ def _approve_registration(request_id):
     reg["registrations"][request_id] = req
     _save_registry(reg)
     _notify_admin("Firm Trial Activated", f"Firm: {req['firm_name']}\nFirm ID: {fid}\nTrial ends: {trial_end}\nActivation Key: {activation_key}", req.get("mobile", ""))
-    _notify_firm(reg["firms"][fid], "CCI Trial Activated", f"Your 3-day trial is active until {trial_end.strftime('%d-%m-%Y %H:%M:%S')}.\nFirm ID: {fid}\n24-character activation key: {activation_key}")
+    _notify_firm(reg["firms"][fid], "CCI Trial Activated", f"Your {policy["trial_days"]}-day trial is active until {trial_end.strftime('%d-%m-%Y %H:%M:%S')}.\nFirm ID: {fid}\n24-character activation key: {activation_key}")
     return True, f"Trial activated for {req['firm_name']} until {trial_end.strftime('%d-%m-%Y %H:%M')}."
 
 
@@ -1307,15 +1372,21 @@ def _try_firm_login(username, password):
         return False, "Invalid username or password."
     firm, _ = _refresh_subscription_status(fid)
     users = _all_firm_users(fid)
-    rec = users.get(username)
+    rec = None
+    matched_username = username
+    for stored_username, stored_rec in users.items():
+        if str(stored_username).strip().lower() == str(username).strip().lower():
+            rec = stored_rec
+            matched_username = stored_username
+            break
     if not rec or str(rec.get("password", "")) != str(password):
         return False, "Invalid username or password."
     if not bool(rec.get("active", True)):
         return False, "This user account has been disabled by the firm administrator."
     if not _firm_access(firm):
         return False, "Your Subscription period is over, Please recharge again" if str(firm.get("subscription_status", "")).upper() == "EXPIRED" else "Firm is not activated yet. Please contact support."
-    _set_firm_session(fid, username, rec, rec.get("role", "User"))
-    _audit("LOGIN", fid, username, {"subscription_status": firm.get("subscription_status", "")})
+    _set_firm_session(fid, matched_username, rec, rec.get("role", "User"))
+    _audit("LOGIN", fid, matched_username, {"subscription_status": firm.get("subscription_status", "")})
     return True, ""
 # ─── CLEAN CONTRACT CARD STYLES ──────────────────────────────────────────────
 st.markdown("""
@@ -1343,6 +1414,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── LOGIN / REGISTRATION GATE ───────────────────────────────────────────────
+_ensure_xyz_migration()
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "_login_error" not in st.session_state:
@@ -1404,7 +1476,7 @@ if not st.session_state.authenticated:
             st.button("🔒 Sign In", on_click=_do_login, type="primary", use_container_width=True)
             if st.session_state._login_error:
                 st.error(st.session_state._login_error)
-            st.info("Super User access is separate from firm users. Firm access is permitted only while trial/subscription is active.")
+            st.info("Super User access is separate from firm users. XYZ Company is the migrated legacy firm; new firms require trial/subscription activation.")
     with rtab:
         st.markdown("### New Firm Registration")
         st.caption("Registration key: exactly 12 characters • validity is controlled by Super User • trial starts only after Super User authentication.")
@@ -1472,7 +1544,7 @@ if st.session_state.get("_auth_role") == "SUPERUSER":
                 st.write(f"**{req.get('firm_name')}** — {req.get('owner_username')} — {req.get('mobile')}")
                 st.caption(f"Request: {rid} | Registration Key: {req.get('registration_key')} | Expires: {req.get('expires_at')} | IP: {req.get('registration_ip')}")
                 entered_key = st.text_input("Enter 12-character Registration Key to authenticate", key=f"regkey_{rid}", max_chars=12)
-                if st.button("✅ Authenticate & Start 3-Day Trial", key=f"approve_{rid}"):
+                if st.button("✅ Authenticate & Start Trial", key=f"approve_{rid}"):
                     if _hash_secret(entered_key.strip()) != req.get("registration_key_hash"):
                         st.error("❌ Registration Key mismatch. Trial has NOT been activated.")
                     else:
@@ -1481,7 +1553,7 @@ if st.session_state.get("_auth_role") == "SUPERUSER":
         for fid, firm in firms.items():
             firm,_=_refresh_subscription_status(fid)
             with st.container(border=True):
-                st.write(f"**{firm.get('firm_name')}** (`{fid}`)")
+                st.write(f"**{firm.get('firm_name')}** (`{fid}`){' — LEGACY / MIGRATED' if fid == 'XYZ' else ''}")
                 st.caption(f"Owner: {firm.get('owner_username')} | Status: {firm.get('subscription_status')} | Trial: {firm.get('trial_end','—')} | Subscription: {firm.get('subscription_end','—')} | Users: {int(firm.get('included_users', _system_policy()['included_users']) or _system_policy()['included_users']) + int(firm.get('extra_users',0) or 0)}")
                 if fid != "XYZ":
                     nk=st.text_input("New 24-character activation key (optional)", value=firm.get("activation_key", ""), key=f"ak_{fid}")
