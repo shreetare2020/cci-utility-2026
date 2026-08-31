@@ -1330,62 +1330,50 @@ def _get_mc_for_contract(cn, all_contracts, upload_group=""):
     Resolve the Contract Master condition for one uploaded contract.
 
     Priority:
-      1. Exact Contract No match.
-      2. Group match.
-         - First use the master Group field (new format).
-         - For backward compatibility, also treat a master record whose
-           Contract No itself is the Group name as a Group Master record.
-           Example: Contract No = GROUP-A, Group field blank.
-      3. DEFAULT.
+      1. Exact individual Contract No match  → returns (master, "CONTRACT")
+      2. Group match (Group column from PUR CONT DETAILS)
+         - master record with matching Group field  → returns (master, "GROUP")
+         - backward-compat: master whose Contract_No == group name → (master, "GROUP")
+      3. NO match at all → returns (None, "NOT_DEFINED")
 
-    This supports the existing master data visible in the UI where GROUP-A
-    was saved in the Contract No field and its CC Free Days = 60.
+    DEFAULT fallback is INTENTIONALLY removed.
+    Calculation must NOT proceed if no individual or group master is found.
     """
-    cn_key = _norm_key(cn)
+    cn_key    = _norm_key(cn)
     group_key = _norm_key(upload_group)
 
-    # 1) Exact Contract No always wins.
+    # ── 1) Exact individual Contract No match ──────────────────────────────
     if cn_key:
         for c in all_contracts:
             master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
             if master_cn == cn_key:
-                return c
+                return c, "CONTRACT"
 
-    # 2) Group match.
-    # New format: Group field contains GROUP-A.
-    # Legacy/current UI format: the Group Master itself has Contract No
-    # equal to GROUP-A (as shown in the saved master card).
+    # ── 2) Group match ──────────────────────────────────────────────────────
     if group_key:
+        # 2a) New format: master has a dedicated "group" field matching the upload group
         for c in all_contracts:
-            master_group = (
-                c.get("group", "") or
-                c.get("Group", "") or
-                c.get("group_name", "") or
-                c.get("group_no", "") or
+            master_group = _norm_key(
+                c.get("group", "") or c.get("Group", "") or
+                c.get("group_name", "") or c.get("group_no", "") or
                 c.get("group_code", "")
             )
-            if _norm_key(master_group) == group_key:
-                return c
+            if master_group and master_group == group_key:
+                return c, "GROUP"
 
-        # Backward-compatible Group Master: Contract No is the group name.
+        # 2b) Backward-compat: master Contract_No IS the group name (no group field set)
         for c in all_contracts:
             master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
             master_group = _norm_key(
-                c.get("group", "") or
-                c.get("Group", "") or
-                c.get("group_name", "") or
-                c.get("group_no", "") or
+                c.get("group", "") or c.get("Group", "") or
+                c.get("group_name", "") or c.get("group_no", "") or
                 c.get("group_code", "")
             )
             if master_cn == group_key and not master_group:
-                return c
+                return c, "GROUP"
 
-    # 3) DEFAULT only after exact Contract and Group matching fail.
-    for c in all_contracts:
-        if _norm_key(c.get("contract_no", c.get("Contract_No", ""))) == "DEFAULT":
-            return c
-
-    return all_contracts[0] if all_contracts else {}
+    # ── 3) No match — do NOT fall back to DEFAULT ───────────────────────────
+    return None, "NOT_DEFINED"
 
 def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     """
@@ -1397,14 +1385,17 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     _single_mc      = mc_or_contracts if not isinstance(mc_or_contracts, list) else None
 
     def _mc(cn, upload_group=""):
+        """Returns (master_dict_or_None, match_rule_str)."""
         if _contracts_list is not None:
             return _get_mc_for_contract(cn, _contracts_list, upload_group)
-        return _single_mc
+        # Legacy single-mc path
+        if _single_mc is not None:
+            return _single_mc, "CONTRACT"
+        return None, "NOT_DEFINED"
 
     # Pre-compute maps (contract-level, not row-level)
-    mc_dummy = _mc("DEFAULT") or (_contracts_list[0] if _contracts_list else {})
-    # We read slabs PER ROW now; the dummy is used only as a fallback reference
-    _ = mc_dummy  # suppress unused warning
+    # mc_dummy not used — slabs are read per-row only from matched master
+    pass  # dummy removed; _mc now returns (master, rule)
 
     # ── PRE-COMPUTE MAPS (all keys normalized: str + strip + upper) ──────────
     # This ensures Excel values like 123 / "123" / " RAY-110 " all match correctly.
@@ -1451,43 +1442,60 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
     for _, row in grn.iterrows():
         cn = str(row["Contract_No"]).strip()
 
-        # ── PER-ROW MASTER LOOKUP (CONTRACT > GROUP > DEFAULT) ─────────────
+        # ── PER-ROW MASTER LOOKUP (CONTRACT > GROUP only; no DEFAULT) ──────
         # GRN BOOKING does NOT contain Group. Group is defined in PUR CONT DETAILS,
         # therefore it MUST be obtained from the Contract -> Group map above.
         cn_key_for_group = _norm_key(cn)
-        row_group = group_map.get(cn_key_for_group, "")
-        row_mc = _mc(cn, row_group)
-        # Record exactly which master rule was selected so a report can never
-        # silently hide a wrong 30-day/default match.
-        matched_contract_key = _norm_key(row_mc.get("contract_no", row_mc.get("Contract_No", "")))
-        matched_group_key = _norm_key(
-            row_mc.get("group", "") or row_mc.get("Group", "") or
-            row_mc.get("group_name", "") or row_mc.get("group_no", "") or
-            row_mc.get("group_code", "")
-        )
-        if matched_contract_key == cn_key_for_group:
-            match_rule = "CONTRACT"
-        elif row_group and matched_group_key == _norm_key(row_group):
-            match_rule = "GROUP"
-        elif matched_contract_key == "DEFAULT":
-            match_rule = "DEFAULT"
-        else:
-            match_rule = "FALLBACK"
+        row_group  = group_map.get(cn_key_for_group, "")
+        row_mc, match_rule = _mc(cn, row_group)
+
+        # ── If no master matched → skip calculation, record remark ──────────
+        if row_mc is None:
+            # Build a zero-value result row with a clear remark
+            bales_val  = row.get("Accepted_Qty_AUM", 0)
+            mat_val    = row.get("Material_Amount", 0)
+            igst_val   = row.get("IGST", 0)
+            branch_val = branch_map.get(cn_key_for_group, "")
+            eff_date_val = eff_date_map.get(cn_key_for_group, pd.NaT)
+            lift_date  = row.get("Party_Bill_Date", pd.NaT)
+            results.append({
+                "Contract_No": cn,
+                "GRN_No": row.get("GRN_No", ""),
+                "Effective_Date": eff_date_val,
+                "Party_Bill_Date": lift_date,
+                "Bales": int(bales_val) if not pd.isna(bales_val) else 0,
+                "Material_Amount": round(float(mat_val), 2) if mat_val else 0.0,
+                "GST_On_Material": round(float(igst_val), 2) if igst_val else 0.0,
+                "Total_Bill_Amount": round(float(mat_val or 0) + float(igst_val or 0), 2),
+                "Payment_Amount": 0.0,
+                "Per_Bale_EMD": 0.0, "EMD_Allocated": 0.0,
+                "EMD_Date": pd.NaT, "Net_Amount": 0.0,
+                "Payment_Date": pd.NaT, "EMD_Days": 0, "EMD_Interest": 0.0,
+                "CD_Due_Date": pd.NaT, "CD_Days": 0, "CD_Pct": 0.0, "Cash_Discount": 0.0,
+                "Late_Lift_Days": 0, "Late_Lifting_Chg": 0.0, "Late_Lifting_GST": 0.0,
+                "CC_Free_End": pd.NaT, "CC_Days": 0,
+                "Carry_Charges": 0.0, "Carry_GST": 0.0,
+                "_cc_slab_breakdown": [],
+                "Branch": branch_val,
+                "Group": row_group,
+                "Matched_Master_Contract": "",
+                "Matched_Master_Group": "",
+                "Match_Rule": "GROUP / CONTRACT NOT DEFINED",
+                "Remark": "⚠️ No individual contract or group master found — calculation skipped",
+            })
+            continue  # skip to next GRN row
+
+        # ── Slabs from matched master ────────────────────────────────────────
         emd_rate     = sf(row_mc.get("emd_percent"), 5.0)
         cd_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cd_slabs",[])]
         ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("ll_slabs",[])]
         ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
         cc_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cc_slabs",[])]
-        cc_gst         = sf(row_mc.get("cc_gst"), 5.0)
-
-        # CC FREE DAYS — from the same matched Contract Master (row_mc).
-        # row_mc is already the correct master for this contract
-        # (exact contract, otherwise Group, otherwise DEFAULT).
+        cc_gst       = sf(row_mc.get("cc_gst"), 5.0)
         cc_free_days = int(sf(row_mc.get("cc_free_days"), 0))
-
-        ll_compound      = bool(row_mc.get("ll_compound", False))
-        cc_compound      = bool(row_mc.get("cc_compound", False))
-        # ───────────────────────────────────────────────────────────────────
+        ll_compound  = bool(row_mc.get("ll_compound", False))
+        cc_compound  = bool(row_mc.get("cc_compound", False))
+        # ─────────────────────────────────────────────────────────────────────
 
         cn_key = str(cn).strip().upper()   # normalized key for all map lookups
 
@@ -1686,6 +1694,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 row_mc.get("group_code", "") or ""
             ),
             "Match_Rule": match_rule,
+            "Remark": "",
             "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
@@ -1778,6 +1787,7 @@ _PRETTY_COL_MAP = {
     "Actual_Payment_Total": "Actual Payment (Uploaded Sheet)",
     "Total_Payment_And_EMD": "Total Payment + EMD",
     "Total_Payable": "Total Payable",
+    "Remark": "Remark",
 }
 
 import re as _re
