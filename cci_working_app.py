@@ -4,8 +4,9 @@ Softview Technologies | Streamlit + Firebase
 Run: streamlit run cci_working_app.py
 """
 
-import io, json, os, base64 as b64lib
-from datetime import date
+import io, json, os, base64 as b64lib, secrets, hashlib, smtplib, socket, re
+from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 import pandas as pd
 import streamlit as st
 
@@ -179,9 +180,67 @@ class _RestFirestore:
 db = _RestFirestore()
 
 
+def _now_iso():
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _safe_doc_id(value):
+    s = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value or "").strip())
+    return s[:120] or "unknown"
+
+
+def _get_doc(doc_name):
+    try:
+        snap = db.collection(_FIRESTORE_COLLECTION).document(doc_name).get()
+        return snap.to_dict() if snap.exists else {}
+    except Exception:
+        return {}
+
+
+def _set_doc(doc_name, data):
+    db.collection(_FIRESTORE_COLLECTION).document(doc_name).set(data)
+
+
+def _ensure_xyz_migration():
+    """One-time migration: old single masters become firm XYZ Company data."""
+    try:
+        reg = _get_doc("firm_registry")
+        firms = reg.get("firms", {}) or {}
+        if "XYZ" not in firms:
+            old = _get_doc("masters")
+            legacy = {
+                "projects": old.get("projects", []) if isinstance(old, dict) else [],
+                "contracts": old.get("contracts", []) if isinstance(old, dict) else [],
+            }
+            _set_doc("firm_data_XYZ", legacy)
+            firms["XYZ"] = {
+                "firm_id": "XYZ",
+                "firm_name": "XYZ Company",
+                "status": "ACTIVE",
+                "created_at": _now_iso(),
+                "owner_username": "admin",
+                "mobile": "",
+                "email": "",
+                "registration_key": "",
+                "activation_key": "LEGACY_XYZ",
+                "subscription_status": "ACTIVE",
+                "trial_start": "",
+                "trial_end": "",
+                "subscription_start": "",
+                "subscription_end": "2099-12-31T23:59:59",
+                "included_users": _system_policy()["included_users"],
+                "extra_users": 0,
+            }
+            _set_doc("firm_registry", {"firms": firms})
+    except Exception as e:
+        st.warning(f"Firm migration warning: {e}")
+
+
 def fs_load():
     try:
-        doc = db.collection(_FIRESTORE_COLLECTION).document("masters").get()
+        _ensure_xyz_migration()
+        firm_id = st.session_state.get("_firm_id", "XYZ")
+        doc = db.collection(_FIRESTORE_COLLECTION).document(f"firm_data_{_safe_doc_id(firm_id)}").get()
         if doc.exists:
             data = doc.to_dict()
             data.setdefault("projects", [])
@@ -194,7 +253,8 @@ def fs_load():
 
 def fs_save(data):
     try:
-        db.collection(_FIRESTORE_COLLECTION).document("masters").set(data)
+        firm_id = st.session_state.get("_firm_id", "XYZ")
+        db.collection(_FIRESTORE_COLLECTION).document(f"firm_data_{_safe_doc_id(firm_id)}").set(data)
     except Exception as e:
         st.error(f"Firebase save error: {e}")
 
@@ -811,51 +871,452 @@ div[data-testid="stFileUploader"] button {
 </style>
 """, unsafe_allow_html=True)
 
-# ─── LOGIN CREDENTIALS (Firebase-backed) ─────────────────────────────────────
+# ─── MULTI-TENANT AUTH / REGISTRATION / SUBSCRIPTION ─────────────────────────
 _DEFAULT_USERS = {"admin": "cci@2025", "softview": "sv@admin"}
+_KEY_SPECIALS = "@#$%&*!+-_?"
+
+def _get_setting(name, default=""):
+    # Deployment secrets are intentionally only a one-time bootstrap/
+    # infrastructure configuration. Per-firm and operating settings are
+    # controlled from the Super User UI and stored in Firestore.
+    try:
+        v = st.secrets.get(name, default)
+        return str(v) if v is not None else default
+    except Exception:
+        return default
+
+
+_SYSTEM_DEFAULTS = {
+    "superuser_id": "superuser",
+    "superuser_password_hash": "cff792fb0046b07d3b968bcc88c2648c9ea52d184773d96cf16c6873c862fc73",
+    "registration_key_hours": 2,
+    "trial_days": 3,
+    "included_users": 3,
+}
+
+def _load_system_settings():
+    raw = _get_doc("system_settings")
+    if not isinstance(raw, dict):
+        raw = {}
+    out = dict(_SYSTEM_DEFAULTS)
+    out.update(raw)
+    return out
+
+def _save_system_settings(settings):
+    _set_doc("system_settings", settings)
+
+def _superuser_credentials():
+    settings = _load_system_settings()
+    sid = str(settings.get("superuser_id") or _get_setting("SUPERUSER_ID", "superuser"))
+    ph = str(settings.get("superuser_password_hash") or "")
+    if not ph:
+        return sid, _get_setting("SUPERUSER_PASSWORD", "SV@Super2026!")
+    return sid, ph
+
+def _superuser_login_valid(username, password):
+    settings = _load_system_settings()
+    sid = str(settings.get("superuser_id") or _get_setting("SUPERUSER_ID", "superuser"))
+    supplied_hash = _hash_secret(password)
+    stored_hash = str(settings.get("superuser_password_hash") or "")
+    if stored_hash:
+        return username == sid and supplied_hash == stored_hash
+    return username == sid and password == _get_setting("SUPERUSER_PASSWORD", "SV@Super2026!")
+
+def _system_policy():
+    s = _load_system_settings()
+    try:
+        reg_hours = max(1, int(s.get("registration_key_hours", 2)))
+    except Exception:
+        reg_hours = 2
+    try:
+        trial_days = max(1, int(s.get("trial_days", 3)))
+    except Exception:
+        trial_days = 3
+    try:
+        included_users = max(1, int(s.get("included_users", 3)))
+    except Exception:
+        included_users = 3
+    return {
+        "registration_key_hours": reg_hours,
+        "trial_days": trial_days,
+        "included_users": included_users,
+    }
+
+
+def _generate_key(length):
+    if length not in (12, 24):
+        raise ValueError("Key length must be 12 or 24")
+    pools = ["ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz", "0123456789", _KEY_SPECIALS]
+    chars = [secrets.choice(p) for p in pools]
+    allchars = "".join(pools)
+    chars += [secrets.choice(allchars) for _ in range(length - 4)]
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
+
+
+def _hash_secret(value):
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
+def _get_client_ip():
+    """Best-effort client IP from Streamlit/reverse-proxy headers."""
+    try:
+        headers = st.context.headers
+        for key in ("X-Forwarded-For", "X-Real-IP", "CF-Connecting-IP", "True-Client-IP"):
+            val = headers.get(key)
+            if val:
+                return str(val).split(",")[0].strip()
+        val = headers.get("Remote-Addr") or headers.get("remote-addr")
+        if val:
+            return str(val).strip()
+    except Exception:
+        pass
+    return "UNKNOWN"
+
+
+def _load_registry():
+    reg = _get_doc("firm_registry")
+    reg.setdefault("firms", {})
+    reg.setdefault("registrations", {})
+    return reg
+
+
+def _save_registry(reg):
+    _set_doc("firm_registry", reg)
+
+
+def _firm_id_from_name(name):
+    base = re.sub(r"[^A-Z0-9]+", "", str(name or "").upper())[:12] or "FIRM"
+    reg = _load_registry()
+    firms = reg.get("firms", {})
+    if base not in firms:
+        return base
+    for i in range(1, 10000):
+        candidate = f"{base[:8]}{i:04d}"
+        if candidate not in firms:
+            return candidate
+    return f"FIRM{secrets.token_hex(4).upper()}"
+
+
+def _all_firm_users(firm_id):
+    doc = _get_doc(f"users_{_safe_doc_id(firm_id)}")
+    raw = doc.get("users", {}) or {}
+    out = {}
+    for k, v in raw.items():
+        if isinstance(v, str):
+            out[k] = {"password": v, "mobile": "", "email": "", "user_key": "", "role": "User", "rights": []}
+        elif isinstance(v, dict):
+            out[k] = dict(v)
+            out[k].setdefault("password", "")
+            out[k].setdefault("mobile", "")
+            out[k].setdefault("email", "")
+            out[k].setdefault("user_key", "")
+            out[k].setdefault("role", "User")
+            out[k].setdefault("rights", [])
+            out[k].setdefault("active", True)
+    return out
+
+
+def _save_firm_users(firm_id, users):
+    _set_doc(f"users_{_safe_doc_id(firm_id)}", {"users": users})
+    return True
+
 
 def _load_users():
-    """Load users from the same existing Firestore project/database as all masters."""
-    try:
-        doc = db.collection("cci_utility").document("app_users").get()
-        if doc.exists:
-            raw = doc.to_dict().get("users", {}) or {}
-            migrated = {}
+    firm_id = st.session_state.get("_firm_id", "XYZ")
+    users = _all_firm_users(firm_id)
+    # One-time compatibility migration of old app_users into XYZ firm.
+    if firm_id == "XYZ" and not users:
+        old = _get_doc("app_users")
+        raw = old.get("users", {}) if isinstance(old, dict) else {}
+        if raw:
+            users = {}
             for k, v in raw.items():
                 if isinstance(v, str):
-                    migrated[k] = {"password": v, "mobile": "", "email": ""}
+                    users[k] = {"password": v, "mobile": "", "email": "", "user_key": "", "role": "Firm Admin" if k == "admin" else "User", "rights": ["masters","upload","results","help","user_master"] if k == "admin" else ["upload","results"]}
                 elif isinstance(v, dict):
-                    migrated[k] = {
-                        "password": str(v.get("password", "")),
-                        "mobile": str(v.get("mobile", "")),
-                        "email": str(v.get("email", "")),
-                    }
-            return migrated if migrated else _get_default_users_rich()
-        # First run only: create the default user document once.
-        defaults = _get_default_users_rich()
-        db.collection("cci_utility").document("app_users").set({"users": defaults})
-        return defaults
-    except Exception as e:
-        st.warning(f"Firebase users read error: {e}")
-        return _get_default_users_rich()
-
-
-def _get_default_users_rich():
-    rich = {}
-    for k, v in _DEFAULT_USERS.items():
-        rich[k] = {"password": v, "mobile": "", "email": ""}
-    return rich
+                    users[k] = dict(v)
+            _save_firm_users("XYZ", users)
+    return users
 
 
 def _save_users(users_dict):
+    return _save_firm_users(st.session_state.get("_firm_id", "XYZ"), users_dict)
+
+
+def _package_catalog():
+    reg = _load_registry()
+    prices = reg.get("pricing", {}) or {}
+    return {
+        "4_MONTHS": {"label": "4 Months", "months": 4, "price": float(prices.get("4_MONTHS", 0) or 0)},
+        "6_MONTHS": {"label": "6 Months", "months": 6, "price": float(prices.get("6_MONTHS", 0) or 0)},
+        "1_YEAR": {"label": "1 Year", "months": 12, "price": float(prices.get("1_YEAR", 0) or 0)},
+    }
+
+
+def _extra_user_price():
+    reg = _load_registry()
+    return float((reg.get("pricing", {}) or {}).get("EXTRA_USER", 0) or 0)
+
+
+def _subscription_end(start_dt, months):
+    # Calendar-month package, inclusive of payment day.
+    end_exclusive = pd.Timestamp(start_dt) + pd.DateOffset(months=int(months))
+    return (end_exclusive - pd.Timedelta(seconds=1)).to_pydatetime()
+
+
+def _firm_access(firm):
+    now = datetime.now()
+    status = str(firm.get("subscription_status", "")).upper()
+    if status == "ACTIVE" and firm.get("subscription_end"):
+        try:
+            return now <= datetime.fromisoformat(str(firm["subscription_end"]))
+        except Exception:
+            return False
+    if status == "ACTIVE_TRIAL" and firm.get("trial_end"):
+        try:
+            return now < datetime.fromisoformat(str(firm["trial_end"]))
+        except Exception:
+            return False
+    return False
+
+
+def _refresh_subscription_status(firm_id):
+    reg = _load_registry()
+    firm = (reg.get("firms", {}) or {}).get(firm_id)
+    if not firm:
+        return None, reg
+    now = datetime.now()
+    changed = False
+    if firm.get("registration_key_expires_at"):
+        try:
+            if now >= datetime.fromisoformat(str(firm["registration_key_expires_at"])) and firm.get("status") == "PENDING_REGISTRATION":
+                firm["status"] = "REGISTRATION_EXPIRED"
+                changed = True
+        except Exception:
+            pass
+    if firm.get("subscription_status") == "ACTIVE_TRIAL" and firm.get("trial_end"):
+        try:
+            if now >= datetime.fromisoformat(str(firm["trial_end"])):
+                firm["subscription_status"] = "EXPIRED"
+                changed = True
+        except Exception:
+            pass
+    if firm.get("subscription_status") == "ACTIVE" and firm.get("subscription_end"):
+        try:
+            if now > datetime.fromisoformat(str(firm["subscription_end"])):
+                firm["subscription_status"] = "EXPIRED"
+                changed = True
+        except Exception:
+            pass
+    if changed:
+        reg.setdefault("firms", {})[firm_id] = firm
+        _save_registry(reg)
+    return firm, reg
+
+
+def _send_sms(phone, message):
+    sid = _get_setting("TWILIO_ACCOUNT_SID", "")
+    token = _get_setting("TWILIO_AUTH_TOKEN", "")
+    from_no = _get_setting("TWILIO_FROM", "")
+    if not (sid and token and from_no and phone):
+        return False
     try:
-        db.collection("cci_utility").document("app_users").set({"users": users_dict})
-        return True
-    except Exception as e:
-        st.error(f"User save error: {e}")
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+        r = requests.post(url, data={"From": from_no, "To": phone, "Body": message[:1500]}, auth=(sid, token), timeout=20)
+        return r.ok
+    except Exception:
         return False
 
 
+def _notify_admin(subject, body, mobile=""):
+    # Always log in Firestore; optional SMTP email/SMS are sent if configured.
+    reg = _load_registry()
+    notes = reg.get("notifications", []) or []
+    notes.append({"time": _now_iso(), "subject": subject, "body": body})
+    reg["notifications"] = notes[-500:]
+    _save_registry(reg)
+    host = _get_setting("SMTP_HOST", "")
+    user = _get_setting("SMTP_USER", "")
+    pwd = _get_setting("SMTP_PASSWORD", "")
+    to = _get_setting("ADMIN_EMAIL", "")
+    if host and user and pwd and to:
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = user
+            msg["To"] = to
+            msg.set_content(body)
+            with smtplib.SMTP(host, int(_get_setting("SMTP_PORT", "587")), timeout=20) as s:
+                s.starttls()
+                s.login(user, pwd)
+                s.send_message(msg)
+        except Exception:
+            pass
+    _send_sms(mobile, subject + " - " + body)
+
+
+def _notify_firm(firm, subject, body):
+    email = str(firm.get("email", "") or "").strip()
+    mobile = str(firm.get("mobile", "") or "").strip()
+    host = _get_setting("SMTP_HOST", "")
+    user = _get_setting("SMTP_USER", "")
+    pwd = _get_setting("SMTP_PASSWORD", "")
+    if host and user and pwd and email:
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = user
+            msg["To"] = email
+            msg.set_content(body)
+            with smtplib.SMTP(host, int(_get_setting("SMTP_PORT", "587")), timeout=20) as s:
+                s.starttls(); s.login(user, pwd); s.send_message(msg)
+        except Exception:
+            pass
+    _send_sms(mobile, subject + " - " + body)
+
+
+def _audit(action, firm_id="", username="", details=None):
+    reg = _load_registry()
+    logs = reg.get("audit_logs", []) or []
+    logs.append({"time": _now_iso(), "action": action, "firm_id": firm_id, "username": username, "details": details or {}, "ip": _get_client_ip()})
+    reg["audit_logs"] = logs[-2000:]
+    _save_registry(reg)
+
+
+def _find_firm_for_user(username):
+    reg = _load_registry()
+    for fid, firm in (reg.get("firms", {}) or {}).items():
+        if str(firm.get("owner_username", "")).lower() == username.lower():
+            return fid, firm
+        users = _all_firm_users(fid)
+        if username in users:
+            return fid, firm
+    return None, None
+
+
+def _create_firm_registration(firm_name, owner_username, password, mobile, email, address):
+    reg = _load_registry()
+    firms = reg.setdefault("firms", {})
+    registrations = reg.setdefault("registrations", {})
+    mobile_norm = re.sub(r"\D", "", mobile or "")
+    ip = _get_client_ip()
+    if len(mobile_norm) < 10:
+        return False, "Mobile number must be valid (10 digits).", None
+    # One-time registration by mobile and, when available, by client IP.
+    for fid, f in firms.items():
+        if re.sub(r"\D", "", str(f.get("mobile", ""))) == mobile_norm and mobile_norm:
+            return False, "This mobile number has already been registered.", None
+        if ip != "UNKNOWN" and f.get("registration_ip") == ip:
+            return False, "This IP address has already been used for registration.", None
+    for rid, r in registrations.items():
+        if re.sub(r"\D", "", str(r.get("mobile", ""))) == mobile_norm:
+            return False, "This mobile number already has a registration request.", None
+        if ip != "UNKNOWN" and r.get("registration_ip") == ip:
+            return False, "This IP address already has a registration request.", None
+        if str(r.get("owner_username", "")).lower() == owner_username.lower():
+            return False, "Username already exists in a registration request.", None
+    if not firm_name.strip() or not owner_username.strip() or not password:
+        return False, "Firm Name, Owner Username and Password are required.", None
+    # Username must be unique across all firms and pending registrations.
+    owner_key = owner_username.strip().lower()
+    if owner_key == _superuser_credentials()[0].lower():
+        return False, "This username is reserved for the Super User.", None
+    for _fid, _firm in firms.items():
+        if str(_firm.get("owner_username", "")).lower() == owner_key or owner_key in _all_firm_users(_fid):
+            return False, "This username is already in use.", None
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters.", None
+    fid = _firm_id_from_name(firm_name)
+    reg_key = _generate_key(12)
+    policy = _system_policy()
+    expires = datetime.now() + timedelta(hours=policy["registration_key_hours"])
+    request_id = f"REG-{secrets.token_hex(6).upper()}"
+    registrations[request_id] = {
+        "request_id": request_id, "firm_id": fid, "firm_name": firm_name.strip(),
+        "owner_username": owner_username.strip().lower(), "password": password,
+        "mobile": mobile_norm, "email": email.strip(), "address": address.strip(),
+        "registration_key": reg_key, "registration_key_hash": _hash_secret(reg_key),
+        "registration_ip": ip, "created_at": _now_iso(), "expires_at": expires.isoformat(timespec="seconds"),
+        "status": "PENDING", "included_users": policy["included_users"],
+    }
+    _save_registry(reg)
+    _notify_admin("New Firm Registration", f"Firm: {firm_name}\nOwner: {owner_username}\nMobile: {mobile_norm}\nRequest: {request_id}\nRegistration Key: {reg_key}\nIP: {ip}", mobile_norm)
+    return True, "Registration submitted. Your 12-character key is valid for 2 hours and requires Super User authentication.", {"request_id": request_id, "key": reg_key, "firm_id": fid}
+
+
+def _approve_registration(request_id):
+    reg = _load_registry()
+    req = (reg.get("registrations", {}) or {}).get(request_id)
+    if not req or req.get("status") != "PENDING":
+        return False, "Registration request not found or already processed."
+    try:
+        if datetime.now() >= datetime.fromisoformat(str(req["expires_at"])):
+            req["status"] = "EXPIRED"
+            _save_registry(reg)
+            return False, "The 2-hour registration key has expired."
+    except Exception:
+        pass
+    fid = req["firm_id"]
+    trial_start = datetime.now()
+    policy = _system_policy()
+    trial_end = trial_start + timedelta(days=policy["trial_days"])
+    activation_key = _generate_key(24)
+    reg.setdefault("firms", {})[fid] = {
+        "firm_id": fid, "firm_name": req["firm_name"], "status": "ACTIVE",
+        "created_at": _now_iso(), "owner_username": req["owner_username"], "mobile": req["mobile"],
+        "email": req.get("email", ""), "address": req.get("address", ""), "registration_ip": req.get("registration_ip", ""),
+        "registration_key": req["registration_key"], "registration_key_expires_at": req["expires_at"],
+        "activation_key": activation_key, "activation_key_hash": _hash_secret(activation_key),
+        "subscription_status": "ACTIVE_TRIAL", "trial_start": trial_start.isoformat(timespec="seconds"),
+        "trial_end": trial_end.isoformat(timespec="seconds"), "subscription_start": "", "subscription_end": "",
+        "included_users": policy["included_users"], "extra_users": 0,
+    }
+    _set_doc(f"firm_data_{_safe_doc_id(fid)}", {"projects": [], "contracts": []})
+    _save_firm_users(fid, {req["owner_username"]: {
+        "password": req["password"], "mobile": req["mobile"], "email": req.get("email", ""),
+        "user_key": "", "role": "Firm Admin", "rights": ["masters","upload","results","help","user_master"], "active": True
+    }})
+    req["status"] = "APPROVED_TRIAL"
+    req["approved_at"] = _now_iso()
+    req["activation_key"] = activation_key
+    reg["registrations"][request_id] = req
+    _save_registry(reg)
+    _notify_admin("Firm Trial Activated", f"Firm: {req['firm_name']}\nFirm ID: {fid}\nTrial ends: {trial_end}\nActivation Key: {activation_key}", req.get("mobile", ""))
+    _notify_firm(reg["firms"][fid], "CCI Trial Activated", f"Your 3-day trial is active until {trial_end.strftime('%d-%m-%Y %H:%M:%S')}.\nFirm ID: {fid}\n24-character activation key: {activation_key}")
+    return True, f"Trial activated for {req['firm_name']} until {trial_end.strftime('%d-%m-%Y %H:%M')}."
+
+
+def _has_right(right):
+    if st.session_state.get("_auth_role") == "SUPERUSER":
+        return True
+    return right in (st.session_state.get("_user_rights") or [])
+
+
+def _set_firm_session(fid, username, user_rec, role="User"):
+    st.session_state._firm_id = fid
+    st.session_state._logged_user = username
+    st.session_state._auth_role = "FIRM_USER"
+    st.session_state._user_role = role
+    st.session_state._user_rights = user_rec.get("rights", []) or []
+
+
+def _try_firm_login(username, password):
+    fid, firm = _find_firm_for_user(username)
+    if not fid:
+        return False, "Invalid username or password."
+    firm, _ = _refresh_subscription_status(fid)
+    users = _all_firm_users(fid)
+    rec = users.get(username)
+    if not rec or str(rec.get("password", "")) != str(password):
+        return False, "Invalid username or password."
+    if not bool(rec.get("active", True)):
+        return False, "This user account has been disabled by the firm administrator."
+    if not _firm_access(firm):
+        return False, "Your Subscription period is over, Please recharge again" if str(firm.get("subscription_status", "")).upper() == "EXPIRED" else "Firm is not activated yet. Please contact support."
+    _set_firm_session(fid, username, rec, rec.get("role", "User"))
+    _audit("LOGIN", fid, username, {"subscription_status": firm.get("subscription_status", "")})
+    return True, ""
 # ─── CLEAN CONTRACT CARD STYLES ──────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -881,325 +1342,279 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── LOGIN GATE ───────────────────────────────────────────────────────────────
+# ─── LOGIN / REGISTRATION GATE ───────────────────────────────────────────────
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "_login_error" not in st.session_state:
     st.session_state._login_error = ""
 if "_logged_user" not in st.session_state:
     st.session_state._logged_user = ""
+if "_auth_role" not in st.session_state:
+    st.session_state._auth_role = ""
+if "_firm_id" not in st.session_state:
+    st.session_state._firm_id = ""
+
 
 def _do_login():
     u = st.session_state.get("_lu", "").strip()
     p = st.session_state.get("_lp", "")
-    users = _load_users()
-    user_rec = users.get(u, {})
-    user_pass = user_rec.get("password", user_rec) if isinstance(user_rec, dict) else user_rec
-    if user_pass == p:
+    if _superuser_login_valid(u, p):
+        sid = _load_system_settings().get("superuser_id", u)
         st.session_state.authenticated = True
-        st.session_state._logged_user  = u
-        st.session_state._login_error  = ""
-        # Record login timestamp in Firebase
-        try:
-            import datetime as _dt2
-            _ts = _dt2.datetime.now().strftime("%d-%b-%Y %H:%M:%S")
-            _hist_doc = db.collection("cci_utility").document("login_history").get()
-            _hist_data = (_hist_doc.to_dict().get("history", {}) if _hist_doc.exists else {}) or {}
-            _hist_data.setdefault(u, [])
-            _hist_data[u] = list(_hist_data[u])[-19:] + [_ts]
-            db.collection("cci_utility").document("login_history").set({"history": _hist_data})
-        except Exception as e:
-            st.warning(f"Login history save error: {e}")
+        st.session_state._auth_role = "SUPERUSER"
+        st.session_state._logged_user = sid
+        st.session_state._firm_id = ""
+        st.session_state._user_rights = ["*"]
+        st.session_state._login_error = ""
+        _audit("SUPERUSER_LOGIN", "", sid, {})
+        return
+    ok, msg = _try_firm_login(u, p)
+    if ok:
+        st.session_state.authenticated = True
+        st.session_state._login_error = ""
     else:
-        st.session_state._login_error = "❌ Invalid username or password."
+        st.session_state._login_error = msg
+
+
+def _do_register():
+    ok, msg, info = _create_firm_registration(
+        st.session_state.get("_rfname", ""), st.session_state.get("_rowner", ""),
+        st.session_state.get("_rpass", ""), st.session_state.get("_rmobile", ""),
+        st.session_state.get("_remail", ""), st.session_state.get("_raddress", "")
+    )
+    st.session_state._reg_result = info if ok else None
+    st.session_state._reg_error = "" if ok else msg
+    st.session_state._reg_success = msg if ok else ""
+
 
 if not st.session_state.authenticated:
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
-    * { font-family:'Inter',sans-serif; box-sizing:border-box; }
-
-    /* Soft gradient page background, gently scrollable — never clipped */
-    html, body { margin: 0 !important; padding: 0 !important; }
-    [data-testid="stAppViewContainer"] {
-        background:
-            radial-gradient(circle at 6% 8%, rgba(249,115,22,0.16) 0%, transparent 40%),
-            radial-gradient(circle at 96% 90%, rgba(234,88,12,0.14) 0%, transparent 38%),
-            radial-gradient(circle at 90% 10%, rgba(253,186,116,0.20) 0%, transparent 30%),
-            linear-gradient(160deg, #fff7ee 0%, #fdecd9 55%, #fbe1c4 100%) !important;
-        min-height: 100vh !important;
-    }
-    [data-testid="stHeader"], header[data-testid="stHeader"], footer,
-    [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
-    section[data-testid="stMain"] { padding-top: 0 !important; }
-    .main .block-container, [data-testid="stMainBlockContainer"] {
-        padding: 28px 24px !important; margin: 0 auto !important; max-width: 1220px !important;
-        min-height: 100vh !important;
-        display: flex !important; align-items: center !important; justify-content: center !important;
-    }
-    section.main > div { padding: 0 !important; }
-
-    /* A soft picture-frame border around the whole login page, like the reference */
-    .main .block-container {
-        border: 1.5px solid rgba(249,115,22,0.30) !important;
-        border-radius: 28px !important;
-        box-shadow: 0 24px 60px -16px rgba(154,52,18,0.20) !important;
-        padding: 30px 34px !important;
-    }
-
-    /* The two Streamlit columns stay the same overall height, but only the
-       LEFT content fills it directly -- the RIGHT side becomes a smaller,
-       independently floating card (see reference image), not a stretched box */
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0 !important;
-        align-items: stretch !important;
-        width: 100% !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        padding: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
-        display: flex !important; align-items: center !important; justify-content: center !important;
-        padding: 18px 22px !important;
-    }
-    /* Only tighten spacing inside the right (form) column -- never globally,
-       this is what was causing the Username/Password label to overlap the input */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlock"] {
-        gap: 0.5rem !important;
-    }
-
-    /* LEFT SIDE - content sits directly on the soft cream background, no hard block */
-    .login-left {
-        padding: 30px 40px 30px 8px;
-        position: relative;
-        display: flex; flex-direction: column; justify-content: center; gap: 18px;
-    }
-    .ll-logo { display:flex; align-items:center; gap:16px; }
-    .ll-logo img { height:62px; width:auto; border-radius:14px; box-shadow:0 6px 20px rgba(154,52,18,0.18); }
-    .ll-wordmark { display:flex; flex-direction:column; line-height:1.05; }
-    .ll-wordmark b { font-family:'Poppins',sans-serif; font-size:26px; font-weight:800; color:#1c1917; }
-    .ll-wordmark span { font-size:11.5px; font-weight:800; letter-spacing:.18em; color:#ea580c; }
-
-    .ll-headline {
-        font-family:'Poppins',sans-serif;
-        font-size:28px; font-weight:900; color:#1c1917;
-        line-height:1.18;
-    }
-    .ll-headline span { color:#ea580c; }
-    .ll-tagline { font-size:13.5px; color:#57534e; line-height:1.55; max-width:400px; }
-
-    .ll-about {
-        display:flex; gap:12px; align-items:flex-start;
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:14px;
-        padding:13px 16px; box-shadow:0 4px 16px rgba(154,52,18,0.06);
-    }
-    .ll-about-icon {
-        flex-shrink:0; width:34px; height:34px; border-radius:9px;
-        background:linear-gradient(135deg,#f97316,#ea580c);
-        display:flex; align-items:center; justify-content:center; font-size:15px;
-    }
-    .ll-about-title { font-size:12.5px; font-weight:800; color:#ea580c; margin-bottom:2px; }
-    .ll-about-desc { font-size:11.5px; color:#6b6660; line-height:1.45; }
-
-    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:9px; max-width:440px; }
-    .ll-feat {
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:12px;
-        padding:10px 13px; box-shadow:0 3px 12px rgba(154,52,18,0.05);
-    }
-    .ll-feat-icon { font-size:15px; margin-bottom:4px; }
-    .ll-feat-title { font-size:11.5px; font-weight:800; color:#1c1917; margin-bottom:2px; }
-    .ll-feat-desc { font-size:10.5px; color:#8a8580; line-height:1.35; }
-
-    .ll-footer { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
-    .ll-footer span { font-size:10.5px; color:#8a8580; display:flex; align-items:center; gap:5px; white-space:nowrap; }
-
-    /* RIGHT SIDE - a compact, independently-floating white card (not stretched) */
-    .login-right-panel {
-        background:#ffffff;
-        width: 100%; max-width: 360px;
-        border-radius: 22px;
-        padding: 30px 32px;
-        box-shadow: 0 20px 50px -14px rgba(154,52,18,0.22), 0 0 0 1px rgba(249,115,22,0.08);
-    }
-    .login-right-inner { width: 100%; }
-
-    .lr-eyebrow {
-        display:flex; align-items:center; gap:10px; margin-bottom:12px;
-        font-size:10.5px; font-weight:800; color:#ea580c;
-        text-transform:uppercase; letter-spacing:.13em;
-    }
-    .lr-eyebrow::before, .lr-eyebrow::after {
-        content:''; flex:1; height:1px; background:#f97316; opacity:0.4;
-    }
-    .lr-title {
-        font-family:'Poppins',sans-serif;
-        font-size:26px; font-weight:900; color:#1c1917;
-        line-height:1.1; margin-bottom:5px; text-align:center;
-    }
-    .lr-sub { font-size:12px; color:#78716c; margin-bottom:2px; text-align:center; }
-    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 16px; color:#f97316; font-size:14px; }
-
-    /* Form fields */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] label {
-        font-size:12.5px !important; font-weight:700 !important;
-        color:#1c1917 !important; margin-bottom:2px !important;
-        letter-spacing:.02em !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input {
-        background:#fafaf9 !important;
-        border:1.5px solid #e7e5e4 !important;
-        border-radius:11px !important;
-        color:#1c1917 !important;
-        font-size:13.5px !important;
-        padding:11px 15px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input:focus {
-        border-color:#f97316 !important;
-        box-shadow:0 0 0 3px rgba(249,115,22,0.18) !important;
-        background:#ffffff !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
-
-    /* Remember me / forgot password row */
-    .lr-row { display:flex; align-items:center; justify-content:space-between; margin: 2px 0 4px; }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stCheckbox"] label p {
-        font-size:12px !important; color:#57534e !important; font-weight:600 !important;
-    }
-    .lr-forgot { font-size:12px; font-weight:700; color:#ea580c; text-align:right; }
-
-    /* Primary button - orange */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"] {
-        background: linear-gradient(135deg,#ea580c,#f97316) !important;
-        color:#ffffff !important; border:none !important;
-        border-radius:13px !important; font-size:14.5px !important;
-        font-weight:800 !important; padding:12px !important;
-        box-shadow:0 8px 24px rgba(234,88,12,0.40) !important;
-        letter-spacing:.02em !important;
-        transition:all 0.25s !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"]:hover {
-        background:linear-gradient(135deg,#c2410c,#ea580c) !important;
-        box-shadow:0 12px 32px rgba(234,88,12,0.55) !important;
-        transform:translateY(-2px) !important;
-    }
-
-    /* Bottom branding */
-    .lr-shield { text-align:center; margin-top:18px; font-size:18px; }
-    .lr-bottom { text-align:center; margin-top:5px; }
-    .lr-bottom-brand { font-size:14px; font-weight:800; color:#ea580c; margin-bottom:3px; }
-    .lr-bottom-desc { font-size:11px; color:#a8a29e; margin-bottom:5px; }
-    .lr-bottom-secure { font-size:10.5px; font-weight:700; color:#ea580c; }
-
-    /* Error msg */
-    .login-err {
-        background:#fff7f5; border:1.5px solid #fca5a5;
-        border-radius:10px; padding:10px 13px;
-        color:#dc2626; font-size:12.5px; font-weight:600;
-        margin-top:10px; text-align:center;
-    }
-
-    @media (max-width: 900px) {
-        div[data-testid="stHorizontalBlock"] { flex-direction: column !important; }
-        .ll-headline { font-size:24px; }
-        .ll-features { grid-template-columns:1fr; }
-        .login-right-panel { max-width: 100%; }
-    }
-    </style>
+    .auth-shell{max-width:1050px;margin:30px auto;padding:22px;border:1px solid #fed7aa;border-radius:24px;background:linear-gradient(135deg,#fff7ed,#fff);box-shadow:0 20px 50px rgba(154,52,18,.12)}
+    .auth-title{text-align:center;font-size:30px;font-weight:900;color:#1c1917}.auth-sub{text-align:center;color:#78716c;margin-bottom:18px}.auth-note{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;font-size:12px;color:#7c2d12}
+    </style><div class="auth-shell"><div class="auth-title">CCI Working Calculation Utility</div><div class="auth-sub">Secure Firm Registration • Subscription • Role Based Access</div></div>
     """, unsafe_allow_html=True)
-
-    left_col, right_col = st.columns([1.15, 0.85], gap="small")
-
-    with left_col:
-        st.markdown(f"""
-        <div class="login-left">
-          <div class="ll-logo">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Softview">
-            <div class="ll-wordmark"><b>Softview</b><span>TECHNOLOGIES</span></div>
-          </div>
-
-          <div class="ll-headline">Smart software.<br><span>Built for business.</span></div>
-          <div class="ll-tagline">Softview Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams, and drive business growth.</div>
-
-          <div class="ll-about">
-            <div class="ll-about-icon">🏛️</div>
-            <div>
-              <div class="ll-about-title">About Softview Technologies</div>
-              <div class="ll-about-desc">We build modern applications that bring operational workflows, data, reporting and user access together in one secure, scalable and efficient platform.</div>
-            </div>
-          </div>
-
-          <div class="ll-features">
-            <div class="ll-feat">
-              <div class="ll-feat-icon">🏢</div>
-              <div class="ll-feat-title">Enterprise Ready</div>
-              <div class="ll-feat-desc">Structured workflows and business controls.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">📊</div>
-              <div class="ll-feat-title">Data Driven</div>
-              <div class="ll-feat-desc">Clear calculations, reports and insights.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">🔒</div>
-              <div class="ll-feat-title">Secure Access</div>
-              <div class="ll-feat-desc">Authorised user login and role-based access.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">💎</div>
-              <div class="ll-feat-title">Executive Experience</div>
-              <div class="ll-feat-desc">Clean, premium and easy-to-use interface.</div>
-            </div>
-          </div>
-
-          <div class="ll-footer">
-            <span>🛡️ Secure. Reliable. Scalable.</span>
-            <span>👥 Trusted by Professionals.</span>
-            <span>🏆 Excellence in Every Solution.</span>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with right_col:
-        st.markdown('<div class="login-right-panel"><div class="login-right-inner">', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="lr-eyebrow">CCI Working Calculation Utility</div>
-        <div class="lr-title">Welcome Back</div>
-        <div class="lr-sub">Sign in to continue to your secure workspace.</div>
-        <div class="lr-divider">◆</div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:2px">Username</p>', unsafe_allow_html=True)
-        st.text_input("", key="_lu", placeholder="👤  Enter your username", label_visibility="collapsed")
-
-        st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:2px">Password</p>', unsafe_allow_html=True)
-        st.text_input("", key="_lp", type="password", placeholder="🔒  Enter your password", label_visibility="collapsed")
-
-        rc1, rc2 = st.columns([0.55, 0.45])
-        with rc1:
-            st.checkbox("Remember me", key="_remember_me")
-        with rc2:
-            st.markdown('<div class="lr-forgot" style="padding-top:8px;">Forgot password?</div>', unsafe_allow_html=True)
-
-        st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
-
-        if st.session_state._login_error:
-            st.markdown(f'<div class="login-err">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="lr-shield">🛡️</div>
-        <div class="lr-bottom">
-          <div class="lr-bottom-brand">Softview Technologies</div>
-          <div class="lr-bottom-desc">CCI Working Calculation Utility &nbsp;·&nbsp; Premium Enterprise Edition</div>
-          <div class="lr-bottom-secure">Secure access for authorised users only.</div>
-        </div>
-        </div></div>
-        """, unsafe_allow_html=True)
-
+    ltab, rtab, ptab = st.tabs(["🔐 Login", "🏢 Register Firm", "💳 Renew / Payment Request"])
+    with ltab:
+        c1,c2,c3 = st.columns([1,2,1])
+        with c2:
+            st.markdown("### Secure Login")
+            st.text_input("Username", key="_lu", placeholder="Firm user / Super User ID")
+            st.text_input("Password", key="_lp", type="password")
+            st.button("🔒 Sign In", on_click=_do_login, type="primary", use_container_width=True)
+            if st.session_state._login_error:
+                st.error(st.session_state._login_error)
+            st.info("Super User access is separate from firm users. Firm access is permitted only while trial/subscription is active.")
+    with rtab:
+        st.markdown("### New Firm Registration")
+        st.caption("Registration key: exactly 12 characters • validity is controlled by Super User • trial starts only after Super User authentication.")
+        a,b=st.columns(2)
+        a.text_input("Firm Name ✱", key="_rfname")
+        b.text_input("Owner Username ✱", key="_rowner")
+        a.text_input("Password ✱", key="_rpass", type="password")
+        b.text_input("Mobile No. ✱", key="_rmobile", max_chars=15)
+        a.text_input("Email", key="_remail")
+        b.text_input("Firm Address", key="_raddress")
+        st.button("📝 Generate Registration Request", on_click=_do_register, type="primary", use_container_width=True)
+        if st.session_state.get("_reg_error"):
+            st.error(st.session_state._reg_error)
+        if st.session_state.get("_reg_result"):
+            rr=st.session_state._reg_result
+            st.success(st.session_state.get("_reg_success", "Registration submitted."))
+            st.code(rr["key"], language=None)
+            st.warning("Copy this 12-character key. It expires according to Super User settings. The trial starts only after Super User authentication.")
+    with ptab:
+        st.markdown("### Renew / Payment Request")
+        st.caption("Minimum package: 4 months. Payment must be credited/verified in the Super User party ledger. A short payment will not activate access.")
+        username = st.text_input("Firm Owner / Username", key="_renew_user")
+        package_catalog = _package_catalog()
+        labels = list(package_catalog.keys())
+        pkg = st.selectbox("Package", labels, format_func=lambda x: f"{package_catalog[x]['label']} — ₹{package_catalog[x]['price']:,.2f}", key="_renew_pkg")
+        base_included = int((_load_registry().get("firms", {}).get(_find_firm_for_user(st.session_state.get("_renew_user",""))[0], {}).get("included_users", _system_policy()["included_users"]) if _find_firm_for_user(st.session_state.get("_renew_user",""))[0] else _system_policy()["included_users"]) or _system_policy()["included_users"])
+        extra = st.number_input(f"Extra Users beyond included {base_included}", min_value=0, max_value=100, value=0, step=1, key="_renew_extra")
+        amount = package_catalog[pkg]["price"] + extra * _extra_user_price()
+        st.metric("Required Exact Amount", f"₹{amount:,.2f}")
+        paydate = st.date_input("Payment Date", value=date.today(), key="_renew_date")
+        paymode = st.selectbox("Mode of Payment", ["UPI","NEFT","RTGS","IMPS","Bank Transfer","Cheque","Cash","Card","Other"], key="_renew_mode")
+        payref = st.text_input("Payment Reference / UTR", key="_renew_ref")
+        if st.button("💳 Submit Payment Request", type="primary", use_container_width=True):
+            if float(package_catalog[pkg]["price"]) <= 0:
+                st.error("Package pricing is not configured yet. Please contact the Super User.")
+                st.stop()
+            fid, firm = _find_firm_for_user(username)
+            if not fid:
+                st.error("Firm/user not found.")
+            else:
+                reg=_load_registry(); reqs=reg.get("payment_requests",{}) or {}
+                rid=f"PAY-{secrets.token_hex(6).upper()}"
+                reqs[rid]={"request_id":rid,"firm_id":fid,"username":username,"package":pkg,"months":package_catalog[pkg]["months"],"extra_users":int(extra),"required_amount":amount,"payment_reference":payref.strip(),"status":"PENDING","created_at":_now_iso()}
+                reqs[rid]["payment_mode"] = paymode
+                reqs[rid]["payment_date"] = str(paydate)
+                reg["payment_requests"]=reqs; _save_registry(reg)
+                _notify_admin("Payment Request", f"Firm: {firm.get('firm_name')}\nFirm ID: {fid}\nPackage: {package_catalog[pkg]['label']}\nRequired: ₹{amount:,.2f}\nMode: {paymode}\nReference: {payref}", firm.get("mobile", ""))
+                st.success("Payment request recorded. Access will start only after the credited amount is verified against the selected package.")
     st.stop()
 
+# ─── SUPER USER CONSOLE (completely separate from firm utility) ───────────────
+if st.session_state.get("_auth_role") == "SUPERUSER":
+    st.markdown("## 👑 Super User Control Center")
+    st.caption("Global administration only. Firm users never enter this console.")
+    a,b,c=st.columns(3)
+    reg=_load_registry(); firms=reg.get("firms",{}) or {}; registrations=reg.get("registrations",{}) or {}
+    a.metric("Firms", len(firms)); b.metric("Pending Registrations", sum(1 for x in registrations.values() if x.get("status")=="PENDING")); c.metric("Payment Requests", len(reg.get("payment_requests",{}) or {}))
+    st.markdown("---")
+    at1,at2,at3,at4,at5,at6,at7 = st.tabs(["📝 Registrations","🏢 Firms","💰 Payments","📒 Party Ledger","💵 Pricing","🧾 Logs","⚙️ System Control"])
+    with at1:
+        for rid, req in list(registrations.items())[::-1]:
+            if req.get("status") not in ("PENDING",):
+                continue
+            with st.container(border=True):
+                st.write(f"**{req.get('firm_name')}** — {req.get('owner_username')} — {req.get('mobile')}")
+                st.caption(f"Request: {rid} | Registration Key: {req.get('registration_key')} | Expires: {req.get('expires_at')} | IP: {req.get('registration_ip')}")
+                entered_key = st.text_input("Enter 12-character Registration Key to authenticate", key=f"regkey_{rid}", max_chars=12)
+                if st.button("✅ Authenticate & Start 3-Day Trial", key=f"approve_{rid}"):
+                    if _hash_secret(entered_key.strip()) != req.get("registration_key_hash"):
+                        st.error("❌ Registration Key mismatch. Trial has NOT been activated.")
+                    else:
+                        ok,msg=_approve_registration(rid); (st.success(msg) if ok else st.error(msg)); st.rerun()
+    with at2:
+        for fid, firm in firms.items():
+            firm,_=_refresh_subscription_status(fid)
+            with st.container(border=True):
+                st.write(f"**{firm.get('firm_name')}** (`{fid}`)")
+                st.caption(f"Owner: {firm.get('owner_username')} | Status: {firm.get('subscription_status')} | Trial: {firm.get('trial_end','—')} | Subscription: {firm.get('subscription_end','—')} | Users: {int(firm.get('included_users', _system_policy()['included_users']) or _system_policy()['included_users']) + int(firm.get('extra_users',0) or 0)}")
+                if fid != "XYZ":
+                    nk=st.text_input("New 24-character activation key (optional)", value=firm.get("activation_key", ""), key=f"ak_{fid}")
+                    if st.button("🔑 Regenerate 24-char Key", key=f"regen_{fid}"):
+                        firm["activation_key"]=_generate_key(24); firm["activation_key_hash"]=_hash_secret(firm["activation_key"]); reg["firms"][fid]=firm; _save_registry(reg); st.success("New activation key generated."); st.rerun()
+                if fid != "XYZ":
+                    with st.expander("👤 Manage Firm Users", expanded=False):
+                        fu = _all_firm_users(fid)
+                        for _uname, _ud in fu.items():
+                            uc1,uc2,uc3=st.columns([2.5,1.5,1])
+                            uc1.write(f"{_uname} · {_ud.get('role','User')} · {'ACTIVE' if _ud.get('active',True) else 'DISABLED'}")
+                            if uc2.button("Enable/Disable", key=f"toggle_{fid}_{_uname}"):
+                                _ud["active"] = not bool(_ud.get("active", True)); fu[_uname]=_ud; _save_firm_users(fid,fu); _audit("USER_STATUS_CHANGED",fid,st.session_state.get("_logged_user",""),{"user":_uname,"active":_ud["active"]}); st.rerun()
+                            if uc3.button("Reset Key", key=f"ukey_{fid}_{_uname}"):
+                                _ud["user_key"]=_generate_key(12); _ud["user_key_hash"]=_hash_secret(_ud["user_key"]); fu[_uname]=_ud; _save_firm_users(fid,fu); st.success(f"New 12-char User Key for {_uname}: {_ud['user_key']}")
+    with at3:
+        for rid, req in list((reg.get("payment_requests",{}) or {}).items())[::-1]:
+            with st.container(border=True):
+                st.write(f"**{rid}** — {req.get('firm_id')} — {req.get('package')} — Required ₹{float(req.get('required_amount',0)):,.2f}")
+                st.caption(f"Payment Date: {req.get('payment_date','—')} | Mode: {req.get('payment_mode','—')} | Reference: {req.get('payment_reference','—')} | Status: {req.get('status')} | Extra users: {req.get('extra_users',0)}")
+                credited=st.number_input("Credited Amount", min_value=0.0, value=float(req.get("credited_amount",0) or 0), key=f"cred_{rid}")
+                if st.button("🏦 Verify Credited Amount & Activate", key=f"verify_{rid}"):
+                    required=float(req.get("required_amount",0) or 0)
+                    if credited + 1e-9 < required:
+                        req["status"]="REJECTED_SHORT_PAYMENT"; req["credited_amount"]=credited; reg["payment_requests"][rid]=req; _save_registry(reg); st.error(f"Short payment. Required ₹{required:,.2f}; credited ₹{credited:,.2f}. Access NOT activated.")
+                    else:
+                        fid=req["firm_id"]; firm=reg["firms"][fid]
+                        try:
+                            start_dt = datetime.combine(date.fromisoformat(str(req.get("payment_date", date.today()))), datetime.min.time())
+                        except Exception:
+                            start_dt = datetime.now()
+                        if start_dt > datetime.now():
+                            st.error("Payment Date cannot be in the future."); st.stop()
+                        end_dt=_subscription_end(start_dt, int(req["months"]))
+                        firm["subscription_status"]="ACTIVE"; firm["subscription_start"]=start_dt.isoformat(timespec="seconds"); firm["subscription_end"]=end_dt.isoformat(timespec="seconds"); firm["extra_users"]=int(req.get("extra_users",0)); firm["activation_key"]=_generate_key(24); firm["activation_key_hash"]=_hash_secret(firm["activation_key"]); reg["firms"][fid]=firm
+                        req["status"]="PAID_ACTIVATED"; req["credited_amount"]=credited; req["verified_at"]=_now_iso(); reg["payment_requests"][rid]=req
+                        led=reg.get("party_ledger",[]) or []; led.append({"date":_now_iso(),"firm_id":fid,"party":firm.get("firm_name"),"type":"CREDIT","amount":credited,"mode":req.get("payment_mode","Verified Payment"),"reference":req.get("payment_reference",""),"package":req.get("package")}); reg["party_ledger"]=led[-5000:]; _save_registry(reg)
+                        _notify_admin("Subscription Activated", f"Firm {firm.get('firm_name')} activated until {end_dt}. Amount ₹{credited:,.2f}.", firm.get("mobile", ""))
+                        _notify_firm(firm, "CCI Subscription Activated", f"Payment verified: ₹{credited:,.2f}.\nPackage: {req.get('package')}\nValid from: {start_dt.strftime('%d-%m-%Y %H:%M:%S')}\nValid till: {end_dt.strftime('%d-%m-%Y %H:%M:%S')}\n24-character activation key: {firm.get('activation_key')}")
+                        st.success(f"Activated until {end_dt.strftime('%d-%m-%Y %H:%M:%S')}"); st.rerun()
+    with at4:
+        st.markdown("### Party Account Ledger — Subscription Receipts")
+        ledger=pd.DataFrame(reg.get("party_ledger",[]) or [])
+        st.dataframe(ledger, use_container_width=True, hide_index=True)
+        st.download_button("⬇️ Download Party Ledger CSV", ledger.to_csv(index=False).encode("utf-8"), "party_account_ledger.csv", "text/csv")
+    with at5:
+        st.markdown("### Package Pricing")
+        pricing=reg.get("pricing",{}) or {}
+        p1,p2,p3,p4=st.columns(4)
+        v4=p1.number_input("4 Months", min_value=0.0, value=float(pricing.get("4_MONTHS",0) or 0), key="price4")
+        v6=p2.number_input("6 Months", min_value=0.0, value=float(pricing.get("6_MONTHS",0) or 0), key="price6")
+        vy=p3.number_input("1 Year", min_value=0.0, value=float(pricing.get("1_YEAR",0) or 0), key="pricey")
+        vx=p4.number_input("Extra User", min_value=0.0, value=float(pricing.get("EXTRA_USER",0) or 0), key="pricex")
+        if st.button("💾 Save Pricing", type="primary"):
+            reg["pricing"]={"4_MONTHS":v4,"6_MONTHS":v6,"1_YEAR":vy,"EXTRA_USER":vx}; _save_registry(reg); st.success("Pricing saved."); st.rerun()
+    with at6:
+        st.markdown("### Audit Logs")
+        logs=pd.DataFrame(reg.get("audit_logs",[]) or [])
+        st.dataframe(logs.tail(500), use_container_width=True, hide_index=True)
+        st.markdown("### Notifications")
+        notes=pd.DataFrame(reg.get("notifications",[]) or [])
+        st.dataframe(notes.tail(200), use_container_width=True, hide_index=True)
+    with at7:
+        st.markdown("### ⚙️ System Control — Frontend Administration")
+        st.info(
+            "All day-to-day administration is controlled from this screen. "
+            "No per-firm Firebase/GitHub editing is required."
+        )
+
+        settings = _load_system_settings()
+        s1, s2 = st.columns(2)
+        new_sid = s1.text_input("Super User ID", value=str(settings.get("superuser_id", "superuser")), key="sys_sid")
+        new_spw = s2.text_input("New Super User Password", type="password", key="sys_spw",
+                                 placeholder="Leave blank to keep current password")
+
+        s3, s4, s5 = st.columns(3)
+        reg_hours = s3.number_input(
+            "Registration Key Validity (Hours)", min_value=1, max_value=168,
+            value=int(settings.get("registration_key_hours", 2)), step=1, key="sys_reg_hours"
+        )
+        trial_days = s4.number_input(
+            "Free Trial (Days)", min_value=1, max_value=90,
+            value=int(settings.get("trial_days", 3)), step=1, key="sys_trial_days"
+        )
+        included_users = s5.number_input(
+            "Users Included in Base Package", min_value=1, max_value=100,
+            value=int(settings.get("included_users", 3)), step=1, key="sys_included_users"
+        )
+
+        st.markdown("#### Notification / Operations")
+        st.caption(
+            "Email/SMS/payment-gateway credentials remain infrastructure secrets; "
+            "firm registration, pricing, subscription, users, rights, keys, payments and logs "
+            "are managed here through the application."
+        )
+
+        if st.button("💾 Save System Control Settings", type="primary", key="save_sys_settings"):
+            if not new_sid.strip():
+                st.error("Super User ID cannot be blank.")
+            else:
+                settings["superuser_id"] = new_sid.strip()
+                if new_spw.strip():
+                    if len(new_spw.strip()) < 8:
+                        st.error("Super User password should be at least 8 characters.")
+                        st.stop()
+                    settings["superuser_password_hash"] = _hash_secret(new_spw.strip())
+                settings["registration_key_hours"] = int(reg_hours)
+                settings["trial_days"] = int(trial_days)
+                settings["included_users"] = int(included_users)
+                _save_system_settings(settings)
+
+                # Keep existing firms unchanged; only future registrations
+                # use the new included-user policy. This avoids touching
+                # existing calculation/master data.
+                _audit("SYSTEM_SETTINGS_UPDATED", "", st.session_state.get("_logged_user",""),
+                       {"registration_key_hours": int(reg_hours),
+                        "trial_days": int(trial_days),
+                        "included_users": int(included_users),
+                        "superuser_id_changed": new_sid.strip()})
+                st.success("System settings saved. Future firm registrations will use these values.")
+                st.rerun()
+
+        st.markdown("#### Database / Tenant Operations")
+        st.write("**XYZ Company migration:** existing legacy data remains under the XYZ Company tenant.")
+        st.write("**New firms:** all firm masters/data are created from the application and automatically stored under that firm's tenant.")
+        st.write("**No manual Firebase document creation is required for a new firm.**")
+        st.write("**No GitHub update is required when registering, renewing, changing pricing, or adding users.**")
+
+    if st.button("🚪 Super User Logout", type="primary"):
+        st.session_state.authenticated=False; st.session_state._auth_role=""; st.session_state._logged_user=""; st.rerun()
+    st.stop()
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
+_ensure_xyz_migration()
 if "masters" not in st.session_state:
     st.session_state.masters = fs_load()
 if "proj_msg" not in st.session_state:
@@ -2066,6 +2481,8 @@ import streamlit.components.v1 as components
 _now = _dt.datetime.now()
 _clock_str = _now.strftime("%d %b %Y  |  %H:%M:%S")
 _logged_user = st.session_state.get("_logged_user", "")
+_firm_id_header = st.session_state.get("_firm_id", "")
+_firm_header = (_load_registry().get("firms", {}).get(_firm_id_header, {}).get("firm_name", "") if _firm_id_header else "SUPER USER")
 
 hc1, hc2 = st.columns([4.6, 1.4])
 with hc1:
@@ -2080,7 +2497,7 @@ with hc1:
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
         <span class="top-header-badge">✨ PREMIUM ENTERPRISE EDITION</span>
-        <span style="font-size:11.5px;color:rgba(255,255,255,0.92);font-weight:700;letter-spacing:.04em">👤 {_logged_user.upper()}</span>
+        <span style="font-size:11.5px;color:rgba(255,255,255,0.92);font-weight:700;letter-spacing:.04em">👤 {_logged_user.upper()} · {_firm_header.upper()}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2106,6 +2523,9 @@ with hc2:
     if st.button("🚪 Logout", key="top_logout", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state._logged_user = ""
+        st.session_state._firm_id = ""
+        st.session_state._auth_role = ""
+        st.session_state._user_rights = []
         st.session_state._login_error = ""
         st.session_state.edit_contract_idx = None
         st.session_state.editing_contract_no = None
@@ -2868,14 +3288,17 @@ with tab_help:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_users:
     current_user = st.session_state.get("_logged_user", "")
-    if current_user != "admin":
-        st.warning("⚠️ Only **admin** user can manage User Master.")
+    if not _has_right("user_master") or st.session_state.get("_user_role") not in ("Firm Admin", "Admin", "Manager"):
+        st.warning("⚠️ Only the firm's authorised User Master role can manage users inside this firm.")
     else:
         st.markdown('<div class="sec-label">👤 User Management</div>', unsafe_allow_html=True)
         st.caption("Add, edit or delete application users. Admin account cannot be deleted.")
 
         all_users = _load_users()
 
+        if st.button("🔑 Generate New 12-Character User Key", key="generate_user_key"):
+            st.session_state["new_user_key"] = _generate_key(12)
+            st.success(f"Generated User Key: {st.session_state['new_user_key']}")
         with st.expander("➕  Add New User", expanded=False):
             ua1, ua2 = st.columns(2)
             new_uname = ua1.text_input("Username ✱", key="new_uname", placeholder="e.g. user1")
@@ -2883,6 +3306,15 @@ with tab_users:
             ua3, ua4 = st.columns(2)
             new_umobile = ua3.text_input("Mobile No.", key="new_umobile", placeholder="e.g. 9876543210")
             new_uemail = ua4.text_input("Email ID", key="new_uemail", placeholder="e.g. user@example.com")
+            ua5, ua6 = st.columns(2)
+            new_user_key = ua5.text_input("12-Character User Key ✱", key="new_user_key", placeholder="Paste generated 12-character key")
+            new_user_role = ua6.selectbox("Role", ["User", "Manager", "Viewer"], key="new_user_role")
+            rights_options = ["masters","upload","results","help","user_master"]
+            new_user_rights = st.multiselect("Rights within this Firm", rights_options, default=["upload","results"], key="new_user_rights")
+            firm_now = (_load_registry().get("firms", {}).get(st.session_state.get("_firm_id", ""), {}) or {})
+            base_users = int(firm_now.get("included_users", _system_policy()["included_users"]) or _system_policy()["included_users"])
+            included_limit = base_users + int(firm_now.get("extra_users", 0) or 0)
+            st.caption(f"Included users: {base_users} + paid extra users: {int(firm_now.get('extra_users',0) or 0)} = {included_limit} total.")
             if st.button("💾  Add User", type="primary", key="btn_add_user"):
                 nu = st.session_state.new_uname.strip().lower()
                 np = st.session_state.new_upass.strip()
@@ -2894,9 +3326,16 @@ with tab_users:
                     st.error("❌ Password must be at least 6 characters.")
                 elif nu in all_users:
                     st.error(f"❌ Username '{nu}' already exists.")
+                elif len(all_users) >= included_limit:
+                    st.error(f"❌ User limit reached ({included_limit}). Please pay for additional users before creating another user.")
+                elif len(new_user_key.strip()) != 12:
+                    st.error("❌ User Key must be exactly 12 characters.")
+                elif not new_user_key.strip():
+                    st.error("❌ User Key is required.")
                 else:
-                    all_users[nu] = {"password": np, "mobile": nm, "email": ne}
+                    all_users[nu] = {"password": np, "mobile": nm, "email": ne, "user_key": new_user_key.strip(), "user_key_hash": _hash_secret(new_user_key.strip()), "role": new_user_role, "rights": new_user_rights, "active": True}
                     if _save_users(all_users):
+                        _audit("USER_CREATED", st.session_state.get("_firm_id",""), current_user, {"new_user":nu,"role":new_user_role})
                         st.success(f"✅ User '{nu}' added successfully!")
                         st.rerun()
 
@@ -2936,6 +3375,7 @@ with tab_users:
                     st.markdown(f"**{uname}**{badge}")
                     contact = " · ".join(x for x in [f"📱 {umob}" if umob else "", f"✉️ {uemail}" if uemail else ""] if x)
                     st.caption(contact if contact else "No contact info")
+                    st.caption(f"Role: {udata.get('role','User')} · Rights: {', '.join(udata.get('rights',[]) or []) or 'None'} · User Key: {udata.get('user_key','—')}")
                 with h2:
                     if _user_hist:
                         st.caption(f"🕘 {len(_user_hist)} login record(s)")
