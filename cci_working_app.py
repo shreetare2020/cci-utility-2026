@@ -1309,7 +1309,7 @@ def parse_excel(file_bytes):
     grn["IGST"]              = pd.to_numeric(grn["IGST"], errors="coerce").fillna(0)
     grn["Party_Bill_Amount"] = pd.to_numeric(grn["Party_Bill_Amount"], errors="coerce").fillna(0)
     grn["Accepted_Qty_AUM"]  = pd.to_numeric(grn["Accepted_Qty_AUM"], errors="coerce")
-    grn = grn.sort_values("Party_Bill_Date").reset_index(drop=True)
+    # Preserve the exact uploaded GRN row sequence.
     return cont, emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
@@ -1327,41 +1327,34 @@ def _norm_key(v):
 
 def _get_mc_for_contract(cn, all_contracts, upload_group=""):
     """
-    Resolve the Contract Master condition for one uploaded contract.
-
-    Priority:
-      1. Exact individual Contract No match  → returns (master, "CONTRACT")
-      2. Group match (Group column from PUR CONT DETAILS)
-         - master record with matching Group field  → returns (master, "GROUP")
-         - backward-compat: master whose Contract_No == group name → (master, "GROUP")
-      3. NO match at all → returns (None, "NOT_DEFINED")
-
-    DEFAULT fallback is INTENTIONALLY removed.
-    Calculation must NOT proceed if no individual or group master is found.
+    Per-upload-row master resolution.
+    Priority: INDIVIDUAL CONTRACT -> UPLOAD GROUP -> DEFAULT.
+    Group can be stored in a dedicated Master Group field OR, for the
+    existing data format, as Master Contract_No == the group name.
     """
-    cn_key    = _norm_key(cn)
+    cn_key = _norm_key(cn)
     group_key = _norm_key(upload_group)
 
-    # ── 1) Exact individual Contract No match ──────────────────────────────
+    # 1) Exact individual Contract No always wins.
     if cn_key:
         for c in all_contracts:
             master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
             if master_cn == cn_key:
                 return c, "CONTRACT"
 
-    # ── 2) Group match ──────────────────────────────────────────────────────
+    # 2) If no individual contract exists, use the Group from upload sheet.
     if group_key:
-        # 2a) New format: master has a dedicated "group" field matching the upload group
+        # Dedicated Group field in Master.
         for c in all_contracts:
             master_group = _norm_key(
                 c.get("group", "") or c.get("Group", "") or
                 c.get("group_name", "") or c.get("group_no", "") or
                 c.get("group_code", "")
             )
-            if master_group and master_group == group_key:
+            if master_group == group_key:
                 return c, "GROUP"
 
-        # 2b) Backward-compat: master Contract_No IS the group name (no group field set)
+        # Existing Master format: GROUP-A is saved in Contract No.
         for c in all_contracts:
             master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
             master_group = _norm_key(
@@ -1372,7 +1365,12 @@ def _get_mc_for_contract(cn, all_contracts, upload_group=""):
             if master_cn == group_key and not master_group:
                 return c, "GROUP"
 
-    # ── 3) No match — do NOT fall back to DEFAULT ───────────────────────────
+    # 3) Only after both individual and group fail, use DEFAULT.
+    for c in all_contracts:
+        master_cn = _norm_key(c.get("contract_no", c.get("Contract_No", "")))
+        if master_cn in ("DEFAULT", "DFLT", "DEFAULT CONTRACT"):
+            return c, "DEFAULT"
+
     return None, "NOT_DEFINED"
 
 def run_calculations(cont, emd, pay, grn, mc_or_contracts):
@@ -1480,7 +1478,7 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 "Group": row_group,
                 "Matched_Master_Contract": "",
                 "Matched_Master_Group": "",
-                "Match_Rule": "GROUP / CONTRACT NOT DEFINED",
+                "Match_Rule": "NOT_DEFINED",
                 "Remark": "⚠️ No individual contract or group master found — calculation skipped",
             })
             continue  # skip to next GRN row
@@ -1686,12 +1684,16 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
 
         results.append({
             "Contract_No":cn, "GRN_No":row["GRN_No"], "Branch": branch,
-            "Group": row_group,
+            "Group": row_group if _norm_key(row_group) else ("INDIVIDUAL" if match_rule == "CONTRACT" else ""),
             "Matched_Master_Contract": str(row_mc.get("contract_no", row_mc.get("Contract_No", "")) or ""),
-            "Matched_Master_Group": str(
-                row_mc.get("group", "") or row_mc.get("Group", "") or
-                row_mc.get("group_name", "") or row_mc.get("group_no", "") or
-                row_mc.get("group_code", "") or ""
+            "Matched_Master_Group": (
+                str(
+                    row_mc.get("group", "") or row_mc.get("Group", "") or
+                    row_mc.get("group_name", "") or row_mc.get("group_no", "") or
+                    row_mc.get("group_code", "") or ""
+                )
+                if match_rule == "GROUP" else
+                ("INDIVIDUAL CONTRACT" if match_rule == "CONTRACT" else "")
             ),
             "Match_Rule": match_rule,
             "Remark": "",
@@ -1897,10 +1899,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
         cols = base_cols + slab_col_names
-        if "Payment_Mode" not in result_df.columns:
-            result_df["Payment_Mode"] = ""
-        result_df["Payment_Mode"] = result_df["Payment_Mode"].fillna("").astype(str)
-        detail_export = result_df.reindex(columns=cols).copy()
+        detail_export = result_df[cols].copy()
         # Add a clear GRAND TOTAL row at the bottom of the detail report.
         detail_total = {c: "" for c in detail_export.columns}
         detail_total["Contract_No"] = "GRAND TOTAL"
@@ -2505,18 +2504,27 @@ with tab_upload:
             st.warning("⚠️ No contracts saved. Please add a contract in the Masters tab.")
         else:
             cont_opts = {f"{c['contract_no']} | {c.get('party','')}": c for c in contracts}
-            sel_lbl   = st.selectbox("Contract ✱", list(cont_opts.keys()))
-            sel_mc    = cont_opts[sel_lbl]
+            filter_options = [""] + list(cont_opts.keys())
+            sel_lbl = st.selectbox(
+                "Contract Filter",
+                filter_options,
+                index=0,
+                format_func=lambda x: "— Blank / Use Upload Contract & Group —" if x == "" else x
+            )
+            sel_mc = cont_opts.get(sel_lbl) if sel_lbl else None
             mc = sel_mc
-            st.markdown(f"""
-            <div class="contract-card" style="margin-bottom:14px">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:rgba(255,255,255,0.6)">
-                <span>📌 EMD Rate: <strong style="color:#fdba74">{mc.get('emd_percent','—')}% p.a.</strong></span>
-                <span>🌾 Bales: <strong style="color:#fff">{mc.get('bales','—')}</strong></span>
-                <span>🚛 CC Free: <strong style="color:#fdba74">{mc.get('cc_free_days',0)} days</strong></span>
-                <span>📅 Eff Date: <strong style="color:#fff">{mc.get('effective_date','—')}</strong></span>
-              </div>
-            </div>""", unsafe_allow_html=True)
+            if mc:
+                st.markdown(f"""
+                <div class="contract-card" style="margin-bottom:14px">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:rgba(255,255,255,0.6)">
+                    <span>📌 EMD Rate: <strong style="color:#fdba74">{mc.get('emd_percent','—')}% p.a.</strong></span>
+                    <span>🌾 Bales: <strong style="color:#fff">{mc.get('bales','—')}</strong></span>
+                    <span>🚛 CC Free: <strong style="color:#fdba74">{mc.get('cc_free_days',0)} days</strong></span>
+                    <span>📅 Eff Date: <strong style="color:#fff">{mc.get('effective_date','—')}</strong></span>
+                  </div>
+                </div>""", unsafe_allow_html=True)
+            else:
+                st.info("Blank filter: every uploaded contract is matched individually as Contract → Group → DEFAULT.")
 
             st.markdown('<div class="sec-label">📂 Upload Excel File</div>', unsafe_allow_html=True)
             st.caption("📋 Excel must have 3 sheets: PUR CONT DETAILS  |  EMD PAYMENT DETAILS  |  GRN BOOKING")
