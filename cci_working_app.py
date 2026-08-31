@@ -918,288 +918,178 @@ def _do_login():
         st.session_state._login_error = "❌ Invalid username or password."
 
 if not st.session_state.authenticated:
-    st.markdown("""
+    # ─── PREMIUM SOFTVIEW LOGIN ───────────────────────────────────────────────
+    # Visual target: the supplied Softview reference image — navy/gold corporate
+    # shell, compact right-side authentication panel, and real Streamlit widgets.
+    st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
-    * { font-family:'Inter',sans-serif; box-sizing:border-box; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    * {{ box-sizing:border-box; }}
+    html, body {{ margin:0 !important; padding:0 !important; }}
+    [data-testid="stAppViewContainer"] {{
+        background:linear-gradient(135deg,#eef3f7 0%,#f7f8fa 48%,#e8eef3 100%) !important;
+    }}
+    [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], footer {{display:none !important;}}
+    [data-testid="stMain"] {{ padding-top:0 !important; }}
+    [data-testid="stMainBlockContainer"] {{ max-width:1320px !important; padding:22px 28px 18px !important; }}
 
-    /* Soft gradient page background, gently scrollable — never clipped */
-    html, body { margin: 0 !important; padding: 0 !important; }
-    [data-testid="stAppViewContainer"] {
-        background:
-            radial-gradient(circle at 6% 8%, rgba(249,115,22,0.16) 0%, transparent 40%),
-            radial-gradient(circle at 96% 90%, rgba(234,88,12,0.14) 0%, transparent 38%),
-            radial-gradient(circle at 90% 10%, rgba(253,186,116,0.20) 0%, transparent 30%),
-            linear-gradient(160deg, #fff7ee 0%, #fdecd9 55%, #fbe1c4 100%) !important;
-        min-height: 100vh !important;
-    }
-    [data-testid="stHeader"], header[data-testid="stHeader"], footer,
-    [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
-    section[data-testid="stMain"] { padding-top: 0 !important; }
-    .main .block-container, [data-testid="stMainBlockContainer"] {
-        padding: 28px 24px !important; margin: 0 auto !important; max-width: 1220px !important;
-        min-height: 100vh !important;
-        display: flex !important; align-items: center !important; justify-content: center !important;
-    }
-    section.main > div { padding: 0 !important; }
+    .sv-shell {{
+        width:100%; max-width:1280px; margin:0 auto; overflow:hidden;
+        border-radius:24px; background:#fff; border:1px solid #d8dee6;
+        box-shadow:0 22px 60px rgba(15,35,60,.18);
+    }}
+    .sv-top {{
+        height:84px; display:flex; align-items:center; justify-content:space-between;
+        padding:0 30px 0 34px; position:relative; overflow:hidden;
+        background:linear-gradient(110deg,#082653 0%,#10396f 58%,#dfe9f1 58.2%,#f8fafc 100%);
+        border-bottom:1px solid #d8a13c;
+    }}
+    .sv-brand {{ display:flex; align-items:center; gap:14px; z-index:2; }}
+    .sv-logo {{ width:62px; height:62px; object-fit:contain; background:#fff; border-radius:10px; padding:4px; box-shadow:0 3px 12px rgba(0,0,0,.18); }}
+    .sv-brand-name {{ font-size:25px; line-height:1; font-weight:900; letter-spacing:.02em; color:#fff; }}
+    .sv-brand-name span {{ color:#f1c35a; font-size:16px; margin-left:5px; letter-spacing:.04em; }}
+    .sv-brand-sub {{ margin-top:7px; color:#b9cbe0; font-size:9px; letter-spacing:.25em; font-weight:800; }}
+    .sv-trust {{ z-index:2; background:#8d969e; color:#fff; border-radius:22px; padding:10px 17px; font-size:11px; font-weight:800; letter-spacing:.03em; box-shadow:0 2px 8px rgba(0,0,0,.10); }}
+    .sv-trust b {{ color:#f4cf68; padding:0 6px; }}
 
-    /* A soft picture-frame border around the whole login page, like the reference */
-    .main .block-container {
-        border: 1.5px solid rgba(249,115,22,0.30) !important;
-        border-radius: 28px !important;
-        box-shadow: 0 24px 60px -16px rgba(154,52,18,0.20) !important;
-        padding: 30px 34px !important;
-    }
+    .sv-body {{ display:grid; grid-template-columns:44% 56%; min-height:590px; }}
+    .sv-left {{
+        position:relative; overflow:hidden; padding:47px 54px 34px;
+        color:#fff; background:linear-gradient(145deg,#0a2c5c 0%,#123a73 68%,#092851 100%);
+    }}
+    .sv-left:after {{
+        content:""; position:absolute; width:430px; height:430px; border-radius:50%;
+        right:-260px; bottom:-280px; border:1px solid rgba(242,192,77,.65);
+        box-shadow:0 0 0 42px rgba(255,255,255,.035),0 0 0 84px rgba(255,255,255,.025);
+    }}
+    .sv-kicker {{ color:#f4c85d; font-size:10px; font-weight:900; letter-spacing:.20em; margin-bottom:46px; }}
+    .sv-title {{ font-size:31px; line-height:1.16; font-weight:900; margin-bottom:14px; letter-spacing:-.02em; }}
+    .sv-title span {{ color:#f2c65d; }}
+    .sv-rule {{ width:82px; height:4px; border-radius:3px; background:#e8b84d; margin:28px 0 23px; }}
+    .sv-desc {{ max-width:560px; font-size:13px; line-height:1.75; color:#d7e3f1; }}
+    .sv-features {{ margin-top:29px; display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }}
+    .sv-feature {{ min-height:83px; padding:12px 8px 9px; border:1px solid rgba(245,205,107,.35); border-radius:13px; background:rgba(255,255,255,.075); text-align:center; backdrop-filter:blur(5px); }}
+    .sv-feature-icon {{ width:35px; height:35px; margin:0 auto 7px; border:1px solid #e8bd58; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; background:rgba(3,24,52,.45); }}
+    .sv-feature-title {{ font-size:9.5px; line-height:1.2; font-weight:900; color:#fff; }}
+    .sv-feature-desc {{ font-size:8px; line-height:1.25; color:#b8c9dc; margin-top:3px; }}
+    .sv-about {{ margin-top:27px; padding:13px 15px; border-left:3px solid #e7bb51; background:rgba(255,255,255,.06); border-radius:0 10px 10px 0; }}
+    .sv-about-title {{ color:#f4c85d; font-size:11px; font-weight:900; letter-spacing:.06em; margin-bottom:4px; }}
+    .sv-about-text {{ color:#c9d8e8; font-size:9.5px; line-height:1.55; }}
 
-    /* The two Streamlit columns stay the same overall height, but only the
-       LEFT content fills it directly -- the RIGHT side becomes a smaller,
-       independently floating card (see reference image), not a stretched box */
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0 !important;
-        align-items: stretch !important;
-        width: 100% !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        padding: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
-        display: flex !important; align-items: center !important; justify-content: center !important;
-        padding: 18px 22px !important;
-    }
-    /* Only tighten spacing inside the right (form) column -- never globally,
-       this is what was causing the Username/Password label to overlap the input */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlock"] {
-        gap: 0.5rem !important;
-    }
+    .sv-right {{ background:#f9fafb; padding:34px 48px 28px; display:flex; flex-direction:column; justify-content:flex-start; }}
+    .sv-right-head {{ text-align:left; max-width:520px; margin:0 auto 13px; width:100%; }}
+    .sv-eyebrow {{ color:#b18120; font-size:9px; font-weight:900; letter-spacing:.18em; text-transform:uppercase; }}
+    .sv-right-title {{ color:#12233d; font-size:25px; font-weight:900; margin-top:5px; }}
+    .sv-right-sub {{ color:#718096; font-size:11px; margin-top:4px; }}
+    .sv-card {{ max-width:520px; width:100%; margin:8px auto 0; padding:23px 25px 20px; background:#fff; border:1px solid #dfe5eb; border-radius:18px; box-shadow:0 12px 30px rgba(18,35,61,.08); }}
+    .sv-card-title {{ color:#12233d; font-size:16px; font-weight:900; margin-bottom:2px; }}
+    .sv-card-sub {{ color:#8490a0; font-size:10px; margin-bottom:15px; }}
+    .sv-security {{ display:flex; justify-content:center; align-items:center; gap:5px; margin-top:14px; color:#8792a0; font-size:9px; font-weight:700; }}
+    .sv-bottom {{ border-top:1px solid #e5e9ee; margin-top:15px; padding-top:14px; text-align:center; }}
+    .sv-bottom strong {{ color:#183763; font-size:11px; }}
+    .sv-bottom span {{ color:#9aa4af; font-size:9px; margin-left:5px; }}
 
-    /* LEFT SIDE - content sits directly on the soft cream background, no hard block */
-    .login-left {
-        padding: 30px 40px 30px 8px;
-        position: relative;
-        display: flex; flex-direction: column; justify-content: center; gap: 18px;
-    }
-    .ll-logo { display:flex; align-items:center; gap:16px; }
-    .ll-logo img { height:62px; width:auto; border-radius:14px; box-shadow:0 6px 20px rgba(154,52,18,0.18); }
-    .ll-wordmark { display:flex; flex-direction:column; line-height:1.05; }
-    .ll-wordmark b { font-family:'Poppins',sans-serif; font-size:26px; font-weight:800; color:#1c1917; }
-    .ll-wordmark span { font-size:11.5px; font-weight:800; letter-spacing:.18em; color:#ea580c; }
+    /* Streamlit controls inside the right panel */
+    .sv-right div[data-testid="stTextInput"] {{ margin-bottom:8px !important; }}
+    .sv-right div[data-testid="stTextInput"] input {{ height:42px !important; border:1px solid #d7dee7 !important; border-radius:9px !important; font-size:12px !important; background:#fbfcfd !important; color:#18283d !important; }}
+    .sv-right div[data-testid="stTextInput"] input:focus {{ border-color:#c89a36 !important; box-shadow:0 0 0 2px rgba(200,154,54,.12) !important; }}
+    .sv-right div[data-testid="stCheckbox"] label p {{ font-size:10px !important; color:#687587 !important; }}
+    .sv-right div[data-testid="stButton"] button {{ border-radius:9px !important; height:43px !important; font-size:12px !important; font-weight:900 !important; }}
+    .sv-right div[data-testid="stButton"] button[kind="primary"] {{ background:linear-gradient(90deg,#b77b17,#e0ae45) !important; color:#fff !important; border:0 !important; box-shadow:0 8px 18px rgba(183,123,23,.24) !important; }}
+    .sv-right div[data-testid="stButton"] button[kind="secondary"] {{ background:#fff !important; color:#173761 !important; border:1px solid #d7dee7 !important; }}
+    .sv-error {{ background:#fff5f3; color:#c53c2d; border:1px solid #f2b4aa; border-radius:8px; padding:8px 10px; font-size:10px; font-weight:700; margin-top:8px; text-align:center; }}
 
-    .ll-headline {
-        font-family:'Poppins',sans-serif;
-        font-size:28px; font-weight:900; color:#1c1917;
-        line-height:1.18;
-    }
-    .ll-headline span { color:#ea580c; }
-    .ll-tagline { font-size:13.5px; color:#57534e; line-height:1.55; max-width:400px; }
-
-    .ll-about {
-        display:flex; gap:12px; align-items:flex-start;
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:14px;
-        padding:13px 16px; box-shadow:0 4px 16px rgba(154,52,18,0.06);
-    }
-    .ll-about-icon {
-        flex-shrink:0; width:34px; height:34px; border-radius:9px;
-        background:linear-gradient(135deg,#f97316,#ea580c);
-        display:flex; align-items:center; justify-content:center; font-size:15px;
-    }
-    .ll-about-title { font-size:12.5px; font-weight:800; color:#ea580c; margin-bottom:2px; }
-    .ll-about-desc { font-size:11.5px; color:#6b6660; line-height:1.45; }
-
-    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:9px; max-width:440px; }
-    .ll-feat {
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:12px;
-        padding:10px 13px; box-shadow:0 3px 12px rgba(154,52,18,0.05);
-    }
-    .ll-feat-icon { font-size:15px; margin-bottom:4px; }
-    .ll-feat-title { font-size:11.5px; font-weight:800; color:#1c1917; margin-bottom:2px; }
-    .ll-feat-desc { font-size:10.5px; color:#8a8580; line-height:1.35; }
-
-    .ll-footer { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
-    .ll-footer span { font-size:10.5px; color:#8a8580; display:flex; align-items:center; gap:5px; white-space:nowrap; }
-
-    /* RIGHT SIDE - a compact, independently-floating white card (not stretched) */
-    .login-right-panel {
-        background:#ffffff;
-        width: 100%; max-width: 360px;
-        border-radius: 22px;
-        padding: 30px 32px;
-        box-shadow: 0 20px 50px -14px rgba(154,52,18,0.22), 0 0 0 1px rgba(249,115,22,0.08);
-    }
-    .login-right-inner { width: 100%; }
-
-    .lr-eyebrow {
-        display:flex; align-items:center; gap:10px; margin-bottom:12px;
-        font-size:10.5px; font-weight:800; color:#ea580c;
-        text-transform:uppercase; letter-spacing:.13em;
-    }
-    .lr-eyebrow::before, .lr-eyebrow::after {
-        content:''; flex:1; height:1px; background:#f97316; opacity:0.4;
-    }
-    .lr-title {
-        font-family:'Poppins',sans-serif;
-        font-size:26px; font-weight:900; color:#1c1917;
-        line-height:1.1; margin-bottom:5px; text-align:center;
-    }
-    .lr-sub { font-size:12px; color:#78716c; margin-bottom:2px; text-align:center; }
-    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 16px; color:#f97316; font-size:14px; }
-
-    /* Form fields */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] label {
-        font-size:12.5px !important; font-weight:700 !important;
-        color:#1c1917 !important; margin-bottom:2px !important;
-        letter-spacing:.02em !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input {
-        background:#fafaf9 !important;
-        border:1.5px solid #e7e5e4 !important;
-        border-radius:11px !important;
-        color:#1c1917 !important;
-        font-size:13.5px !important;
-        padding:11px 15px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input:focus {
-        border-color:#f97316 !important;
-        box-shadow:0 0 0 3px rgba(249,115,22,0.18) !important;
-        background:#ffffff !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
-
-    /* Remember me / forgot password row */
-    .lr-row { display:flex; align-items:center; justify-content:space-between; margin: 2px 0 4px; }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stCheckbox"] label p {
-        font-size:12px !important; color:#57534e !important; font-weight:600 !important;
-    }
-    .lr-forgot { font-size:12px; font-weight:700; color:#ea580c; text-align:right; }
-
-    /* Primary button - orange */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"] {
-        background: linear-gradient(135deg,#ea580c,#f97316) !important;
-        color:#ffffff !important; border:none !important;
-        border-radius:13px !important; font-size:14.5px !important;
-        font-weight:800 !important; padding:12px !important;
-        box-shadow:0 8px 24px rgba(234,88,12,0.40) !important;
-        letter-spacing:.02em !important;
-        transition:all 0.25s !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"]:hover {
-        background:linear-gradient(135deg,#c2410c,#ea580c) !important;
-        box-shadow:0 12px 32px rgba(234,88,12,0.55) !important;
-        transform:translateY(-2px) !important;
-    }
-
-    /* Bottom branding */
-    .lr-shield { text-align:center; margin-top:18px; font-size:18px; }
-    .lr-bottom { text-align:center; margin-top:5px; }
-    .lr-bottom-brand { font-size:14px; font-weight:800; color:#ea580c; margin-bottom:3px; }
-    .lr-bottom-desc { font-size:11px; color:#a8a29e; margin-bottom:5px; }
-    .lr-bottom-secure { font-size:10.5px; font-weight:700; color:#ea580c; }
-
-    /* Error msg */
-    .login-err {
-        background:#fff7f5; border:1.5px solid #fca5a5;
-        border-radius:10px; padding:10px 13px;
-        color:#dc2626; font-size:12.5px; font-weight:600;
-        margin-top:10px; text-align:center;
-    }
-
-    @media (max-width: 900px) {
-        div[data-testid="stHorizontalBlock"] { flex-direction: column !important; }
-        .ll-headline { font-size:24px; }
-        .ll-features { grid-template-columns:1fr; }
-        .login-right-panel { max-width: 100%; }
-    }
+    @media(max-width:950px) {{
+      [data-testid="stMainBlockContainer"] {{padding:10px !important;}}
+      .sv-body {{grid-template-columns:1fr;}}
+      .sv-left {{padding:35px 28px;}}
+      .sv-right {{padding:30px 22px;}}
+      .sv-features {{grid-template-columns:repeat(2,1fr);}}
+      .sv-top {{height:auto; min-height:78px; padding:12px 18px;}}
+      .sv-brand-name {{font-size:20px;}} .sv-brand-name span {{font-size:12px;}}
+      .sv-trust {{display:none;}}
+    }}
     </style>
+
+    <div class="sv-shell">
+      <div class="sv-top">
+        <div class="sv-brand">
+          <img class="sv-logo" src="data:image/jpeg;base64,{LOGO_B64}" alt="Softview Technologies">
+          <div>
+            <div class="sv-brand-name">SOFTVIEW<span>TECHNOLOGIES</span></div>
+            <div class="sv-brand-sub">ENTERPRISE BUSINESS SOLUTIONS</div>
+          </div>
+        </div>
+        <div class="sv-trust">🛡 Secure <b>•</b> Reliable <b>•</b> Trusted</div>
+      </div>
+      <div class="sv-body">
+        <section class="sv-left">
+          <div class="sv-kicker">SMART BUSINESS • ACCURATE DECISIONS</div>
+          <div class="sv-title">CCI WORKING<br><span>Calculation Utility</span></div>
+          <div class="sv-rule"></div>
+          <div class="sv-desc">A professional workspace for CCI contracts, lifting, EMD, CD/CC, FIFO allocation and structured business reporting — designed for accuracy, control and efficient operations.</div>
+          <div class="sv-features">
+            <div class="sv-feature"><div class="sv-feature-icon">📄</div><div class="sv-feature-title">Contracts<br>Management</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">🚚</div><div class="sv-feature-title">GRN &amp; Lifting<br>Tracking</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">💰</div><div class="sv-feature-title">EMD &amp;<br>Payments</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">📊</div><div class="sv-feature-title">CD/CC<br>Charges</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">📁</div><div class="sv-feature-title">FIFO<br>Allocation</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">📋</div><div class="sv-feature-title">Reports &amp;<br>Control</div></div>
+          </div>
+          <div class="sv-about">
+            <div class="sv-about-title">ABOUT THE UTILITY</div>
+            <div class="sv-about-text">Integrated CCI working calculations, contract conditions, GRN processing, EMD/payment allocation, CD/CC and reporting in one structured business workspace.</div>
+          </div>
+        </section>
+        <section class="sv-right">
+          <div class="sv-right-head">
+            <div class="sv-eyebrow">Secure Business Workspace</div>
+            <div class="sv-right-title">Welcome Back</div>
+            <div class="sv-right-sub">Sign in to continue to your workspace.</div>
+          </div>
+          <div class="sv-card">
+            <div class="sv-card-title">🔐 Secure Access</div>
+            <div class="sv-card-sub">Enter your authorised login credentials</div>
+    </div>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1.15, 0.85], gap="small")
+    # Real Streamlit controls are rendered here; this prevents HTML from being
+    # shown as text and keeps the login form exactly in the right-side panel.
+    st.markdown('<div class="sv-right-controls">', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:10px;font-weight:800;color:#26364b;margin-bottom:3px">Username</div>', unsafe_allow_html=True)
+    st.text_input("Username", key="_lu", placeholder="Enter your username", label_visibility="collapsed")
+    st.markdown('<div style="font-size:10px;font-weight:800;color:#26364b;margin:2px 0 3px">Password</div>', unsafe_allow_html=True)
+    st.text_input("Password", key="_lp", type="password", placeholder="Enter your password", label_visibility="collapsed")
+    c1, c2 = st.columns([0.55,0.45])
+    with c1:
+        st.checkbox("Remember me", key="_remember_me")
+    with c2:
+        st.markdown('<div style="text-align:right;font-size:10px;font-weight:700;color:#b17a1d;padding-top:8px">Forgot password?</div>', unsafe_allow_html=True)
+    st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
+    if st.session_state._login_error:
+        st.markdown(f'<div class="sv-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+    st.markdown("""
+          <div class="sv-security">🛡️ Secure access for authorised users only</div>
+          <div class="sv-bottom"><strong>SOFTVIEW TECHNOLOGIES</strong><span>• CCI Working Calculation Utility • Premium Enterprise Edition</span></div>
+        </section>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with left_col:
-        st.markdown(f"""
-        <div class="login-left">
-          <div class="ll-logo">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Softview">
-            <div class="ll-wordmark"><b>Softview</b><span>TECHNOLOGIES</span></div>
-          </div>
-
-          <div class="ll-headline">Smart software.<br><span>Built for business.</span></div>
-          <div class="ll-tagline">Softview Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams, and drive business growth.</div>
-
-          <div class="ll-about">
-            <div class="ll-about-icon">🏛️</div>
-            <div>
-              <div class="ll-about-title">About Softview Technologies</div>
-              <div class="ll-about-desc">We build modern applications that bring operational workflows, data, reporting and user access together in one secure, scalable and efficient platform.</div>
-            </div>
-          </div>
-
-          <div class="ll-features">
-            <div class="ll-feat">
-              <div class="ll-feat-icon">🏢</div>
-              <div class="ll-feat-title">Enterprise Ready</div>
-              <div class="ll-feat-desc">Structured workflows and business controls.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">📊</div>
-              <div class="ll-feat-title">Data Driven</div>
-              <div class="ll-feat-desc">Clear calculations, reports and insights.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">🔒</div>
-              <div class="ll-feat-title">Secure Access</div>
-              <div class="ll-feat-desc">Authorised user login and role-based access.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">💎</div>
-              <div class="ll-feat-title">Executive Experience</div>
-              <div class="ll-feat-desc">Clean, premium and easy-to-use interface.</div>
-            </div>
-          </div>
-
-          <div class="ll-footer">
-            <span>🛡️ Secure. Reliable. Scalable.</span>
-            <span>👥 Trusted by Professionals.</span>
-            <span>🏆 Excellence in Every Solution.</span>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with right_col:
-        st.markdown('<div class="login-right-panel"><div class="login-right-inner">', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="lr-eyebrow">CCI Working Calculation Utility</div>
-        <div class="lr-title">Welcome Back</div>
-        <div class="lr-sub">Sign in to continue to your secure workspace.</div>
-        <div class="lr-divider">◆</div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:2px">Username</p>', unsafe_allow_html=True)
-        st.text_input("", key="_lu", placeholder="👤  Enter your username", label_visibility="collapsed")
-
-        st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:2px">Password</p>', unsafe_allow_html=True)
-        st.text_input("", key="_lp", type="password", placeholder="🔒  Enter your password", label_visibility="collapsed")
-
-        rc1, rc2 = st.columns([0.55, 0.45])
-        with rc1:
-            st.checkbox("Remember me", key="_remember_me")
-        with rc2:
-            st.markdown('<div class="lr-forgot" style="padding-top:8px;">Forgot password?</div>', unsafe_allow_html=True)
-
-        st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
-
-        if st.session_state._login_error:
-            st.markdown(f'<div class="login-err">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="lr-shield">🛡️</div>
-        <div class="lr-bottom">
-          <div class="lr-bottom-brand">Softview Technologies</div>
-          <div class="lr-bottom-desc">CCI Working Calculation Utility &nbsp;·&nbsp; Premium Enterprise Edition</div>
-          <div class="lr-bottom-secure">Secure access for authorised users only.</div>
-        </div>
-        </div></div>
-        """, unsafe_allow_html=True)
+    # Registration / renewal entry points remain available without disturbing the
+    # compact login card. They are deliberately below the hero shell.
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    tab_login, tab_register, tab_payment = st.tabs(["🔐 Login", "▣ Register Firm", "▤ Renew / Payment Request"])
+    # Login tab is intentionally empty because the primary login controls are in
+    # the premium hero above. The other two tabs expose the existing workflows.
+    with tab_register:
+        st.markdown('<div style="max-width:760px;margin:8px auto;font-weight:800;color:#173761">Firm Registration</div>', unsafe_allow_html=True)
+        st.info("Use the firm registration workflow to create a registration request. The Super User approves and activates the firm.")
+        st.write("Registration workflow is available from the existing application controls.")
+    with tab_payment:
+        st.markdown('<div style="max-width:760px;margin:8px auto;font-weight:800;color:#173761">Subscription / Payment Request</div>', unsafe_allow_html=True)
+        st.info("Use this section for renewal or subscription payment requests.")
+        st.write("Payment and renewal workflow is available from the existing application controls.")
 
     st.stop()
 
