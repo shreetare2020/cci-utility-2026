@@ -1682,19 +1682,29 @@ def parse_excel(file_bytes):
     pay["Mode_Of_Transaction"] = pay["Mode_Of_Transaction"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
     pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
 
-    # Optional Additional EMD block in Sheet 2:
-    # I = Contract No. | J = ADDITIONAL EMD | K = ADD EMD DATE
-    # It is intentionally separate from normal EMD vouchers.
-    if raw2.shape[1] >= 11:
-        add_emd = raw2.iloc[1:,[8,9,10]].copy()
-        add_emd.columns = ["Contract_No","Additional_EMD","Add_EMD_Date"]
-        add_emd = add_emd.dropna(subset=["Contract_No","Additional_EMD"])
-        add_emd = add_emd[~add_emd["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
+    # Optional Additional EMD block in Sheet 2.
+    # Find the three columns by their header names instead of fixed positions;
+    # this prevents a blank separator / payment column from being mistaken for
+    # the Additional EMD Contract No.
+    def _norm_hdr(v):
+        return re.sub(r"[^a-z0-9]+", "", str(v or "").strip().lower())
+
+    _hdr_map = {_norm_hdr(v): i for i, v in enumerate(raw2.iloc[0].tolist())}
+    _add_cn_idx = next((i for h, i in _hdr_map.items() if h in {"contractno", "contractnumber", "contract"} and i >= 8), None)
+    _add_amt_idx = next((i for h, i in _hdr_map.items() if "additionalemd" in h or h in {"addemd", "additionalemdamt", "additionalemdamount"}), None)
+    _add_dt_idx = next((i for h, i in _hdr_map.items() if "addemddate" in h or h in {"additionalemddate"}), None)
+
+    if _add_cn_idx is not None and _add_amt_idx is not None and _add_dt_idx is not None:
+        add_emd = raw2.iloc[1:, [_add_cn_idx, _add_amt_idx, _add_dt_idx]].copy()
+        add_emd.columns = ["Contract_No", "Additional_EMD", "Add_EMD_Date"]
+        add_emd["Contract_No"] = add_emd["Contract_No"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
         add_emd["Additional_EMD"] = pd.to_numeric(add_emd["Additional_EMD"], errors="coerce")
         add_emd["Add_EMD_Date"] = pd.to_datetime(add_emd["Add_EMD_Date"], errors="coerce")
-        add_emd = add_emd.dropna(subset=["Additional_EMD","Add_EMD_Date"]).reset_index(drop=True)
+        add_emd = add_emd[(add_emd["Contract_No"] != "") & add_emd["Additional_EMD"].notna()]
+        add_emd = add_emd[~add_emd["Contract_No"].str.lower().str.contains("total|nan")]
+        add_emd = add_emd.dropna(subset=["Add_EMD_Date"]).reset_index(drop=True)
     else:
-        add_emd = pd.DataFrame(columns=["Contract_No","Additional_EMD","Add_EMD_Date"])
+        add_emd = pd.DataFrame(columns=["Contract_No", "Additional_EMD", "Add_EMD_Date"])
 
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
@@ -1897,6 +1907,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
 
         # ── Slabs from matched master ────────────────────────────────────────
         emd_rate     = sf(row_mc.get("emd_percent"), 5.0)
+        additional_emd_rate = sf(row_mc.get("additional_emd_percent", row_mc.get("emd_percent", 5.0)), emd_rate)
         cd_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("cd_slabs",[])]
         ll_slabs     = [{"days":sf(s.get("days")),"pct":sf(s.get("pct"))} for s in row_mc.get("ll_slabs",[])]
         ll_gst       = sf(row_mc.get("ll_gst"), 5.0)
@@ -2026,7 +2037,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
         if not pd.isna(add_emd_date) and not pd.isna(pay_date) and add_emd_alloc > 0:
             add_days = max((pay_date - add_emd_date).days, 0)
             additional_emd_interest = round(
-                ((add_emd_alloc * emd_rate / 100) / 365) * add_days, 2
+                ((add_emd_alloc * additional_emd_rate / 100) / 365) * add_days, 2
             )
         total_emd_interest = round(emd_interest + additional_emd_interest, 2)
 
@@ -2718,6 +2729,7 @@ with tab_masters:
                     st.session_state.ceff = _edit_date(pending_edit.get("effective_date"))
                     st.session_state.cbales = int(pending_edit.get("bales", 0) or 0)
                     st.session_state.emd_p = float(pending_edit.get("emd_percent", 5.0) or 5.0)
+                    st.session_state.add_emd_p = float(pending_edit.get("additional_emd_percent", pending_edit.get("emd_percent", 5.0)) or 5.0)
                     st.session_state.emd_d = int(pending_edit.get("emd_days", 365) or 365)
 
                     cd_s = pending_edit.get("cd_slabs", []) or []
@@ -2759,9 +2771,11 @@ with tab_masters:
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 st.markdown('<div class="sec-label">📌 EMD Slab</div>', unsafe_allow_html=True)
-                e1, e2 = st.columns(2)
+                e1, e2, e3 = st.columns(3)
                 emd_d = e1.number_input("Days", key="emd_d", min_value=0, value=365)
                 emd_p = e2.number_input("Interest % p.a.", key="emd_p", min_value=0.0, value=5.0, step=0.01)
+                add_emd_p = e3.number_input("Additional EMD Interest % p.a.", key="add_emd_p", min_value=0.0, value=5.0, step=0.01,
+                    help="Separate interest rate applied only to Additional EMD Allocated.")
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 with st.expander("💸 Cash Discount (CD) Slabs — Click to expand/collapse", expanded=False):
@@ -2853,6 +2867,7 @@ with tab_masters:
                                 "bales": int(st.session_state.cbales),
                                 "emd_days": int(st.session_state.emd_d),
                                 "emd_percent": float(st.session_state.emd_p),
+                                "additional_emd_percent": float(st.session_state.add_emd_p),
                                 "cd_slabs": [s for s in [
                                     {"days":int(st.session_state.cd1d),"pct":float(st.session_state.cd1p)},
                                     {"days":int(st.session_state.cd2d),"pct":float(st.session_state.cd2p)},
@@ -2997,6 +3012,7 @@ with tab_masters:
                     <span>📅 Eff: <b>{c.get('effective_date','—')}</b></span>
                     <span>🌾 Bales: <b>{c.get('bales','—')}</b></span>
                     <span>💰 EMD: <b>{c.get('emd_percent','—')}% pa</b></span>
+                    <span>➕ Add. EMD: <b>{c.get('additional_emd_percent', c.get('emd_percent','—'))}% pa</b></span>
                     <span>🚛 CC Free: <b>{c.get('cc_free_days',0)}d</b></span>
                     <span>📌 EMD Days: <b>{c.get('emd_days','—')}</b></span>
                     <span>🏢 CC GST: <b>{c.get('cc_gst',0)}%</b></span>
@@ -3326,7 +3342,7 @@ with tab_help:
         ("💰 EMD Interest", [
             "EMD Days = Payment Date − EMD Date.",
             "EMD Interest = EMD Allocated × (EMD Rate % ÷ 365) × EMD Days.",
-            "Additional EMD Interest = Additional EMD Allocated × (EMD Rate % ÷ 365) × (Payment Date − Add EMD Date).",
+            "Additional EMD Interest = Additional EMD Allocated × (Additional EMD Interest % p.a. from Contract Master ÷ 365) × (Payment Date − Add EMD Date).",
             "Total EMD Interest = Normal EMD Interest + Additional EMD Interest.",
         ], "Additional EMD interest is shown separately and is included in total payable calculations."),
         ("💵 Bill & Net Amount", [
