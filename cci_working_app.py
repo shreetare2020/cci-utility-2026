@@ -2365,7 +2365,7 @@ def branch_wise_summary(result_df, pay=None):
     bs = pd.concat([bs, pd.DataFrame([bs_total])], ignore_index=True)
     return bs
 
-def df_to_excel_bytes(result_df, cont, emd, pay, grn):
+def df_to_excel_bytes(result_df, cont, emd, pay, grn, add_emd=None):
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
 
@@ -3071,7 +3071,7 @@ with tab_upload:
                             fb = uploaded_file.read()
                             cont_df, emd_df, add_emd_df, pay_df, grn_df = parse_excel(fb)
                             result_df  = run_calculations(cont_df, emd_df, add_emd_df, pay_df, grn_df, contracts)
-                            excel_bytes = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df)
+                            excel_bytes = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df, add_emd_df)
                             st.session_state["result_df"]   = result_df
                             st.session_state["pay_df"]      = pay_df
                             st.session_state["add_emd_df"]  = add_emd_df
