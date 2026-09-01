@@ -4,8 +4,9 @@ Softview Technologies | Streamlit + Firebase
 Run: streamlit run cci_working_app.py
 """
 
-import io, json, os, base64 as b64lib
-from datetime import date
+import io, json, os, base64 as b64lib, secrets, hashlib, smtplib, socket, re
+from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 import pandas as pd
 import streamlit as st
 
@@ -179,9 +180,67 @@ class _RestFirestore:
 db = _RestFirestore()
 
 
+def _now_iso():
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _safe_doc_id(value):
+    s = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value or "").strip())
+    return s[:120] or "unknown"
+
+
+def _get_doc(doc_name):
+    try:
+        snap = db.collection(_FIRESTORE_COLLECTION).document(doc_name).get()
+        return snap.to_dict() if snap.exists else {}
+    except Exception:
+        return {}
+
+
+def _set_doc(doc_name, data):
+    db.collection(_FIRESTORE_COLLECTION).document(doc_name).set(data)
+
+
+def _ensure_xyz_migration():
+    """One-time migration: old single masters become firm XYZ Company data."""
+    try:
+        reg = _get_doc("firm_registry")
+        firms = reg.get("firms", {}) or {}
+        if "XYZ" not in firms:
+            old = _get_doc("masters")
+            legacy = {
+                "projects": old.get("projects", []) if isinstance(old, dict) else [],
+                "contracts": old.get("contracts", []) if isinstance(old, dict) else [],
+            }
+            _set_doc("firm_data_XYZ", legacy)
+            firms["XYZ"] = {
+                "firm_id": "XYZ",
+                "firm_name": "XYZ Company",
+                "status": "ACTIVE",
+                "created_at": _now_iso(),
+                "owner_username": "admin",
+                "mobile": "",
+                "email": "",
+                "registration_key": "",
+                "activation_key": "LEGACY_XYZ",
+                "subscription_status": "ACTIVE",
+                "trial_start": "",
+                "trial_end": "",
+                "subscription_start": "",
+                "subscription_end": "2099-12-31T23:59:59",
+                "included_users": 3,
+                "extra_users": 0,
+            }
+            _set_doc("firm_registry", {"firms": firms})
+    except Exception as e:
+        st.warning(f"Firm migration warning: {e}")
+
+
 def fs_load():
     try:
-        doc = db.collection(_FIRESTORE_COLLECTION).document("masters").get()
+        _ensure_xyz_migration()
+        firm_id = st.session_state.get("_firm_id", "XYZ")
+        doc = db.collection(_FIRESTORE_COLLECTION).document(f"firm_data_{_safe_doc_id(firm_id)}").get()
         if doc.exists:
             data = doc.to_dict()
             data.setdefault("projects", [])
@@ -194,7 +253,8 @@ def fs_load():
 
 def fs_save(data):
     try:
-        db.collection(_FIRESTORE_COLLECTION).document("masters").set(data)
+        firm_id = st.session_state.get("_firm_id", "XYZ")
+        db.collection(_FIRESTORE_COLLECTION).document(f"firm_data_{_safe_doc_id(firm_id)}").set(data)
     except Exception as e:
         st.error(f"Firebase save error: {e}")
 
@@ -811,51 +871,397 @@ div[data-testid="stFileUploader"] button {
 </style>
 """, unsafe_allow_html=True)
 
-# ─── LOGIN CREDENTIALS (Firebase-backed) ─────────────────────────────────────
+# ─── MULTI-TENANT AUTH / REGISTRATION / SUBSCRIPTION ─────────────────────────
 _DEFAULT_USERS = {"admin": "cci@2025", "softview": "sv@admin"}
+_KEY_SPECIALS = "@#$%&*!+-_?"
+
+
+def _get_setting(name, default=""):
+    try:
+        v = st.secrets.get(name, default)
+        return str(v) if v is not None else default
+    except Exception:
+        return default
+
+
+def _superuser_credentials():
+    sid = _get_setting("SUPERUSER_ID", "superuser")
+    spw = _get_setting("SUPERUSER_PASSWORD", "SV@Super2026!")
+    return sid, spw
+
+
+def _generate_key(length):
+    if length not in (12, 24):
+        raise ValueError("Key length must be 12 or 24")
+    pools = ["ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz", "0123456789", _KEY_SPECIALS]
+    chars = [secrets.choice(p) for p in pools]
+    allchars = "".join(pools)
+    chars += [secrets.choice(allchars) for _ in range(length - 4)]
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
+
+
+def _hash_secret(value):
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
+def _get_client_ip():
+    """Best-effort client IP from Streamlit/reverse-proxy headers."""
+    try:
+        headers = st.context.headers
+        for key in ("X-Forwarded-For", "X-Real-IP", "CF-Connecting-IP", "True-Client-IP"):
+            val = headers.get(key)
+            if val:
+                return str(val).split(",")[0].strip()
+        val = headers.get("Remote-Addr") or headers.get("remote-addr")
+        if val:
+            return str(val).strip()
+    except Exception:
+        pass
+    return "UNKNOWN"
+
+
+def _load_registry():
+    reg = _get_doc("firm_registry")
+    reg.setdefault("firms", {})
+    reg.setdefault("registrations", {})
+    return reg
+
+
+def _save_registry(reg):
+    _set_doc("firm_registry", reg)
+
+
+def _firm_id_from_name(name):
+    base = re.sub(r"[^A-Z0-9]+", "", str(name or "").upper())[:12] or "FIRM"
+    reg = _load_registry()
+    firms = reg.get("firms", {})
+    if base not in firms:
+        return base
+    for i in range(1, 10000):
+        candidate = f"{base[:8]}{i:04d}"
+        if candidate not in firms:
+            return candidate
+    return f"FIRM{secrets.token_hex(4).upper()}"
+
+
+def _all_firm_users(firm_id):
+    doc = _get_doc(f"users_{_safe_doc_id(firm_id)}")
+    raw = doc.get("users", {}) or {}
+    out = {}
+    for k, v in raw.items():
+        if isinstance(v, str):
+            out[k] = {"password": v, "mobile": "", "email": "", "user_key": "", "role": "User", "rights": []}
+        elif isinstance(v, dict):
+            out[k] = dict(v)
+            out[k].setdefault("password", "")
+            out[k].setdefault("mobile", "")
+            out[k].setdefault("email", "")
+            out[k].setdefault("user_key", "")
+            out[k].setdefault("role", "User")
+            out[k].setdefault("rights", [])
+            out[k].setdefault("active", True)
+    return out
+
+
+def _save_firm_users(firm_id, users):
+    _set_doc(f"users_{_safe_doc_id(firm_id)}", {"users": users})
+    return True
+
 
 def _load_users():
-    """Load users from the same existing Firestore project/database as all masters."""
-    try:
-        doc = db.collection("cci_utility").document("app_users").get()
-        if doc.exists:
-            raw = doc.to_dict().get("users", {}) or {}
-            migrated = {}
+    firm_id = st.session_state.get("_firm_id", "XYZ")
+    users = _all_firm_users(firm_id)
+    # One-time compatibility migration of old app_users into XYZ firm.
+    if firm_id == "XYZ" and not users:
+        old = _get_doc("app_users")
+        raw = old.get("users", {}) if isinstance(old, dict) else {}
+        if raw:
+            users = {}
             for k, v in raw.items():
                 if isinstance(v, str):
-                    migrated[k] = {"password": v, "mobile": "", "email": ""}
+                    users[k] = {"password": v, "mobile": "", "email": "", "user_key": "", "role": "Firm Admin" if k == "admin" else "User", "rights": ["masters","upload","results","help","user_master"] if k == "admin" else ["upload","results"]}
                 elif isinstance(v, dict):
-                    migrated[k] = {
-                        "password": str(v.get("password", "")),
-                        "mobile": str(v.get("mobile", "")),
-                        "email": str(v.get("email", "")),
-                    }
-            return migrated if migrated else _get_default_users_rich()
-        # First run only: create the default user document once.
-        defaults = _get_default_users_rich()
-        db.collection("cci_utility").document("app_users").set({"users": defaults})
-        return defaults
-    except Exception as e:
-        st.warning(f"Firebase users read error: {e}")
-        return _get_default_users_rich()
-
-
-def _get_default_users_rich():
-    rich = {}
-    for k, v in _DEFAULT_USERS.items():
-        rich[k] = {"password": v, "mobile": "", "email": ""}
-    return rich
+                    users[k] = dict(v)
+            _save_firm_users("XYZ", users)
+    return users
 
 
 def _save_users(users_dict):
+    return _save_firm_users(st.session_state.get("_firm_id", "XYZ"), users_dict)
+
+
+def _package_catalog():
+    reg = _load_registry()
+    prices = reg.get("pricing", {}) or {}
+    return {
+        "4_MONTHS": {"label": "4 Months", "months": 4, "price": float(prices.get("4_MONTHS", 0) or 0)},
+        "6_MONTHS": {"label": "6 Months", "months": 6, "price": float(prices.get("6_MONTHS", 0) or 0)},
+        "1_YEAR": {"label": "1 Year", "months": 12, "price": float(prices.get("1_YEAR", 0) or 0)},
+    }
+
+
+def _extra_user_price():
+    reg = _load_registry()
+    return float((reg.get("pricing", {}) or {}).get("EXTRA_USER", 0) or 0)
+
+
+def _subscription_end(start_dt, months):
+    # Calendar-month package, inclusive of payment day.
+    end_exclusive = pd.Timestamp(start_dt) + pd.DateOffset(months=int(months))
+    return (end_exclusive - pd.Timedelta(seconds=1)).to_pydatetime()
+
+
+def _firm_access(firm):
+    now = datetime.now()
+    status = str(firm.get("subscription_status", "")).upper()
+    if status == "ACTIVE" and firm.get("subscription_end"):
+        try:
+            return now <= datetime.fromisoformat(str(firm["subscription_end"]))
+        except Exception:
+            return False
+    if status == "ACTIVE_TRIAL" and firm.get("trial_end"):
+        try:
+            return now < datetime.fromisoformat(str(firm["trial_end"]))
+        except Exception:
+            return False
+    return False
+
+
+def _refresh_subscription_status(firm_id):
+    reg = _load_registry()
+    firm = (reg.get("firms", {}) or {}).get(firm_id)
+    if not firm:
+        return None, reg
+    now = datetime.now()
+    changed = False
+    if firm.get("registration_key_expires_at"):
+        try:
+            if now >= datetime.fromisoformat(str(firm["registration_key_expires_at"])) and firm.get("status") == "PENDING_REGISTRATION":
+                firm["status"] = "REGISTRATION_EXPIRED"
+                changed = True
+        except Exception:
+            pass
+    if firm.get("subscription_status") == "ACTIVE_TRIAL" and firm.get("trial_end"):
+        try:
+            if now >= datetime.fromisoformat(str(firm["trial_end"])):
+                firm["subscription_status"] = "EXPIRED"
+                changed = True
+        except Exception:
+            pass
+    if firm.get("subscription_status") == "ACTIVE" and firm.get("subscription_end"):
+        try:
+            if now > datetime.fromisoformat(str(firm["subscription_end"])):
+                firm["subscription_status"] = "EXPIRED"
+                changed = True
+        except Exception:
+            pass
+    if changed:
+        reg.setdefault("firms", {})[firm_id] = firm
+        _save_registry(reg)
+    return firm, reg
+
+
+def _send_sms(phone, message):
+    sid = _get_setting("TWILIO_ACCOUNT_SID", "")
+    token = _get_setting("TWILIO_AUTH_TOKEN", "")
+    from_no = _get_setting("TWILIO_FROM", "")
+    if not (sid and token and from_no and phone):
+        return False
     try:
-        db.collection("cci_utility").document("app_users").set({"users": users_dict})
-        return True
-    except Exception as e:
-        st.error(f"User save error: {e}")
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+        r = requests.post(url, data={"From": from_no, "To": phone, "Body": message[:1500]}, auth=(sid, token), timeout=20)
+        return r.ok
+    except Exception:
         return False
 
 
+def _notify_admin(subject, body, mobile=""):
+    # Always log in Firestore; optional SMTP email/SMS are sent if configured.
+    reg = _load_registry()
+    notes = reg.get("notifications", []) or []
+    notes.append({"time": _now_iso(), "subject": subject, "body": body})
+    reg["notifications"] = notes[-500:]
+    _save_registry(reg)
+    host = _get_setting("SMTP_HOST", "")
+    user = _get_setting("SMTP_USER", "")
+    pwd = _get_setting("SMTP_PASSWORD", "")
+    to = _get_setting("ADMIN_EMAIL", "")
+    if host and user and pwd and to:
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = user
+            msg["To"] = to
+            msg.set_content(body)
+            with smtplib.SMTP(host, int(_get_setting("SMTP_PORT", "587")), timeout=20) as s:
+                s.starttls()
+                s.login(user, pwd)
+                s.send_message(msg)
+        except Exception:
+            pass
+    _send_sms(mobile, subject + " - " + body)
+
+
+def _notify_firm(firm, subject, body):
+    email = str(firm.get("email", "") or "").strip()
+    mobile = str(firm.get("mobile", "") or "").strip()
+    host = _get_setting("SMTP_HOST", "")
+    user = _get_setting("SMTP_USER", "")
+    pwd = _get_setting("SMTP_PASSWORD", "")
+    if host and user and pwd and email:
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = user
+            msg["To"] = email
+            msg.set_content(body)
+            with smtplib.SMTP(host, int(_get_setting("SMTP_PORT", "587")), timeout=20) as s:
+                s.starttls(); s.login(user, pwd); s.send_message(msg)
+        except Exception:
+            pass
+    _send_sms(mobile, subject + " - " + body)
+
+
+def _audit(action, firm_id="", username="", details=None):
+    reg = _load_registry()
+    logs = reg.get("audit_logs", []) or []
+    logs.append({"time": _now_iso(), "action": action, "firm_id": firm_id, "username": username, "details": details or {}, "ip": _get_client_ip()})
+    reg["audit_logs"] = logs[-2000:]
+    _save_registry(reg)
+
+
+def _find_firm_for_user(username):
+    reg = _load_registry()
+    for fid, firm in (reg.get("firms", {}) or {}).items():
+        if str(firm.get("owner_username", "")).lower() == username.lower():
+            return fid, firm
+        users = _all_firm_users(fid)
+        if username in users:
+            return fid, firm
+    return None, None
+
+
+def _create_firm_registration(firm_name, owner_username, password, mobile, email, address):
+    reg = _load_registry()
+    firms = reg.setdefault("firms", {})
+    registrations = reg.setdefault("registrations", {})
+    mobile_norm = re.sub(r"\D", "", mobile or "")
+    ip = _get_client_ip()
+    if len(mobile_norm) < 10:
+        return False, "Mobile number must be valid (10 digits).", None
+    # One-time registration by mobile and, when available, by client IP.
+    for fid, f in firms.items():
+        if re.sub(r"\D", "", str(f.get("mobile", ""))) == mobile_norm and mobile_norm:
+            return False, "This mobile number has already been registered.", None
+        if ip != "UNKNOWN" and f.get("registration_ip") == ip:
+            return False, "This IP address has already been used for registration.", None
+    for rid, r in registrations.items():
+        if re.sub(r"\D", "", str(r.get("mobile", ""))) == mobile_norm:
+            return False, "This mobile number already has a registration request.", None
+        if ip != "UNKNOWN" and r.get("registration_ip") == ip:
+            return False, "This IP address already has a registration request.", None
+        if str(r.get("owner_username", "")).lower() == owner_username.lower():
+            return False, "Username already exists in a registration request.", None
+    if not firm_name.strip() or not owner_username.strip() or not password:
+        return False, "Firm Name, Owner Username and Password are required.", None
+    # Username must be unique across all firms and pending registrations.
+    owner_key = owner_username.strip().lower()
+    if owner_key == _superuser_credentials()[0].lower():
+        return False, "This username is reserved for the Super User.", None
+    for _fid, _firm in firms.items():
+        if str(_firm.get("owner_username", "")).lower() == owner_key or owner_key in _all_firm_users(_fid):
+            return False, "This username is already in use.", None
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters.", None
+    fid = _firm_id_from_name(firm_name)
+    reg_key = _generate_key(12)
+    expires = datetime.now() + timedelta(hours=2)
+    request_id = f"REG-{secrets.token_hex(6).upper()}"
+    registrations[request_id] = {
+        "request_id": request_id, "firm_id": fid, "firm_name": firm_name.strip(),
+        "owner_username": owner_username.strip().lower(), "password": password,
+        "mobile": mobile_norm, "email": email.strip(), "address": address.strip(),
+        "registration_key": reg_key, "registration_key_hash": _hash_secret(reg_key),
+        "registration_ip": ip, "created_at": _now_iso(), "expires_at": expires.isoformat(timespec="seconds"),
+        "status": "PENDING", "included_users": 3,
+    }
+    _save_registry(reg)
+    _notify_admin("New Firm Registration", f"Firm: {firm_name}\nOwner: {owner_username}\nMobile: {mobile_norm}\nRequest: {request_id}\nRegistration Key: {reg_key}\nIP: {ip}", mobile_norm)
+    return True, "Registration submitted. Your 12-character key is valid for 2 hours and requires Super User authentication.", {"request_id": request_id, "key": reg_key, "firm_id": fid}
+
+
+def _approve_registration(request_id):
+    reg = _load_registry()
+    req = (reg.get("registrations", {}) or {}).get(request_id)
+    if not req or req.get("status") != "PENDING":
+        return False, "Registration request not found or already processed."
+    try:
+        if datetime.now() >= datetime.fromisoformat(str(req["expires_at"])):
+            req["status"] = "EXPIRED"
+            _save_registry(reg)
+            return False, "The 2-hour registration key has expired."
+    except Exception:
+        pass
+    fid = req["firm_id"]
+    trial_start = datetime.now()
+    trial_end = trial_start + timedelta(days=3)
+    activation_key = _generate_key(24)
+    reg.setdefault("firms", {})[fid] = {
+        "firm_id": fid, "firm_name": req["firm_name"], "status": "ACTIVE",
+        "created_at": _now_iso(), "owner_username": req["owner_username"], "mobile": req["mobile"],
+        "email": req.get("email", ""), "address": req.get("address", ""), "registration_ip": req.get("registration_ip", ""),
+        "registration_key": req["registration_key"], "registration_key_expires_at": req["expires_at"],
+        "activation_key": activation_key, "activation_key_hash": _hash_secret(activation_key),
+        "subscription_status": "ACTIVE_TRIAL", "trial_start": trial_start.isoformat(timespec="seconds"),
+        "trial_end": trial_end.isoformat(timespec="seconds"), "subscription_start": "", "subscription_end": "",
+        "included_users": 3, "extra_users": 0,
+    }
+    _set_doc(f"firm_data_{_safe_doc_id(fid)}", {"projects": [], "contracts": []})
+    _save_firm_users(fid, {req["owner_username"]: {
+        "password": req["password"], "mobile": req["mobile"], "email": req.get("email", ""),
+        "user_key": "", "role": "Firm Admin", "rights": ["masters","upload","results","help","user_master"], "active": True
+    }})
+    req["status"] = "APPROVED_TRIAL"
+    req["approved_at"] = _now_iso()
+    req["activation_key"] = activation_key
+    reg["registrations"][request_id] = req
+    _save_registry(reg)
+    _notify_admin("Firm Trial Activated", f"Firm: {req['firm_name']}\nFirm ID: {fid}\nTrial ends: {trial_end}\nActivation Key: {activation_key}", req.get("mobile", ""))
+    _notify_firm(reg["firms"][fid], "CCI Trial Activated", f"Your 3-day trial is active until {trial_end.strftime('%d-%m-%Y %H:%M:%S')}.\nFirm ID: {fid}\n24-character activation key: {activation_key}")
+    return True, f"Trial activated for {req['firm_name']} until {trial_end.strftime('%d-%m-%Y %H:%M')}."
+
+
+def _has_right(right):
+    if st.session_state.get("_auth_role") == "SUPERUSER":
+        return True
+    return right in (st.session_state.get("_user_rights") or [])
+
+
+def _set_firm_session(fid, username, user_rec, role="User"):
+    st.session_state._firm_id = fid
+    st.session_state._logged_user = username
+    st.session_state._auth_role = "FIRM_USER"
+    st.session_state._user_role = role
+    st.session_state._user_rights = user_rec.get("rights", []) or []
+
+
+def _try_firm_login(username, password):
+    fid, firm = _find_firm_for_user(username)
+    if not fid:
+        return False, "Invalid username or password."
+    firm, _ = _refresh_subscription_status(fid)
+    users = _all_firm_users(fid)
+    rec = users.get(username)
+    if not rec or str(rec.get("password", "")) != str(password):
+        return False, "Invalid username or password."
+    if not bool(rec.get("active", True)):
+        return False, "This user account has been disabled by the firm administrator."
+    if not _firm_access(firm):
+        return False, "Your Subscription period is over, Please recharge again" if str(firm.get("subscription_status", "")).upper() == "EXPIRED" else "Firm is not activated yet. Please contact support."
+    _set_firm_session(fid, username, rec, rec.get("role", "User"))
+    _audit("LOGIN", fid, username, {"subscription_status": firm.get("subscription_status", "")})
+    return True, ""
 # ─── CLEAN CONTRACT CARD STYLES ──────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -881,325 +1287,302 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── LOGIN GATE ───────────────────────────────────────────────────────────────
+
+# ─── LOGIN / REGISTRATION GATE ───────────────────────────────────────────────
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "_login_error" not in st.session_state:
     st.session_state._login_error = ""
 if "_logged_user" not in st.session_state:
     st.session_state._logged_user = ""
+if "_auth_role" not in st.session_state:
+    st.session_state._auth_role = ""
+if "_firm_id" not in st.session_state:
+    st.session_state._firm_id = ""
 
 def _do_login():
     u = st.session_state.get("_lu", "").strip()
     p = st.session_state.get("_lp", "")
-    users = _load_users()
-    user_rec = users.get(u, {})
-    user_pass = user_rec.get("password", user_rec) if isinstance(user_rec, dict) else user_rec
-    if user_pass == p:
+    sid, spw = _superuser_credentials()
+    if u == sid and p == spw:
         st.session_state.authenticated = True
-        st.session_state._logged_user  = u
-        st.session_state._login_error  = ""
-        # Record login timestamp in Firebase
-        try:
-            import datetime as _dt2
-            _ts = _dt2.datetime.now().strftime("%d-%b-%Y %H:%M:%S")
-            _hist_doc = db.collection("cci_utility").document("login_history").get()
-            _hist_data = (_hist_doc.to_dict().get("history", {}) if _hist_doc.exists else {}) or {}
-            _hist_data.setdefault(u, [])
-            _hist_data[u] = list(_hist_data[u])[-19:] + [_ts]
-            db.collection("cci_utility").document("login_history").set({"history": _hist_data})
-        except Exception as e:
-            st.warning(f"Login history save error: {e}")
+        st.session_state._auth_role = "SUPERUSER"
+        st.session_state._logged_user = sid
+        st.session_state._firm_id = ""
+        st.session_state._user_rights = ["*"]
+        st.session_state._login_error = ""
+        _audit("SUPERUSER_LOGIN", "", sid, {})
+        return
+    ok, msg = _try_firm_login(u, p)
+    if ok:
+        st.session_state.authenticated = True
+        st.session_state._login_error = ""
     else:
-        st.session_state._login_error = "❌ Invalid username or password."
+        st.session_state._login_error = msg
+
+def _do_register():
+    ok, msg, info = _create_firm_registration(
+        st.session_state.get("_rfname", ""), st.session_state.get("_rowner", ""),
+        st.session_state.get("_rpass", ""), st.session_state.get("_rmobile", ""),
+        st.session_state.get("_remail", ""), st.session_state.get("_raddress", "")
+    )
+    st.session_state._reg_result = info if ok else None
+    st.session_state._reg_error = "" if ok else msg
+    st.session_state._reg_success = msg if ok else ""
 
 if not st.session_state.authenticated:
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
-    * { font-family:'Inter',sans-serif; box-sizing:border-box; }
-
-    /* Soft gradient page background, gently scrollable — never clipped */
-    html, body { margin: 0 !important; padding: 0 !important; }
-    [data-testid="stAppViewContainer"] {
-        background:
-            radial-gradient(circle at 6% 8%, rgba(249,115,22,0.16) 0%, transparent 40%),
-            radial-gradient(circle at 96% 90%, rgba(234,88,12,0.14) 0%, transparent 38%),
-            radial-gradient(circle at 90% 10%, rgba(253,186,116,0.20) 0%, transparent 30%),
-            linear-gradient(160deg, #fff7ee 0%, #fdecd9 55%, #fbe1c4 100%) !important;
-        min-height: 100vh !important;
-    }
-    [data-testid="stHeader"], header[data-testid="stHeader"], footer,
-    [data-testid="stToolbar"], [data-testid="stDecoration"] { display:none !important; }
-    section[data-testid="stMain"] { padding-top: 0 !important; }
-    .main .block-container, [data-testid="stMainBlockContainer"] {
-        padding: 28px 24px !important; margin: 0 auto !important; max-width: 1220px !important;
-        min-height: 100vh !important;
-        display: flex !important; align-items: center !important; justify-content: center !important;
-    }
-    section.main > div { padding: 0 !important; }
-
-    /* A soft picture-frame border around the whole login page, like the reference */
-    .main .block-container {
-        border: 1.5px solid rgba(249,115,22,0.30) !important;
-        border-radius: 28px !important;
-        box-shadow: 0 24px 60px -16px rgba(154,52,18,0.20) !important;
-        padding: 30px 34px !important;
-    }
-
-    /* The two Streamlit columns stay the same overall height, but only the
-       LEFT content fills it directly -- the RIGHT side becomes a smaller,
-       independently floating card (see reference image), not a stretched box */
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0 !important;
-        align-items: stretch !important;
-        width: 100% !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        padding: 0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
-        display: flex !important; align-items: center !important; justify-content: center !important;
-        padding: 18px 22px !important;
-    }
-    /* Only tighten spacing inside the right (form) column -- never globally,
-       this is what was causing the Username/Password label to overlap the input */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlock"] {
-        gap: 0.5rem !important;
-    }
-
-    /* LEFT SIDE - content sits directly on the soft cream background, no hard block */
-    .login-left {
-        padding: 30px 40px 30px 8px;
-        position: relative;
-        display: flex; flex-direction: column; justify-content: center; gap: 18px;
-    }
-    .ll-logo { display:flex; align-items:center; gap:16px; }
-    .ll-logo img { height:62px; width:auto; border-radius:14px; box-shadow:0 6px 20px rgba(154,52,18,0.18); }
-    .ll-wordmark { display:flex; flex-direction:column; line-height:1.05; }
-    .ll-wordmark b { font-family:'Poppins',sans-serif; font-size:26px; font-weight:800; color:#1c1917; }
-    .ll-wordmark span { font-size:11.5px; font-weight:800; letter-spacing:.18em; color:#ea580c; }
-
-    .ll-headline {
-        font-family:'Poppins',sans-serif;
-        font-size:28px; font-weight:900; color:#1c1917;
-        line-height:1.18;
-    }
-    .ll-headline span { color:#ea580c; }
-    .ll-tagline { font-size:13.5px; color:#57534e; line-height:1.55; max-width:400px; }
-
-    .ll-about {
-        display:flex; gap:12px; align-items:flex-start;
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:14px;
-        padding:13px 16px; box-shadow:0 4px 16px rgba(154,52,18,0.06);
-    }
-    .ll-about-icon {
-        flex-shrink:0; width:34px; height:34px; border-radius:9px;
-        background:linear-gradient(135deg,#f97316,#ea580c);
-        display:flex; align-items:center; justify-content:center; font-size:15px;
-    }
-    .ll-about-title { font-size:12.5px; font-weight:800; color:#ea580c; margin-bottom:2px; }
-    .ll-about-desc { font-size:11.5px; color:#6b6660; line-height:1.45; }
-
-    .ll-features { display:grid; grid-template-columns:1fr 1fr; gap:9px; max-width:440px; }
-    .ll-feat {
-        background:#ffffff; border:1px solid #f3e3d3; border-radius:12px;
-        padding:10px 13px; box-shadow:0 3px 12px rgba(154,52,18,0.05);
-    }
-    .ll-feat-icon { font-size:15px; margin-bottom:4px; }
-    .ll-feat-title { font-size:11.5px; font-weight:800; color:#1c1917; margin-bottom:2px; }
-    .ll-feat-desc { font-size:10.5px; color:#8a8580; line-height:1.35; }
-
-    .ll-footer { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
-    .ll-footer span { font-size:10.5px; color:#8a8580; display:flex; align-items:center; gap:5px; white-space:nowrap; }
-
-    /* RIGHT SIDE - a compact, independently-floating white card (not stretched) */
-    .login-right-panel {
-        background:#ffffff;
-        width: 100%; max-width: 360px;
-        border-radius: 22px;
-        padding: 30px 32px;
-        box-shadow: 0 20px 50px -14px rgba(154,52,18,0.22), 0 0 0 1px rgba(249,115,22,0.08);
-    }
-    .login-right-inner { width: 100%; }
-
-    .lr-eyebrow {
-        display:flex; align-items:center; gap:10px; margin-bottom:12px;
-        font-size:10.5px; font-weight:800; color:#ea580c;
-        text-transform:uppercase; letter-spacing:.13em;
-    }
-    .lr-eyebrow::before, .lr-eyebrow::after {
-        content:''; flex:1; height:1px; background:#f97316; opacity:0.4;
-    }
-    .lr-title {
-        font-family:'Poppins',sans-serif;
-        font-size:26px; font-weight:900; color:#1c1917;
-        line-height:1.1; margin-bottom:5px; text-align:center;
-    }
-    .lr-sub { font-size:12px; color:#78716c; margin-bottom:2px; text-align:center; }
-    .lr-divider { display:flex; align-items:center; justify-content:center; margin:8px 0 16px; color:#f97316; font-size:14px; }
-
-    /* Form fields */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] label {
-        font-size:12.5px !important; font-weight:700 !important;
-        color:#1c1917 !important; margin-bottom:2px !important;
-        letter-spacing:.02em !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input {
-        background:#fafaf9 !important;
-        border:1.5px solid #e7e5e4 !important;
-        border-radius:11px !important;
-        color:#1c1917 !important;
-        font-size:13.5px !important;
-        padding:11px 15px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input:focus {
-        border-color:#f97316 !important;
-        box-shadow:0 0 0 3px rgba(249,115,22,0.18) !important;
-        background:#ffffff !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stTextInput"] input::placeholder { color:#a8a29e !important; }
-
-    /* Remember me / forgot password row */
-    .lr-row { display:flex; align-items:center; justify-content:space-between; margin: 2px 0 4px; }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stCheckbox"] label p {
-        font-size:12px !important; color:#57534e !important; font-weight:600 !important;
-    }
-    .lr-forgot { font-size:12px; font-weight:700; color:#ea580c; text-align:right; }
-
-    /* Primary button - orange */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"] {
-        background: linear-gradient(135deg,#ea580c,#f97316) !important;
-        color:#ffffff !important; border:none !important;
-        border-radius:13px !important; font-size:14.5px !important;
-        font-weight:800 !important; padding:12px !important;
-        box-shadow:0 8px 24px rgba(234,88,12,0.40) !important;
-        letter-spacing:.02em !important;
-        transition:all 0.25s !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button[kind="primary"]:hover {
-        background:linear-gradient(135deg,#c2410c,#ea580c) !important;
-        box-shadow:0 12px 32px rgba(234,88,12,0.55) !important;
-        transform:translateY(-2px) !important;
-    }
-
-    /* Bottom branding */
-    .lr-shield { text-align:center; margin-top:18px; font-size:18px; }
-    .lr-bottom { text-align:center; margin-top:5px; }
-    .lr-bottom-brand { font-size:14px; font-weight:800; color:#ea580c; margin-bottom:3px; }
-    .lr-bottom-desc { font-size:11px; color:#a8a29e; margin-bottom:5px; }
-    .lr-bottom-secure { font-size:10.5px; font-weight:700; color:#ea580c; }
-
-    /* Error msg */
-    .login-err {
-        background:#fff7f5; border:1.5px solid #fca5a5;
-        border-radius:10px; padding:10px 13px;
-        color:#dc2626; font-size:12.5px; font-weight:600;
-        margin-top:10px; text-align:center;
-    }
-
-    @media (max-width: 900px) {
-        div[data-testid="stHorizontalBlock"] { flex-direction: column !important; }
-        .ll-headline { font-size:24px; }
-        .ll-features { grid-template-columns:1fr; }
-        .login-right-panel { max-width: 100%; }
+    .stApp{background:#edf2f7 !important;}
+    .block-container{max-width:1180px !important;padding:25px 22px 30px !important;}
+    .sv-top{background:linear-gradient(135deg,#061a35,#0e3158);border-radius:22px 22px 0 0;
+      padding:18px 27px;border-bottom:3px solid #d8ae4e;box-shadow:0 10px 28px rgba(5,25,50,.14);}
+    .sv-toprow{display:flex;align-items:center;gap:14px;}
+    .sv-logo{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:11px;padding:5px;}
+    .sv-brand{font-size:20px;font-weight:900;letter-spacing:.08em;color:#fff;}
+    .sv-brandsub{font-size:9px;font-weight:800;letter-spacing:.17em;color:#e1be63;margin-top:3px;}
+    .sv-left{background:linear-gradient(150deg,#071b37,#0a2a50 60%,#103b65);min-height:600px;padding:38px 34px;color:#fff;}
+    .sv-kicker{font-size:10px;font-weight:900;letter-spacing:.18em;color:#e1be63;text-transform:uppercase;}
+    .sv-title{font-size:38px;line-height:1.04;font-weight:900;letter-spacing:-.035em;margin-top:9px;}
+    .sv-title span{color:#e1be63;}
+    .sv-desc{font-size:12px;line-height:1.65;color:#c9d6e4;margin-top:15px;}
+    .sv-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:26px;}
+    .sv-feature{padding:11px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.065);border-radius:10px;min-height:47px;}
+    .sv-icon{float:left;width:29px;height:29px;border-radius:8px;background:rgba(225,190,99,.15);color:#e4c46d;display:grid;place-items:center;margin-right:8px;font-weight:900;}
+    .sv-feature b{font-size:10px;color:#fff;display:block;padding-top:1px;}
+    .sv-feature small{font-size:8px;color:#adbed0;}
+    .sv-about{margin-top:31px;border-top:1px solid rgba(255,255,255,.12);padding-top:14px;font-size:9px;color:#adbed0;line-height:1.55;}
+    .sv-about b{color:#e1be63;}
+    .sv-right{background:linear-gradient(180deg,#fff,#f7f9fc);min-height:600px;padding:34px 48px 28px;}
+    .sv-pill{text-align:center;color:#1b4d7c;font-size:8px;font-weight:900;letter-spacing:.12em;background:#edf5ff;border-radius:999px;padding:6px 11px;width:max-content;margin:0 auto;}
+    .sv-welcome{text-align:center;font-size:29px;font-weight:900;color:#102944;margin-top:10px;}
+    .sv-wsub{text-align:center;font-size:10px;color:#788698;margin-top:3px;margin-bottom:16px;}
+    .sv-tabhint{text-align:center;font-size:9px;color:#8390a0;margin:7px 0 10px;}
+    .sv-security{text-align:center;font-size:8.5px;color:#7b8796;margin-top:10px;}
+    .sv-footer{text-align:center;font-size:8.5px;color:#8994a2;margin-top:18px;}
+    .sv-footer b{color:#244a73;}
+    /* Streamlit tab styling */
+    button[data-baseweb="tab"]{font-weight:800 !important;color:#27496c !important;}
+    button[data-baseweb="tab"][aria-selected="true"]{color:#9a6b08 !important;}
+    div[data-baseweb="tab-highlight"]{background:#d9ae4c !important;}
+    @media(max-width:900px){
+      .sv-left,.sv-right{min-height:auto;}
+      .sv-left{padding:30px 25px;}
+      .sv-right{padding:28px 20px;}
+      .sv-title{font-size:31px;}
+      .sv-grid{grid-template-columns:1fr;}
     }
     </style>
     """, unsafe_allow_html=True)
 
-    left_col, right_col = st.columns([1.15, 0.85], gap="small")
+    st.markdown(f"""
+    <div class="sv-top">
+      <div class="sv-toprow">
+        <img class="sv-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview Technologies">
+        <div>
+          <div class="sv-brand">SOFTVIEW TECHNOLOGIES</div>
+          <div class="sv-brandsub">SMART BUSINESS • ACCURATE DECISIONS</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with left_col:
-        st.markdown(f"""
-        <div class="login-left">
-          <div class="ll-logo">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Softview">
-            <div class="ll-wordmark"><b>Softview</b><span>TECHNOLOGIES</span></div>
+    left, right = st.columns([46,54], gap="small")
+
+    with left:
+        st.markdown("""
+        <div class="sv-left">
+          <div class="sv-kicker">Enterprise Financial Suite</div>
+          <div class="sv-title">CCI Working<br><span>Calculation Utility</span></div>
+          <div class="sv-desc">A professional workspace for CCI commercial calculations,
+          firm-wise data control, contracts, GRN, EMD, FIFO and financial reporting.</div>
+          <div class="sv-grid">
+            <div class="sv-feature"><span class="sv-icon">▣</span><b>Contracts Management</b><small>Conditions & slabs</small></div>
+            <div class="sv-feature"><span class="sv-icon">◈</span><b>GRN & Lifting</b><small>Complete tracking</small></div>
+            <div class="sv-feature"><span class="sv-icon">₹</span><b>EMD & Payments</b><small>FIFO allocation</small></div>
+            <div class="sv-feature"><span class="sv-icon">◷</span><b>CD / CC Charges</b><small>Automated calculation</small></div>
+            <div class="sv-feature"><span class="sv-icon">⇄</span><b>FIFO Allocation</b><small>Per-bale control</small></div>
+            <div class="sv-feature"><span class="sv-icon">▤</span><b>Reports & Control</b><small>Excel-ready output</small></div>
           </div>
-
-          <div class="ll-headline">Smart software.<br><span>Built for business.</span></div>
-          <div class="ll-tagline">Softview Technologies delivers enterprise-grade digital solutions that simplify operations, empower teams, and drive business growth.</div>
-
-          <div class="ll-about">
-            <div class="ll-about-icon">🏛️</div>
-            <div>
-              <div class="ll-about-title">About Softview Technologies</div>
-              <div class="ll-about-desc">We build modern applications that bring operational workflows, data, reporting and user access together in one secure, scalable and efficient platform.</div>
-            </div>
-          </div>
-
-          <div class="ll-features">
-            <div class="ll-feat">
-              <div class="ll-feat-icon">🏢</div>
-              <div class="ll-feat-title">Enterprise Ready</div>
-              <div class="ll-feat-desc">Structured workflows and business controls.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">📊</div>
-              <div class="ll-feat-title">Data Driven</div>
-              <div class="ll-feat-desc">Clear calculations, reports and insights.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">🔒</div>
-              <div class="ll-feat-title">Secure Access</div>
-              <div class="ll-feat-desc">Authorised user login and role-based access.</div>
-            </div>
-            <div class="ll-feat">
-              <div class="ll-feat-icon">💎</div>
-              <div class="ll-feat-title">Executive Experience</div>
-              <div class="ll-feat-desc">Clean, premium and easy-to-use interface.</div>
-            </div>
-          </div>
-
-          <div class="ll-footer">
-            <span>🛡️ Secure. Reliable. Scalable.</span>
-            <span>👥 Trusted by Professionals.</span>
-            <span>🏆 Excellence in Every Solution.</span>
-          </div>
+          <div class="sv-about"><b>ABOUT THE UTILITY</b><br>
+          Designed and developed by <b>Softview Technologies</b> for accurate,
+          transparent and controlled CCI commercial calculations.</div>
         </div>
         """, unsafe_allow_html=True)
 
-    with right_col:
-        st.markdown('<div class="login-right-panel"><div class="login-right-inner">', unsafe_allow_html=True)
-
+    with right:
         st.markdown("""
-        <div class="lr-eyebrow">CCI Working Calculation Utility</div>
-        <div class="lr-title">Welcome Back</div>
-        <div class="lr-sub">Sign in to continue to your secure workspace.</div>
-        <div class="lr-divider">◆</div>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:2px">Username</p>', unsafe_allow_html=True)
-        st.text_input("", key="_lu", placeholder="👤  Enter your username", label_visibility="collapsed")
-
-        st.markdown('<p style="font-size:13px;font-weight:700;color:#1c1917;margin-bottom:2px">Password</p>', unsafe_allow_html=True)
-        st.text_input("", key="_lp", type="password", placeholder="🔒  Enter your password", label_visibility="collapsed")
-
-        rc1, rc2 = st.columns([0.55, 0.45])
-        with rc1:
-            st.checkbox("Remember me", key="_remember_me")
-        with rc2:
-            st.markdown('<div class="lr-forgot" style="padding-top:8px;">Forgot password?</div>', unsafe_allow_html=True)
-
-        st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
-
-        if st.session_state._login_error:
-            st.markdown(f'<div class="login-err">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="lr-shield">🛡️</div>
-        <div class="lr-bottom">
-          <div class="lr-bottom-brand">Softview Technologies</div>
-          <div class="lr-bottom-desc">CCI Working Calculation Utility &nbsp;·&nbsp; Premium Enterprise Edition</div>
-          <div class="lr-bottom-secure">Secure access for authorised users only.</div>
+        <div class="sv-right">
+          <div class="sv-pill">🔒 SECURE BUSINESS WORKSPACE</div>
+          <div class="sv-welcome">Welcome Back</div>
+          <div class="sv-wsub">Choose an access option to continue</div>
         </div>
-        </div></div>
         """, unsafe_allow_html=True)
+
+        # IMPORTANT: options are ABOVE the login details, as requested.
+        tab_login, tab_register, tab_payment = st.tabs(
+            ["🔐 Login", "🏢 Register Firm", "💳 Payment / Renew"]
+        )
+
+        with tab_login:
+            st.markdown('<div class="sv-tabhint">Secure Login</div>', unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown('<div style="font-size:13px;font-weight:900;color:#173b60;">Login Details</div><div style="height:2px;width:38px;background:#d9ae4c;margin:5px 0 14px;"></div>', unsafe_allow_html=True)
+                st.text_input("Login ID", key="_lu", placeholder="Enter Login ID")
+                st.text_input("Password", key="_lp", type="password", placeholder="Enter Password")
+                st.checkbox("Remember me", value=True, key="_remember_me")
+                st.button("SIGN IN  →", on_click=_do_login, type="primary", use_container_width=True, key="_sign_in_final")
+                if st.session_state._login_error:
+                    st.error(st.session_state._login_error)
+            st.markdown('<div class="sv-security">Firm-wise secure access • Super User access is separately controlled</div>', unsafe_allow_html=True)
+
+        with tab_register:
+            st.markdown("### New Firm Registration")
+            st.caption("Registration key: exactly 12 characters • valid for 2 hours • Super User approval required before the 3-day trial starts.")
+            a,b=st.columns(2)
+            a.text_input("Firm Name ✱", key="_rfname")
+            b.text_input("Owner Username ✱", key="_rowner")
+            a.text_input("Password ✱", key="_rpass", type="password")
+            b.text_input("Mobile No. ✱", key="_rmobile", max_chars=15)
+            a.text_input("Email", key="_remail")
+            b.text_input("Firm Address", key="_raddress")
+            st.button("📝 Generate Registration Request", on_click=_do_register, type="primary", use_container_width=True, key="_register_final")
+            if st.session_state.get("_reg_error"):
+                st.error(st.session_state._reg_error)
+            if st.session_state.get("_reg_result"):
+                rr=st.session_state._reg_result
+                st.success(st.session_state.get("_reg_success", "Registration submitted."))
+                st.code(rr["key"], language=None)
+                st.warning("Copy this 12-character key. It expires after 2 hours. The 3-day trial starts only after Super User authentication.")
+
+        with tab_payment:
+            st.markdown("### Renew / Payment Request")
+            st.caption("Minimum package: 4 months. Payment must be credited/verified in the Super User party ledger. A short payment will not activate access.")
+            username = st.text_input("Firm Owner / Username", key="_renew_user")
+            package_catalog = _package_catalog()
+            labels = list(package_catalog.keys())
+            pkg = st.selectbox("Package", labels, format_func=lambda x: f"{package_catalog[x]['label']} — ₹{package_catalog[x]['price']:,.2f}", key="_renew_pkg")
+            extra = st.number_input("Extra Users beyond included 3", min_value=0, max_value=100, value=0, step=1, key="_renew_extra")
+            amount = package_catalog[pkg]["price"] + extra * _extra_user_price()
+            st.metric("Required Exact Amount", f"₹{amount:,.2f}")
+            paydate = st.date_input("Payment Date", value=date.today(), key="_renew_date")
+            paymode = st.selectbox("Mode of Payment", ["UPI","NEFT","RTGS","IMPS","Bank Transfer","Cheque","Cash","Card","Other"], key="_renew_mode")
+            payref = st.text_input("Payment Reference / UTR", key="_renew_ref")
+            if st.button("💳 Submit Payment Request", type="primary", use_container_width=True, key="_payment_final"):
+                if float(package_catalog[pkg]["price"]) <= 0:
+                    st.error("Package pricing is not configured yet. Please contact the Super User.")
+                else:
+                    fid, firm = _find_firm_for_user(username)
+                    if not fid:
+                        st.error("Firm/user not found.")
+                    else:
+                        reg=_load_registry(); reqs=reg.get("payment_requests",{}) or {}
+                        rid=f"PAY-{secrets.token_hex(6).upper()}"
+                        reqs[rid]={"request_id":rid,"firm_id":fid,"username":username,"package":pkg,"months":package_catalog[pkg]["months"],"extra_users":int(extra),"required_amount":amount,"payment_reference":payref.strip(),"status":"PENDING","created_at":_now_iso()}
+                        reqs[rid]["payment_mode"] = paymode
+                        reqs[rid]["payment_date"] = str(paydate)
+                        reg["payment_requests"]=reqs; _save_registry(reg)
+                        _notify_admin("Payment Request", f"Firm: {firm.get('firm_name')}\nFirm ID: {fid}\nPackage: {package_catalog[pkg]['label']}\nRequired: ₹{amount:,.2f}\nMode: {paymode}\nReference: {payref}", firm.get("mobile", ""))
+                        st.success("Payment request recorded. Access will start only after the credited amount is verified against the selected package.")
+
+        st.markdown('<div class="sv-footer">© 2026 <b>Softview Technologies</b> • CCI Working Calculation Utility</div>', unsafe_allow_html=True)
 
     st.stop()
 
+# ─── SUPER USER CONSOLE (completely separate from firm utility) ───────────────
+if st.session_state.get("_auth_role") == "SUPERUSER":
+    st.markdown("## 👑 Super User Control Center")
+    st.caption("Global administration only. Firm users never enter this console.")
+    a,b,c=st.columns(3)
+    reg=_load_registry(); firms=reg.get("firms",{}) or {}; registrations=reg.get("registrations",{}) or {}
+    a.metric("Firms", len(firms)); b.metric("Pending Registrations", sum(1 for x in registrations.values() if x.get("status")=="PENDING")); c.metric("Payment Requests", len(reg.get("payment_requests",{}) or {}))
+    st.markdown("---")
+    at1,at2,at3,at4,at5,at6 = st.tabs(["📝 Registrations","🏢 Firms","💰 Payments","📒 Party Ledger","💵 Pricing","🧾 Logs"])
+    with at1:
+        for rid, req in list(registrations.items())[::-1]:
+            if req.get("status") not in ("PENDING",):
+                continue
+            with st.container(border=True):
+                st.write(f"**{req.get('firm_name')}** — {req.get('owner_username')} — {req.get('mobile')}")
+                st.caption(f"Request: {rid} | Registration Key: {req.get('registration_key')} | Expires: {req.get('expires_at')} | IP: {req.get('registration_ip')}")
+                entered_key = st.text_input("Enter 12-character Registration Key to authenticate", key=f"regkey_{rid}", max_chars=12)
+                if st.button("✅ Authenticate & Start 3-Day Trial", key=f"approve_{rid}"):
+                    if _hash_secret(entered_key.strip()) != req.get("registration_key_hash"):
+                        st.error("❌ Registration Key mismatch. Trial has NOT been activated.")
+                    else:
+                        ok,msg=_approve_registration(rid); (st.success(msg) if ok else st.error(msg)); st.rerun()
+    with at2:
+        for fid, firm in firms.items():
+            firm,_=_refresh_subscription_status(fid)
+            with st.container(border=True):
+                st.write(f"**{firm.get('firm_name')}** (`{fid}`)")
+                st.caption(f"Owner: {firm.get('owner_username')} | Status: {firm.get('subscription_status')} | Trial: {firm.get('trial_end','—')} | Subscription: {firm.get('subscription_end','—')} | Users: {3 + int(firm.get('extra_users',0) or 0)}")
+                if fid != "XYZ":
+                    nk=st.text_input("New 24-character activation key (optional)", value=firm.get("activation_key", ""), key=f"ak_{fid}")
+                    if st.button("🔑 Regenerate 24-char Key", key=f"regen_{fid}"):
+                        firm["activation_key"]=_generate_key(24); firm["activation_key_hash"]=_hash_secret(firm["activation_key"]); reg["firms"][fid]=firm; _save_registry(reg); st.success("New activation key generated."); st.rerun()
+                if fid != "XYZ":
+                    with st.expander("👤 Manage Firm Users", expanded=False):
+                        fu = _all_firm_users(fid)
+                        for _uname, _ud in fu.items():
+                            uc1,uc2,uc3=st.columns([2.5,1.5,1])
+                            uc1.write(f"{_uname} · {_ud.get('role','User')} · {'ACTIVE' if _ud.get('active',True) else 'DISABLED'}")
+                            if uc2.button("Enable/Disable", key=f"toggle_{fid}_{_uname}"):
+                                _ud["active"] = not bool(_ud.get("active", True)); fu[_uname]=_ud; _save_firm_users(fid,fu); _audit("USER_STATUS_CHANGED",fid,st.session_state.get("_logged_user",""),{"user":_uname,"active":_ud["active"]}); st.rerun()
+                            if uc3.button("Reset Key", key=f"ukey_{fid}_{_uname}"):
+                                _ud["user_key"]=_generate_key(12); _ud["user_key_hash"]=_hash_secret(_ud["user_key"]); fu[_uname]=_ud; _save_firm_users(fid,fu); st.success(f"New 12-char User Key for {_uname}: {_ud['user_key']}")
+    with at3:
+        for rid, req in list((reg.get("payment_requests",{}) or {}).items())[::-1]:
+            with st.container(border=True):
+                st.write(f"**{rid}** — {req.get('firm_id')} — {req.get('package')} — Required ₹{float(req.get('required_amount',0)):,.2f}")
+                st.caption(f"Payment Date: {req.get('payment_date','—')} | Mode: {req.get('payment_mode','—')} | Reference: {req.get('payment_reference','—')} | Status: {req.get('status')} | Extra users: {req.get('extra_users',0)}")
+                credited=st.number_input("Credited Amount", min_value=0.0, value=float(req.get("credited_amount",0) or 0), key=f"cred_{rid}")
+                if st.button("🏦 Verify Credited Amount & Activate", key=f"verify_{rid}"):
+                    required=float(req.get("required_amount",0) or 0)
+                    if credited + 1e-9 < required:
+                        req["status"]="REJECTED_SHORT_PAYMENT"; req["credited_amount"]=credited; reg["payment_requests"][rid]=req; _save_registry(reg); st.error(f"Short payment. Required ₹{required:,.2f}; credited ₹{credited:,.2f}. Access NOT activated.")
+                    else:
+                        fid=req["firm_id"]; firm=reg["firms"][fid]
+                        try:
+                            start_dt = datetime.combine(date.fromisoformat(str(req.get("payment_date", date.today()))), datetime.min.time())
+                        except Exception:
+                            start_dt = datetime.now()
+                        if start_dt > datetime.now():
+                            st.error("Payment Date cannot be in the future."); st.stop()
+                        end_dt=_subscription_end(start_dt, int(req["months"]))
+                        firm["subscription_status"]="ACTIVE"; firm["subscription_start"]=start_dt.isoformat(timespec="seconds"); firm["subscription_end"]=end_dt.isoformat(timespec="seconds"); firm["extra_users"]=int(req.get("extra_users",0)); firm["activation_key"]=_generate_key(24); firm["activation_key_hash"]=_hash_secret(firm["activation_key"]); reg["firms"][fid]=firm
+                        req["status"]="PAID_ACTIVATED"; req["credited_amount"]=credited; req["verified_at"]=_now_iso(); reg["payment_requests"][rid]=req
+                        led=reg.get("party_ledger",[]) or []; led.append({"date":_now_iso(),"firm_id":fid,"party":firm.get("firm_name"),"type":"CREDIT","amount":credited,"mode":req.get("payment_mode","Verified Payment"),"reference":req.get("payment_reference",""),"package":req.get("package")}); reg["party_ledger"]=led[-5000:]; _save_registry(reg)
+                        _notify_admin("Subscription Activated", f"Firm {firm.get('firm_name')} activated until {end_dt}. Amount ₹{credited:,.2f}.", firm.get("mobile", ""))
+                        _notify_firm(firm, "CCI Subscription Activated", f"Payment verified: ₹{credited:,.2f}.\nPackage: {req.get('package')}\nValid from: {start_dt.strftime('%d-%m-%Y %H:%M:%S')}\nValid till: {end_dt.strftime('%d-%m-%Y %H:%M:%S')}\n24-character activation key: {firm.get('activation_key')}")
+                        st.success(f"Activated until {end_dt.strftime('%d-%m-%Y %H:%M:%S')}"); st.rerun()
+    with at4:
+        st.markdown("### Party Account Ledger — Subscription Receipts")
+        ledger=pd.DataFrame(reg.get("party_ledger",[]) or [])
+        st.dataframe(ledger, use_container_width=True, hide_index=True)
+        st.download_button("⬇️ Download Party Ledger CSV", ledger.to_csv(index=False).encode("utf-8"), "party_account_ledger.csv", "text/csv")
+    with at5:
+        st.markdown("### Package Pricing")
+        pricing=reg.get("pricing",{}) or {}
+        p1,p2,p3,p4=st.columns(4)
+        v4=p1.number_input("4 Months", min_value=0.0, value=float(pricing.get("4_MONTHS",0) or 0), key="price4")
+        v6=p2.number_input("6 Months", min_value=0.0, value=float(pricing.get("6_MONTHS",0) or 0), key="price6")
+        vy=p3.number_input("1 Year", min_value=0.0, value=float(pricing.get("1_YEAR",0) or 0), key="pricey")
+        vx=p4.number_input("Extra User", min_value=0.0, value=float(pricing.get("EXTRA_USER",0) or 0), key="pricex")
+        if st.button("💾 Save Pricing", type="primary"):
+            reg["pricing"]={"4_MONTHS":v4,"6_MONTHS":v6,"1_YEAR":vy,"EXTRA_USER":vx}; _save_registry(reg); st.success("Pricing saved."); st.rerun()
+    with at6:
+        st.markdown("### Audit Logs")
+        logs=pd.DataFrame(reg.get("audit_logs",[]) or [])
+        st.dataframe(logs.tail(500), use_container_width=True, hide_index=True)
+        st.markdown("### Notifications")
+        notes=pd.DataFrame(reg.get("notifications",[]) or [])
+        st.dataframe(notes.tail(200), use_container_width=True, hide_index=True)
+    if st.button("🚪 Super User Logout", type="primary"):
+        st.session_state.authenticated=False; st.session_state._auth_role=""; st.session_state._logged_user=""; st.rerun()
+    st.stop()
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
+_ensure_xyz_migration()
 if "masters" not in st.session_state:
     st.session_state.masters = fs_load()
 if "proj_msg" not in st.session_state:
@@ -1298,6 +1681,21 @@ def parse_excel(file_bytes):
     pay["Payment_Amount"] = pd.to_numeric(pay["Payment_Amount"], errors="coerce")
     pay["Mode_Of_Transaction"] = pay["Mode_Of_Transaction"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
     pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
+
+    # Optional Additional EMD block in Sheet 2:
+    # I = Contract No. | J = ADDITIONAL EMD | K = ADD EMD DATE
+    # It is intentionally separate from normal EMD vouchers.
+    if raw2.shape[1] >= 11:
+        add_emd = raw2.iloc[1:,[8,9,10]].copy()
+        add_emd.columns = ["Contract_No","Additional_EMD","Add_EMD_Date"]
+        add_emd = add_emd.dropna(subset=["Contract_No","Additional_EMD"])
+        add_emd = add_emd[~add_emd["Contract_No"].astype(str).str.lower().str.contains("total|nan")]
+        add_emd["Additional_EMD"] = pd.to_numeric(add_emd["Additional_EMD"], errors="coerce")
+        add_emd["Add_EMD_Date"] = pd.to_datetime(add_emd["Add_EMD_Date"], errors="coerce")
+        add_emd = add_emd.dropna(subset=["Additional_EMD","Add_EMD_Date"]).reset_index(drop=True)
+    else:
+        add_emd = pd.DataFrame(columns=["Contract_No","Additional_EMD","Add_EMD_Date"])
+
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
                    "Accepted_Qty_AUM","Accepted_Qty","Material_Amount",
@@ -1310,7 +1708,7 @@ def parse_excel(file_bytes):
     grn["Party_Bill_Amount"] = pd.to_numeric(grn["Party_Bill_Amount"], errors="coerce").fillna(0)
     grn["Accepted_Qty_AUM"]  = pd.to_numeric(grn["Accepted_Qty_AUM"], errors="coerce")
     # Preserve the exact uploaded GRN row sequence.
-    return cont, emd, pay, grn
+    return cont, emd, add_emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
 def _norm_key(v):
@@ -1373,7 +1771,7 @@ def _get_mc_for_contract(cn, all_contracts, upload_group=""):
 
     return None, "NOT_DEFINED"
 
-def run_calculations(cont, emd, pay, grn, mc_or_contracts):
+def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
     """
     mc_or_contracts: either a single mc dict (legacy) OR a list of all contracts.
     When a list is passed, per-row EITHER/OR lookup is done automatically.
@@ -1421,6 +1819,17 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         emd_pool[key] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
         emd_pool[key]["Remaining"] = emd_pool[key]["EMD_Amount"].astype(float)
 
+    # Additional EMD pool.
+    # FIFO is by Additional EMD payment date. A voucher is eligible only for
+    # a GRN whose Contract Effective Date is STRICTLY AFTER that voucher date.
+    add_emd_pool = {}
+    if add_emd is not None and not add_emd.empty:
+        for cn_raw, g in add_emd.groupby("Contract_No"):
+            key = str(cn_raw).strip().upper()
+            g2 = g[["Add_EMD_Date","Additional_EMD"]].copy().sort_values("Add_EMD_Date").reset_index(drop=True)
+            g2["Remaining"] = g2["Additional_EMD"].astype(float)
+            add_emd_pool[key] = g2
+
     pay_pool = {}
     for cn_raw, g in pay.groupby("Contract_No"):
         key = str(cn_raw).strip().upper()
@@ -1467,8 +1876,11 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 "Total_Bill_Amount": round(float(mat_val or 0) + float(igst_val or 0), 2),
                 "Payment_Amount": 0.0,
                 "Per_Bale_EMD": 0.0, "EMD_Allocated": 0.0,
+                "Additional_EMD_Allocated": 0.0, "Add_EMD_Date": pd.NaT,
+                "Total_EMD_Allocated": 0.0,
                 "EMD_Date": pd.NaT, "Net_Amount": 0.0,
                 "Payment_Date": pd.NaT, "EMD_Days": 0, "EMD_Interest": 0.0,
+                "Additional_EMD_Interest": 0.0, "Total_EMD_Interest": 0.0,
                 "CD_Due_Date": pd.NaT, "CD_Days": 0, "CD_Pct": 0.0, "Cash_Discount": 0.0,
                 "Late_Lift_Days": 0, "Late_Lifting_Chg": 0.0, "Late_Lifting_GST": 0.0,
                 "CC_Free_End": pd.NaT, "CC_Days": 0,
@@ -1526,7 +1938,69 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
                 d = pool.at[idx,"EMD_Date"]
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
-        net_amt = round(total_bill - emd_alloc, 2)
+        # ── ADDITIONAL EMD FIFO ALLOCATION ───────────────────────────────────
+        # Per-bale Additional EMD = each Additional EMD voucher amount /
+        # contracted bales. For each GRN, a voucher can be used ONLY when:
+        #     GRN Effective Date > Additional EMD Date
+        # This prevents an Additional EMD paid later from being allocated to
+        # an earlier-effective-date contract/GRN.
+        add_emd_alloc, add_emd_date = 0.0, pd.NaT
+        add_pool = add_emd_pool.get(cn_key)
+        if add_pool is not None and bales > 0 and not pd.isna(eff_date):
+            # Contract bales are the denominator for every Additional EMD
+            # voucher. This gives a true per-bale Additional EMD amount.
+            contract_bales = 0.0
+            _cb = cont.loc[
+                cont["Contract_No"].astype(str).str.strip().str.upper() == cn_key,
+                "Bales"
+            ]
+            if not _cb.empty:
+                contract_bales = sf(_cb.iloc[0], 0.0)
+
+            if contract_bales > 0:
+                remaining_bales = float(bales)
+
+                # FIFO: oldest Additional EMD voucher first, but ONLY if
+                # this GRN's Effective Date is after that voucher's date.
+                for idx in add_pool.index:
+                    if remaining_bales <= 0:
+                        break
+
+                    voucher_date = add_pool.at[idx, "Add_EMD_Date"]
+                    if pd.isna(voucher_date) or eff_date <= voucher_date:
+                        continue
+
+                    voucher_total = float(add_pool.at[idx, "Remaining"])
+                    if voucher_total <= 0:
+                        continue
+
+                    per_bale_add = voucher_total / contract_bales
+                    if per_bale_add <= 0:
+                        continue
+
+                    # Amount this voucher can contribute for the remaining
+                    # GRN bales, limited by the voucher's unused balance.
+                    take_amt = min(
+                        voucher_total,
+                        per_bale_add * remaining_bales
+                    )
+                    if take_amt <= 0:
+                        continue
+
+                    add_pool.at[idx, "Remaining"] = voucher_total - take_amt
+                    add_emd_alloc += take_amt
+
+                    # Convert the amount consumed back to bale-equivalent
+                    # so a second voucher can cover only the uncovered bales.
+                    remaining_bales -= take_amt / per_bale_add
+
+                    if pd.isna(add_emd_date) or voucher_date > add_emd_date:
+                        add_emd_date = voucher_date
+
+        total_emd_alloc = round(emd_alloc + add_emd_alloc, 2)
+
+        # Net Amount uses BOTH normal EMD and Additional EMD.
+        net_amt = round(total_bill - total_emd_alloc, 2)
         pay_alloc, pay_date, pay_mode = 0.0, pd.NaT, ""
         ppool = pay_pool.get(cn_key)
         if ppool is not None and net_amt > 0:
@@ -1547,6 +2021,14 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
         if not pd.isna(emd_date) and not pd.isna(pay_date) and emd_alloc > 0:
             emd_days     = (pay_date - emd_date).days
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
+
+        additional_emd_interest = 0.0
+        if not pd.isna(add_emd_date) and not pd.isna(pay_date) and add_emd_alloc > 0:
+            add_days = max((pay_date - add_emd_date).days, 0)
+            additional_emd_interest = round(
+                ((add_emd_alloc * emd_rate / 100) / 365) * add_days, 2
+            )
+        total_emd_interest = round(emd_interest + additional_emd_interest, 2)
 
         # ── CASH DISCOUNT ─────────────────────────────────────────────────────
         # Formula:
@@ -1702,9 +2184,14 @@ def run_calculations(cont, emd, pay, grn, mc_or_contracts):
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
             "Payment_Amount":round(pay_alloc,2),
             "Per_Bale_EMD":round(pbe,2), "EMD_Allocated":round(emd_alloc,2),
+            "Additional_EMD_Allocated":round(add_emd_alloc,2),
+            "Add_EMD_Date":add_emd_date,
+            "Total_EMD_Allocated":total_emd_alloc,
             "EMD_Date":emd_date, "Net_Amount":round(net_amt,2),
             "Payment_Date":pay_date, "Payment_Mode":pay_mode,
             "EMD_Days":emd_days, "EMD_Interest":emd_interest,
+            "Additional_EMD_Interest":additional_emd_interest,
+            "Total_EMD_Interest":total_emd_interest,
             "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "CD_Due_Date":cd_due_date,
             "Cash_Discount":cd_amount,
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
@@ -1741,12 +2228,17 @@ _PRETTY_COL_MAP = {
     "Payment_Amount": "Payment Amount",
     "Per_Bale_EMD": "Per Bale EMD",
     "EMD_Allocated": "EMD Allocated",
+    "Additional_EMD_Allocated": "Additional EMD Allocated",
+    "Add_EMD_Date": "Add EMD Date",
+    "Total_EMD_Allocated": "Total EMD Allocated",
     "EMD_Date": "EMD Date",
     "Net_Amount": "Net Amount",
     "Payment_Date": "Payment Date",
     "Payment_Mode": "Mode Of Transaction",
     "EMD_Days": "EMD Days",
     "EMD_Interest": "EMD Interest",
+    "Additional_EMD_Interest": "Additional EMD Interest",
+    "Total_EMD_Interest": "Total EMD Interest",
     "CD_Days": "CD Days",
     "CD_Pct": "CD %",
     "CD_Due_Date": "CD Due Date",
@@ -1818,7 +2310,11 @@ def branch_wise_summary(result_df, pay=None):
         Total_Bill=("Total_Bill_Amount","sum"),
         Total_Payment=("Payment_Amount","sum"),
         Total_EMD=("EMD_Allocated","sum"),
+        Total_Additional_EMD=("Additional_EMD_Allocated","sum"),
+        Total_EMD_Combined=("Total_EMD_Allocated","sum"),
         Total_EMD_Interest=("EMD_Interest","sum"),
+        Total_Additional_EMD_Interest=("Additional_EMD_Interest","sum"),
+        Total_EMD_Interest_Combined=("Total_EMD_Interest","sum"),
         Total_Cash_Disc=("Cash_Discount","sum"),
         Total_LL=("Late_Lifting_Chg","sum"),
         Total_LL_GST=("Late_Lifting_GST","sum"),
@@ -1826,7 +2322,7 @@ def branch_wise_summary(result_df, pay=None):
         Total_CC_GST=("Carry_GST","sum"),
     ).reset_index()
     # Total Payment + EMD = Total Payment kiya + Total EMD Allocated
-    bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD"]
+    bs["Total_Payment_And_EMD"] = bs["Total_Payment"] + bs["Total_EMD_Combined"]
     # Total amount we (the purchaser) actually owe CCI (the vendor) = base bill
     # + charges WE pay to CCI (Late Lifting, Carrying) − amounts WE receive from
     # CCI (Cash Discount, interest on our EMD deposit).\
@@ -1834,7 +2330,7 @@ def branch_wise_summary(result_df, pay=None):
     bs["Total_Payable"] = (
         bs["Total_Bill"] + bs["Total_LL"] + bs["Total_LL_GST"]
         + bs["Total_CC"] + bs["Total_CC_GST"]
-        - bs["Total_Cash_Disc"] - bs["Total_EMD_Interest"]
+        - bs["Total_Cash_Disc"] - bs["Total_EMD_Interest_Combined"]
     )
     # Actual Payment from uploaded Payment sheet — used ONLY for Receivable/Payable
     # branch_map: contract → branch (from result_df)
@@ -1850,7 +2346,7 @@ def branch_wise_summary(result_df, pay=None):
     else:
         bs["Actual_Payment_Total"] = bs["Total_Payment"]
     # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − Total EMD Allocated
-    bs["Receivable_Payable"] = bs["Total_Payable"] - bs["Actual_Payment_Total"] - bs["Total_EMD"]
+    bs["Receivable_Payable"] = bs["Total_Payable"] - bs["Actual_Payment_Total"] - bs["Total_EMD_Combined"]
     bs["Receivable_Payable_Mark"] = bs["Receivable_Payable"].apply(
         lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
         else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -1893,8 +2389,10 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         base_cols = [
             "Contract_No","GRN_No","Branch","Group","Effective_Date","Party_Bill_Date","Bales",
             "Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
-            "Per_Bale_EMD","EMD_Allocated","EMD_Date","Net_Amount","Payment_Date","Payment_Mode",
-            "EMD_Days","EMD_Interest","CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
+            "Per_Bale_EMD","EMD_Allocated","Additional_EMD_Allocated","Add_EMD_Date",
+            "Total_EMD_Allocated","EMD_Date","Net_Amount","Payment_Date","Payment_Mode",
+            "EMD_Days","EMD_Interest","Additional_EMD_Interest","Total_EMD_Interest",
+            "CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
             "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
@@ -1914,7 +2412,8 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         detail_total = {c: "" for c in detail_export.columns}
         detail_total["Contract_No"] = "GRAND TOTAL"
         for c in ["Bales","Material_Amount","GST_On_Material","Total_Bill_Amount",
-                  "Payment_Amount","EMD_Allocated","EMD_Interest","Cash_Discount",
+                  "Payment_Amount","EMD_Allocated","Additional_EMD_Allocated","Total_EMD_Allocated",
+                  "EMD_Interest","Additional_EMD_Interest","Total_EMD_Interest","Cash_Discount",
                   "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             if c in detail_export.columns:
                 detail_total[c] = pd.to_numeric(detail_export[c], errors="coerce").sum()
@@ -1922,7 +2421,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         # Force date-only Excel values BEFORE writing.  This prevents Excel from
         # inheriting pandas datetime display (HH:MM:SS).  Python date objects
         # are written as true Excel dates and formatted as DD-MM-YYYY.
-        _excel_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End"]
+        _excel_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Add_EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End"]
         for _dc in _excel_date_cols:
             if _dc in detail_export.columns:
                 detail_export[_dc] = pd.to_datetime(detail_export[_dc], errors="coerce").dt.date
@@ -1943,7 +2442,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         pretty_columns(detail_export).to_excel(w, sheet_name="GRN Calculation", index=False)
         _ws_tmp = w.book["GRN Calculation"]
         _hdr_tmp = {c.value: c.column for c in _ws_tmp[1]}
-        for _h in ["Effective Date", "Party Bill Date", "EMD Date", "Payment Date", "CD Due Date", "CC Free End"]:
+        for _h in ["Effective Date", "Party Bill Date", "EMD Date", "Add EMD Date", "Payment Date", "CD Due Date", "CC Free End"]:
             if _h in _hdr_tmp:
                 for _cell in _ws_tmp.iter_cols(min_col=_hdr_tmp[_h], max_col=_hdr_tmp[_h], min_row=2, max_row=_ws_tmp.max_row):
                     for _c in _cell:
@@ -1956,7 +2455,11 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             Total_Bill=("Total_Bill_Amount","sum"),
             Total_Payment=("Payment_Amount","sum"),
             Total_EMD=("EMD_Allocated","sum"),
+            Total_Additional_EMD=("Additional_EMD_Allocated","sum"),
+            Total_EMD_Combined=("Total_EMD_Allocated","sum"),
             Total_EMD_Interest=("EMD_Interest","sum"),
+            Total_Additional_EMD_Interest=("Additional_EMD_Interest","sum"),
+            Total_EMD_Interest_Combined=("Total_EMD_Interest","sum"),
             Total_Cash_Disc=("Cash_Discount","sum"),
             Total_LL=("Late_Lifting_Chg","sum"),
             Total_LL_GST=("Late_Lifting_GST","sum"),
@@ -1966,7 +2469,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         # Shortage / Excess (original, simple) = Total Bill − Total Payment − Total EMD Allocated
         # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
         summary["Shortage_Excess"] = (
-            summary["Total_Bill"] - summary["Total_Payment"] - summary["Total_EMD"]
+            summary["Total_Bill"] - summary["Total_Payment"] - summary["Total_EMD_Combined"]
         )
         summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
             lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
@@ -1978,14 +2481,14 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         summary["Total_Payable"] = (
             summary["Total_Bill"] + summary["Total_LL"] + summary["Total_LL_GST"]
             + summary["Total_CC"] + summary["Total_CC_GST"]
-            - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest"]
+            - summary["Total_Cash_Disc"] - summary["Total_EMD_Interest_Combined"]
         )
         # Actual payment from uploaded Payment sheet per contract (for Rec/Pay only)
         _pay_cn_map = pay.groupby(pay["Contract_No"].astype(str).str.strip().str.upper())["Payment_Amount"].sum()
         summary["Actual_Payment_Total"] = summary["Contract_No"].astype(str).str.strip().str.upper().map(_pay_cn_map).fillna(0)
         # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − Total EMD Allocated
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
-        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["Total_EMD"]
+        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["Total_EMD_Combined"]
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2018,7 +2521,21 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
             pretty_columns(branch_summary).to_excel(w, sheet_name="Branch Summary", index=False)
 
         cont.to_excel(w, sheet_name="PUR CONT", index=False)
-        emd.to_excel(w, sheet_name="EMD Payments", index=False)
+        emd_export = emd.copy()
+        if add_emd is not None and not add_emd.empty:
+            # Keep the original EMD sheet intact and add a separate block to
+            # the right so existing users' EMD/payment columns remain stable.
+            emd.to_excel(w, sheet_name="EMD Payments", index=False)
+            _ws_emd = w.book["EMD Payments"]
+            _start_col = max(_ws_emd.max_column + 3, 6)
+            for j, _h in enumerate(["Contract_No","Additional_EMD","Add_EMD_Date"], start=_start_col):
+                _ws_emd.cell(1, j, _h)
+            for i, _row in enumerate(add_emd.itertuples(index=False), start=2):
+                _ws_emd.cell(i, _start_col, _row.Contract_No)
+                _ws_emd.cell(i, _start_col+1, float(_row.Additional_EMD))
+                _ws_emd.cell(i, _start_col+2, _row.Add_EMD_Date)
+        else:
+            emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
         grn.to_excel(w, sheet_name="GRN Booking", index=False)
 
@@ -2029,7 +2546,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn):
         _date_columns_by_sheet = {
             "GRN Calculation": ["Effective Date", "Party Bill Date", "EMD Date", "Payment Date", "CD Due Date", "CC Free End"],
             "PUR CONT": ["Effective_Date"],
-            "EMD Payments": ["EMD_Date"],
+            "EMD Payments": ["EMD_Date", "Add_EMD_Date"],
             "Final Payments": ["Payment_Date"],
             "GRN Booking": ["Party_Bill_Date", "Final_Indent_Date"],
         }
@@ -2066,6 +2583,8 @@ import streamlit.components.v1 as components
 _now = _dt.datetime.now()
 _clock_str = _now.strftime("%d %b %Y  |  %H:%M:%S")
 _logged_user = st.session_state.get("_logged_user", "")
+_firm_id_header = st.session_state.get("_firm_id", "")
+_firm_header = (_load_registry().get("firms", {}).get(_firm_id_header, {}).get("firm_name", "") if _firm_id_header else "SUPER USER")
 
 hc1, hc2 = st.columns([4.6, 1.4])
 with hc1:
@@ -2080,7 +2599,7 @@ with hc1:
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
         <span class="top-header-badge">✨ PREMIUM ENTERPRISE EDITION</span>
-        <span style="font-size:11.5px;color:rgba(255,255,255,0.92);font-weight:700;letter-spacing:.04em">👤 {_logged_user.upper()}</span>
+        <span style="font-size:11.5px;color:rgba(255,255,255,0.92);font-weight:700;letter-spacing:.04em">👤 {_logged_user.upper()} · {_firm_header.upper()}</span>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2106,6 +2625,9 @@ with hc2:
     if st.button("🚪 Logout", key="top_logout", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state._logged_user = ""
+        st.session_state._firm_id = ""
+        st.session_state._auth_role = ""
+        st.session_state._user_rights = []
         st.session_state._login_error = ""
         st.session_state.edit_contract_idx = None
         st.session_state.editing_contract_no = None
@@ -2537,7 +3059,7 @@ with tab_upload:
                 st.info("Blank filter: every uploaded contract is matched individually as Contract → Group → DEFAULT.")
 
             st.markdown('<div class="sec-label">📂 Upload Excel File</div>', unsafe_allow_html=True)
-            st.caption("📋 Excel must have 3 sheets: PUR CONT DETAILS  |  EMD PAYMENT DETAILS  |  GRN BOOKING")
+            st.caption("📋 Excel: 3 sheets — PUR CONT DETAILS | EMD PAYMENT DETAILS | GRN BOOKING. Sheet 2 optional Additional EMD block: Contract No. | ADDITIONAL EMD | ADD EMD DATE.")
             uploaded_file = st.file_uploader("Choose Excel file (.xlsx)", type=["xlsx","xls"], label_visibility="collapsed")
 
             if uploaded_file:
@@ -2547,11 +3069,12 @@ with tab_upload:
                     with st.spinner("⏳ Processing calculations..."):
                         try:
                             fb = uploaded_file.read()
-                            cont_df, emd_df, pay_df, grn_df = parse_excel(fb)
-                            result_df  = run_calculations(cont_df, emd_df, pay_df, grn_df, contracts)
+                            cont_df, emd_df, add_emd_df, pay_df, grn_df = parse_excel(fb)
+                            result_df  = run_calculations(cont_df, emd_df, add_emd_df, pay_df, grn_df, contracts)
                             excel_bytes = df_to_excel_bytes(result_df, cont_df, emd_df, pay_df, grn_df)
                             st.session_state["result_df"]   = result_df
                             st.session_state["pay_df"]      = pay_df
+                            st.session_state["add_emd_df"]  = add_emd_df
                             st.session_state["excel_bytes"] = excel_bytes
                             st.markdown(f'<div class="success-msg">✅ {len(result_df)} GRNs calculated successfully! Switch to Results tab.</div>', unsafe_allow_html=True)
                         except Exception as e:
@@ -2563,7 +3086,7 @@ with tab_upload:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
             ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI | GROUP"),
-            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT"),
+            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT | Contract No. | ADDITIONAL EMD | ADD EMD DATE"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
             st.markdown(f"""
@@ -2657,11 +3180,11 @@ with tab_results:
                 )
         # Drop internal list column — PyArrow cannot serialize Python lists
         disp = disp.drop(columns=[c for c in disp.columns if c.startswith("_")], errors="ignore")
-        for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Payment_Date","CD_Due_Date","CC_Free_End"]:
+        for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Add_EMD_Date","Payment_Date","CD_Due_Date","CC_Free_End"]:
             if col in disp.columns:
                 disp[col] = disp[col].apply(fmt_date)
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
-                    "Per_Bale_EMD","EMD_Allocated","Net_Amount","EMD_Interest",
+                    "Per_Bale_EMD","EMD_Allocated","Additional_EMD_Allocated","Total_EMD_Allocated","Net_Amount","EMD_Interest","Additional_EMD_Interest","Total_EMD_Interest",
                     "Cash_Discount","Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             disp[col] = disp[col].apply(lambda x: fmt_inr(x))
 
@@ -2683,14 +3206,19 @@ with tab_results:
             GRNs=("GRN_No","count"), Bales=("Bales","sum"),
             Material=("Material_Amount","sum"), GST=("GST_On_Material","sum"),
             Total_Bill=("Total_Bill_Amount","sum"), Payment=("Payment_Amount","sum"),
-            EMD_Alloc=("EMD_Allocated","sum"), EMD_Interest=("EMD_Interest","sum"),
+            EMD_Alloc=("EMD_Allocated","sum"),
+            Additional_EMD_Alloc=("Additional_EMD_Allocated","sum"),
+            Total_EMD_Alloc=("Total_EMD_Allocated","sum"),
+            EMD_Interest=("EMD_Interest","sum"),
+            Additional_EMD_Interest=("Additional_EMD_Interest","sum"),
+            Total_EMD_Interest=("Total_EMD_Interest","sum"),
             Cash_Disc=("Cash_Discount","sum"), LL_Chg=("Late_Lifting_Chg","sum"),
             LL_GST=("Late_Lifting_GST","sum"), CC_Chg=("Carry_Charges","sum"),
             CC_GST=("Carry_GST","sum"),
         ).reset_index()
         # Shortage / Excess (original, simple) = Total Bill − Payment − EMD Allocated
         # Positive → SHORTAGE (payment still pending)  |  Negative → EXCESS (overpaid, refund due)
-        summary["Shortage_Excess"] = summary["Total_Bill"] - summary["Payment"] - summary["EMD_Alloc"]
+        summary["Shortage_Excess"] = summary["Total_Bill"] - summary["Payment"] - summary["Total_EMD_Alloc"]
         summary["Shortage_Excess_Mark"] = summary["Shortage_Excess"].apply(
             lambda x: "SHORTAGE" if pd.notna(x) and float(x) > 0
             else ("EXCESS" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2701,7 +3229,7 @@ with tab_results:
         summary["Total_Payable"] = (
             summary["Total_Bill"] + summary["LL_Chg"] + summary["LL_GST"]
             + summary["CC_Chg"] + summary["CC_GST"]
-            - summary["Cash_Disc"] - summary["EMD_Interest"]
+            - summary["Cash_Disc"] - summary["Total_EMD_Interest"]
         )
         # Actual payment from uploaded Payment sheet per contract (for Rec/Pay only)
         if _pay_df_ui is not None:
@@ -2711,7 +3239,7 @@ with tab_results:
             summary["Actual_Payment_Total"] = summary["Payment"]
         # Receivable / Payable = Total Payable − Actual Payment (uploaded sheet) − EMD Allocated
         # Positive → PAYABLE (still owe to CCI)  |  Negative → RECEIVABLE (CCI owes refund)
-        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["EMD_Alloc"]
+        summary["Receivable_Payable"] = summary["Total_Payable"] - summary["Actual_Payment_Total"] - summary["Total_EMD_Alloc"]
         summary["Receivable_Payable_Mark"] = summary["Receivable_Payable"].apply(
             lambda x: "PAYABLE" if pd.notna(x) and float(x) > 0
             else ("RECEIVABLE" if pd.notna(x) and float(x) < 0 else "CLEAR")
@@ -2790,18 +3318,22 @@ with tab_help:
         ("📌 Per Bale EMD & FIFO Allocation", [
             "Per Bale EMD = Contract Total EMD Amount ÷ Contracted Bales.",
             "EMD Required for GRN = Per Bale EMD × GRN Bales (Accepted Qty AUM).",
-            "EMD Allocation = FIFO draw from EMD vouchers for that Contract until the GRN requirement is met.",
-            "EMD Date = latest EMD voucher date used for that GRN.",
-        ], "Each EMD voucher keeps a Remaining balance for subsequent GRNs."),
+            "EMD Allocation = FIFO draw from normal EMD vouchers for that Contract.",
+            "Additional EMD = uploaded Sheet 2 Additional EMD ÷ Contracted Bales.",
+            "Additional EMD is allocated FIFO per bale ONLY when GRN Effective Date > Additional EMD Date (strictly after).",
+            "Total EMD Allocated = Normal EMD Allocated + Additional EMD Allocated.",
+        ], "Additional EMD vouchers are consumed FIFO by payment date; an earlier-effective-date GRN can never consume a later-paid Additional EMD."),
         ("💰 EMD Interest", [
             "EMD Days = Payment Date − EMD Date.",
             "EMD Interest = EMD Allocated × (EMD Rate % ÷ 365) × EMD Days.",
-        ], "Calculated only when EMD Date, Payment Date and EMD allocation are available."),
+            "Additional EMD Interest = Additional EMD Allocated × (EMD Rate % ÷ 365) × (Payment Date − Add EMD Date).",
+            "Total EMD Interest = Normal EMD Interest + Additional EMD Interest.",
+        ], "Additional EMD interest is shown separately and is included in total payable calculations."),
         ("💵 Bill & Net Amount", [
             "GST on Material = IGST from GRN Booking.",
             "Total Bill Amount = Material Amount + GST on Material.",
-            "Net Amount = Total Bill Amount − EMD Allocated.",
-        ], "Material Amount and IGST come from the uploaded GRN Booking data."),
+            "Net Amount = Total Bill Amount − Normal EMD Allocated − Additional EMD Allocated.",
+        ], "Additional EMD therefore reduces the amount remaining for payment on eligible GRNs."),
         ("💳 Payment Allocation", [
             "Payment is allocated FIFO from Final Payments against the Contract.",
             "Payment allocation stops when Net Amount is fully covered.",
@@ -2834,16 +3366,16 @@ with tab_help:
             "Carrying GST = Carrying Charges × CC GST % ÷ 100.",
         ], "CC Free Days, slab days, percentages, GST and compound setting come from Contract Master. No fixed 60-day CC free period is used."),
         ("📊 Shortage / Excess", [
-            "Shortage / Excess = Total Bill − Total Payment − Total EMD Allocated.",
+            "Shortage / Excess = Total Bill − Total Payment − (Normal EMD Allocated + Additional EMD Allocated).",
             "Positive → SHORTAGE (payment still pending).",
             "Negative → EXCESS (overpaid / refund due).",
             "Zero → CLEAR.",
         ], "This intentionally excludes LL, CC, CD and EMD Interest."),
         ("💼 Total Payable", [
-            "Total Payable = Total Bill + Total LL + Total LL GST + Total CC + Total CC GST − Total Cash Discount − Total EMD Interest.",
+            "Total Payable = Total Bill + Total LL + Total LL GST + Total CC + Total CC GST − Total Cash Discount − Total EMD Interest (including Additional EMD Interest).",
         ], "Charges are added; Cash Discount and EMD Interest are deducted."),
         ("↔️ Receivable / Payable", [
-            "Receivable / Payable = Total Payable − (Total Payment + Total EMD Allocated).",
+            "Receivable / Payable = Total Payable − (Total Payment + Normal EMD Allocated + Additional EMD Allocated).",
             "Positive → PAYABLE (amount still owed to CCI).",
             "Negative → RECEIVABLE (amount refundable / owed by CCI).",
             "Zero → CLEAR.",
@@ -2868,14 +3400,17 @@ with tab_help:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_users:
     current_user = st.session_state.get("_logged_user", "")
-    if current_user != "admin":
-        st.warning("⚠️ Only **admin** user can manage User Master.")
+    if not _has_right("user_master") or st.session_state.get("_user_role") not in ("Firm Admin", "Admin", "Manager"):
+        st.warning("⚠️ Only the firm's authorised User Master role can manage users inside this firm.")
     else:
         st.markdown('<div class="sec-label">👤 User Management</div>', unsafe_allow_html=True)
         st.caption("Add, edit or delete application users. Admin account cannot be deleted.")
 
         all_users = _load_users()
 
+        if st.button("🔑 Generate New 12-Character User Key", key="generate_user_key"):
+            st.session_state["new_user_key"] = _generate_key(12)
+            st.success(f"Generated User Key: {st.session_state['new_user_key']}")
         with st.expander("➕  Add New User", expanded=False):
             ua1, ua2 = st.columns(2)
             new_uname = ua1.text_input("Username ✱", key="new_uname", placeholder="e.g. user1")
@@ -2883,6 +3418,14 @@ with tab_users:
             ua3, ua4 = st.columns(2)
             new_umobile = ua3.text_input("Mobile No.", key="new_umobile", placeholder="e.g. 9876543210")
             new_uemail = ua4.text_input("Email ID", key="new_uemail", placeholder="e.g. user@example.com")
+            ua5, ua6 = st.columns(2)
+            new_user_key = ua5.text_input("12-Character User Key ✱", key="new_user_key", placeholder="Paste generated 12-character key")
+            new_user_role = ua6.selectbox("Role", ["User", "Manager", "Viewer"], key="new_user_role")
+            rights_options = ["masters","upload","results","help","user_master"]
+            new_user_rights = st.multiselect("Rights within this Firm", rights_options, default=["upload","results"], key="new_user_rights")
+            firm_now = (_load_registry().get("firms", {}).get(st.session_state.get("_firm_id", ""), {}) or {})
+            included_limit = 3 + int(firm_now.get("extra_users", 0) or 0)
+            st.caption(f"Included users: 3 + paid extra users: {int(firm_now.get('extra_users',0) or 0)} = {included_limit} total.")
             if st.button("💾  Add User", type="primary", key="btn_add_user"):
                 nu = st.session_state.new_uname.strip().lower()
                 np = st.session_state.new_upass.strip()
@@ -2894,9 +3437,16 @@ with tab_users:
                     st.error("❌ Password must be at least 6 characters.")
                 elif nu in all_users:
                     st.error(f"❌ Username '{nu}' already exists.")
+                elif len(all_users) >= included_limit:
+                    st.error(f"❌ User limit reached ({included_limit}). Please pay for additional users before creating another user.")
+                elif len(new_user_key.strip()) != 12:
+                    st.error("❌ User Key must be exactly 12 characters.")
+                elif not new_user_key.strip():
+                    st.error("❌ User Key is required.")
                 else:
-                    all_users[nu] = {"password": np, "mobile": nm, "email": ne}
+                    all_users[nu] = {"password": np, "mobile": nm, "email": ne, "user_key": new_user_key.strip(), "user_key_hash": _hash_secret(new_user_key.strip()), "role": new_user_role, "rights": new_user_rights, "active": True}
                     if _save_users(all_users):
+                        _audit("USER_CREATED", st.session_state.get("_firm_id",""), current_user, {"new_user":nu,"role":new_user_role})
                         st.success(f"✅ User '{nu}' added successfully!")
                         st.rerun()
 
@@ -2936,6 +3486,7 @@ with tab_users:
                     st.markdown(f"**{uname}**{badge}")
                     contact = " · ".join(x for x in [f"📱 {umob}" if umob else "", f"✉️ {uemail}" if uemail else ""] if x)
                     st.caption(contact if contact else "No contact info")
+                    st.caption(f"Role: {udata.get('role','User')} · Rights: {', '.join(udata.get('rights',[]) or []) or 'None'} · User Key: {udata.get('user_key','—')}")
                 with h2:
                     if _user_hist:
                         st.caption(f"🕘 {len(_user_hist)} login record(s)")
