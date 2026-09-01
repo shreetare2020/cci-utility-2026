@@ -920,124 +920,130 @@ if not st.session_state.get("authenticated", False):
     st.markdown("""
     <style>
     .stApp { background:#eef2f7 !important; }
-    .block-container { max-width:1180px !important; padding:28px 22px 24px !important; }
-    .sv-shell {
-      display:grid; grid-template-columns:46% 54%; min-height:650px;
-      border-radius:24px; overflow:hidden; background:#fff;
-      border:1px solid #dbe4ee; box-shadow:0 24px 70px rgba(8,29,55,.18);
+    .block-container { max-width:1220px !important; padding:26px 24px 30px !important; }
+    .sv-head {
+      background:linear-gradient(135deg,#061a35,#0d3158);
+      border-radius:22px 22px 0 0; padding:20px 28px;
+      color:white; border-bottom:3px solid #d9ae4c;
+      box-shadow:0 10px 28px rgba(10,30,55,.14);
+    }
+    .sv-head-row {display:flex;align-items:center;gap:15px;}
+    .sv-logo {width:58px;height:58px;object-fit:contain;background:#fff;border-radius:11px;padding:5px;}
+    .sv-brand {font-size:20px;font-weight:900;letter-spacing:.08em;}
+    .sv-sub {font-size:9px;color:#e2c16c;letter-spacing:.16em;font-weight:800;margin-top:3px;}
+    .sv-main {
+      background:#fff; border:1px solid #dce4ed; border-top:0;
+      border-radius:0 0 22px 22px; overflow:hidden;
+      box-shadow:0 20px 55px rgba(10,30,55,.13);
     }
     .sv-left {
-      position:relative; padding:42px 42px 30px; color:#fff;
-      background:
-        radial-gradient(circle at 12% 8%,rgba(222,182,83,.16),transparent 28%),
-        linear-gradient(145deg,#071a35 0%,#0a2850 55%,#103c68 100%);
+      background:linear-gradient(150deg,#071b37 0%,#0a2b52 58%,#103e69 100%);
+      min-height:570px; padding:38px 34px; color:white;
     }
-    .sv-brand {display:flex;align-items:center;gap:14px;margin-bottom:48px;}
-    .sv-logo {width:64px;height:64px;object-fit:contain;background:#fff;border-radius:12px;padding:6px;box-shadow:0 8px 22px rgba(0,0,0,.22);}
-    .sv-brand-name {font-size:21px;font-weight:900;letter-spacing:.08em;}
-    .sv-brand-sub {font-size:9.5px;color:#dfbb63;font-weight:800;letter-spacing:.18em;margin-top:4px;}
-    .sv-kicker {font-size:11px;font-weight:900;letter-spacing:.18em;color:#dfbb63;text-transform:uppercase;}
-    .sv-title {font-size:40px;line-height:1.05;font-weight:900;letter-spacing:-.035em;margin-top:9px;}
-    .sv-title span {color:#dfbb63;}
-    .sv-desc {font-size:13px;line-height:1.7;color:#c7d5e5;max-width:475px;margin-top:16px;}
-    .sv-features {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:28px;}
-    .sv-feature {display:flex;align-items:center;gap:10px;padding:11px;border-radius:11px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.09);}
-    .sv-icon {width:31px;height:31px;display:grid;place-items:center;border-radius:8px;background:rgba(222,187,99,.14);color:#e5c66f;font-weight:900;flex:0 0 31px;}
-    .sv-feature b {font-size:10.5px;color:#fff;}
-    .sv-feature small {display:block;color:#aebed0;font-size:8.5px;margin-top:2px;}
-    .sv-about {position:absolute;left:42px;right:42px;bottom:27px;border-top:1px solid rgba(255,255,255,.13);padding-top:14px;font-size:9.5px;line-height:1.5;color:#aebed0;}
-    .sv-about strong {color:#e3c16a;}
-    .sv-right {padding:42px 54px 30px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);display:flex;flex-direction:column;justify-content:center;}
-    .sv-right-top{text-align:center;margin-bottom:20px;}
-    .sv-secure{display:inline-block;padding:6px 11px;border-radius:999px;background:#edf5ff;color:#164a7d;font-size:8.5px;font-weight:900;letter-spacing:.12em;}
-    .sv-welcome{font-size:29px;font-weight:900;color:#102944;margin-top:12px;}
-    .sv-welcome-sub{font-size:11px;color:#778497;margin-top:4px;}
-    .sv-login-card{max-width:425px;width:100%;margin:0 auto;}
-    .sv-card-head{font-size:13px;font-weight:900;color:#183c62;margin-bottom:5px;}
-    .sv-line{width:40px;height:2px;background:#d9ad4c;border-radius:2px;margin-bottom:15px;}
-    .sv-note{margin-top:12px;padding:9px;border:1px solid #e6ebf1;border-radius:9px;background:#f8fafc;text-align:center;color:#778496;font-size:9px;}
-    .sv-links{max-width:425px;width:100%;margin:13px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
-    .sv-link{padding:9px 4px;text-align:center;border:1px solid #e0e7ef;border-radius:9px;background:#fff;color:#244a73;font-size:9px;font-weight:800;}
-    .sv-footer{max-width:425px;width:100%;margin:18px auto 0;text-align:center;color:#8793a3;font-size:9px;}
-    .sv-footer b{color:#244a73;}
-    @media(max-width:900px){.sv-shell{grid-template-columns:1fr}.sv-left{min-height:560px}.sv-about{position:relative;left:auto;right:auto;bottom:auto;margin-top:30px}.sv-right{padding:34px 22px 28px}}
+    .sv-kicker {font-size:10px;font-weight:900;letter-spacing:.18em;color:#e0bc63;text-transform:uppercase;}
+    .sv-title {font-size:37px;line-height:1.04;font-weight:900;margin-top:9px;letter-spacing:-.03em;}
+    .sv-title span{color:#e0bc63;}
+    .sv-desc{font-size:12px;line-height:1.65;color:#c8d6e5;margin-top:14px;}
+    .sv-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:25px;}
+    .sv-feature{padding:11px;border-radius:10px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.1);}
+    .sv-feature b{display:block;font-size:10px;color:#fff;}
+    .sv-feature small{font-size:8px;color:#aebfd2;}
+    .sv-icon{float:left;width:28px;height:28px;margin-right:8px;border-radius:8px;display:grid;place-items:center;background:rgba(224,188,99,.15);color:#e3c36e;font-weight:900;}
+    .sv-about{margin-top:31px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);font-size:9px;color:#aebfd0;line-height:1.5;}
+    .sv-about b{color:#e1bf68;}
+    .sv-right {
+      min-height:570px; padding:38px 48px 30px;
+      background:linear-gradient(180deg,#ffffff,#f7f9fc);
+    }
+    .sv-secure{text-align:center;}
+    .sv-pill{display:inline-block;padding:6px 12px;border-radius:999px;background:#edf5ff;color:#1b4d7e;font-size:8px;font-weight:900;letter-spacing:.12em;}
+    .sv-welcome{text-align:center;font-size:28px;font-weight:900;color:#102944;margin-top:11px;}
+    .sv-wsub{text-align:center;color:#7a8797;font-size:10px;margin-top:3px;margin-bottom:18px;}
+    .sv-card-title{font-size:13px;font-weight:900;color:#173b60;margin-bottom:4px;}
+    .sv-goldline{width:38px;height:2px;background:#d9ae4c;margin-bottom:13px;}
+    .sv-security{margin-top:11px;text-align:center;font-size:8.5px;color:#7b8797;}
+    .sv-mini-footer{text-align:center;margin-top:20px;color:#8a95a3;font-size:8.5px;}
+    .sv-mini-footer b{color:#244a73;}
+    @media(max-width:900px){
+      .sv-left{min-height:auto}.sv-right{min-height:auto;padding:28px 20px}
+      .sv-title{font-size:31px}.sv-grid{grid-template-columns:1fr}
+    }
     </style>
     """, unsafe_allow_html=True)
 
+    # Header is purely decorative; the actual controls below remain native Streamlit.
     st.markdown(f"""
-    <div class="sv-shell">
-      <section class="sv-left">
-        <div class="sv-brand">
-          <img class="sv-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview Technologies">
-          <div>
-            <div class="sv-brand-name">SOFTVIEW TECHNOLOGIES</div>
-            <div class="sv-brand-sub">SMART BUSINESS • ACCURATE DECISIONS</div>
+    <div class="sv-head">
+      <div class="sv-head-row">
+        <img class="sv-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview Technologies">
+        <div>
+          <div class="sv-brand">SOFTVIEW TECHNOLOGIES</div>
+          <div class="sv-sub">SMART BUSINESS • ACCURATE DECISIONS</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    left, right = st.columns([46,54], gap="small")
+
+    with left:
+        st.markdown("""
+        <div class="sv-left">
+          <div class="sv-kicker">Enterprise Financial Suite</div>
+          <div class="sv-title">CCI Working<br><span>Calculation Utility</span></div>
+          <div class="sv-desc">
+            Professional CCI commercial calculation workspace with controlled
+            firm-wise access, contract conditions, GRN, EMD, FIFO and financial reporting.
           </div>
+          <div class="sv-grid">
+            <div class="sv-feature"><span class="sv-icon">▣</span><b>Contracts Management</b><small>Conditions & slabs</small></div>
+            <div class="sv-feature"><span class="sv-icon">◈</span><b>GRN & Lifting</b><small>Complete tracking</small></div>
+            <div class="sv-feature"><span class="sv-icon">₹</span><b>EMD & Payments</b><small>FIFO allocation</small></div>
+            <div class="sv-feature"><span class="sv-icon">◷</span><b>CD / CC Charges</b><small>Automated calculation</small></div>
+            <div class="sv-feature"><span class="sv-icon">⇄</span><b>FIFO Allocation</b><small>Per-bale control</small></div>
+            <div class="sv-feature"><span class="sv-icon">▤</span><b>Reports & Control</b><small>Excel-ready output</small></div>
+          </div>
+          <div class="sv-about"><b>ABOUT THE UTILITY</b><br>
+          Designed and developed by <b>Softview Technologies</b> for accurate,
+          transparent and controlled CCI commercial calculations.</div>
         </div>
-        <div class="sv-kicker">Enterprise Financial Suite</div>
-        <div class="sv-title">CCI Working<br><span>Calculation Utility</span></div>
-        <div class="sv-desc">A professional workspace for contract management, GRN & lifting, EMD payments, FIFO allocation, carrying cost, cash discount and controlled financial reporting.</div>
-        <div class="sv-features">
-          <div class="sv-feature"><div class="sv-icon">▣</div><div><b>Contracts Management</b><small>Conditions & slabs</small></div></div>
-          <div class="sv-feature"><div class="sv-icon">◈</div><div><b>GRN & Lifting</b><small>Complete tracking</small></div></div>
-          <div class="sv-feature"><div class="sv-icon">₹</div><div><b>EMD & Payments</b><small>FIFO allocation</small></div></div>
-          <div class="sv-feature"><div class="sv-icon">◷</div><div><b>CD / CC Charges</b><small>Automated calculation</small></div></div>
-          <div class="sv-feature"><div class="sv-icon">⇄</div><div><b>FIFO Allocation</b><small>Per-bale control</small></div></div>
-          <div class="sv-feature"><div class="sv-icon">▤</div><div><b>Reports & Control</b><small>Excel-ready output</small></div></div>
-        </div>
-        <div class="sv-about"><strong>ABOUT THE UTILITY</strong><br>Designed and developed by <strong>Softview Technologies</strong> to simplify complex CCI commercial calculations with accuracy, transparency and controlled access.</div>
-      </section>
-      <section class="sv-right">
-        <div class="sv-right-top">
-          <span class="sv-secure">🔒 SECURE BUSINESS WORKSPACE</span>
+        """, unsafe_allow_html=True)
+
+    with right:
+        st.markdown("""
+        <div class="sv-right">
+          <div class="sv-secure"><span class="sv-pill">🔒 SECURE BUSINESS WORKSPACE</span></div>
           <div class="sv-welcome">Welcome Back</div>
-          <div class="sv-welcome-sub">Sign in to continue to your workspace</div>
+          <div class="sv-wsub">Sign in to continue to your workspace</div>
         </div>
-        <div class="sv-login-card">
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    # Real Streamlit widgets — deliberately outside the decorative HTML.
-    with st.container(border=True):
-        st.markdown('<div class="sv-card-head">Secure Access</div><div class="sv-line"></div>', unsafe_allow_html=True)
-        u = st.text_input("Login ID", key="_login_u", placeholder="Enter Login ID")
-        p = st.text_input("Password", type="password", key="_login_p", placeholder="Enter Password")
-        remember = st.checkbox("Remember me", value=True, key="_remember_me")
-        if st.button("SIGN IN  →", type="primary", use_container_width=True, key="_login_btn"):
-            ok, msg = _login_user(u.strip(), p)
-            if ok:
-                st.session_state.authenticated = True
-                st.session_state._logged_user = u.strip()
-                st.session_state._login_error = ""
-                st.rerun()
-            else:
-                st.session_state._login_error = msg
-        if st.session_state.get("_login_error"):
-            st.error(st.session_state["_login_error"])
+        # Native Streamlit login card — fixed in the right column.
+        with st.container(border=True):
+            st.markdown('<div class="sv-card-title">Secure Access</div><div class="sv-goldline"></div>', unsafe_allow_html=True)
+            u = st.text_input("Login ID", key="_lu", placeholder="Enter Login ID")
+            p = st.text_input("Password", type="password", key="_lp", placeholder="Enter Password")
+            remember = st.checkbox("Remember me", value=True, key="_remember_me")
+            if st.button("SIGN IN  →", type="primary", use_container_width=True, key="_login_btn"):
+                _do_login()
+                if st.session_state.get("authenticated", False):
+                    st.rerun()
+            if st.session_state.get("_login_error"):
+                st.error(st.session_state["_login_error"])
 
-    st.markdown("""
+        # These are intentionally immediately below the login card.
+        st.markdown("""
+        <div style="height:8px"></div>
+        <div style="display:flex;gap:7px;margin-top:2px;">
+          <div style="flex:1;text-align:center;padding:9px 4px;border:1px solid #dfe6ee;border-radius:9px;background:#fff;color:#244a73;font-size:9px;font-weight:800;">🔐 LOGIN</div>
+          <div style="flex:1;text-align:center;padding:9px 4px;border:1px solid #dfe6ee;border-radius:9px;background:#fff;color:#244a73;font-size:9px;font-weight:800;">▣ REGISTER FIRM</div>
+          <div style="flex:1;text-align:center;padding:9px 4px;border:1px solid #dfe6ee;border-radius:9px;background:#fff;color:#244a73;font-size:9px;font-weight:800;">↻ PAYMENT / RENEW</div>
         </div>
-        <div class="sv-note">Your data is protected by firm-wise access controls and secure application storage.</div>
-        <div class="sv-links">
-          <div class="sv-link">🔐 Login</div>
-          <div class="sv-link">▣ Register Firm</div>
-          <div class="sv-link">↻ Renew / Payment</div>
-        </div>
-        <div class="sv-footer">© 2026 <b>Softview Technologies</b> • CCI Working Calculation Utility</div>
-      </section>
-    </div>
-    """, unsafe_allow_html=True)
+        <div class="sv-security">Your data is protected by firm-wise access controls and secure application storage.</div>
+        <div class="sv-mini-footer">© 2026 <b>Softview Technologies</b> • CCI Working Calculation Utility</div>
+        """, unsafe_allow_html=True)
 
-    # Keep the application's existing registration/payment functions intact.
-    # They are exposed only after the user chooses to open them.
-    with st.expander("Register Firm / Renew / Payment", expanded=False):
-        fn = globals().get("_render_register_or_renew")
-        if callable(fn):
-            fn()
-        else:
-            st.info("Registration and payment controls are available in the application.")
     st.stop()
-
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 if "masters" not in st.session_state:
     st.session_state.masters = fs_load()
