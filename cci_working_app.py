@@ -3121,7 +3121,10 @@ with tab_results:
         df = st.session_state["result_df"]
         _pay_df_ui = st.session_state.get("pay_df", None)
         tot_bill = df["Total_Bill_Amount"].sum()
-        tot_emd  = df["EMD_Interest"].sum()
+        # Combined EMD = Normal EMD + Additional EMD
+        tot_emd = df["Total_EMD_Allocated"].sum()
+        # Combined EMD Interest = Normal + Additional
+        tot_emd_interest = df["Total_EMD_Interest"].sum()
         tot_cd   = df["Cash_Discount"].sum()
         tot_ll   = df["Late_Lifting_Chg"].sum()
         tot_cc   = df["Carry_Charges"].sum()
@@ -3142,7 +3145,12 @@ with tab_results:
           <div class="metric-card teal">
             <div class="metric-icon">📈</div>
             <div class="metric-val">{fmt_inr(tot_emd, decimals=0)}</div>
-            <div class="metric-lbl">EMD Interest</div>
+            <div class="metric-lbl">Total EMD</div>
+          </div>
+          <div class="metric-card teal">
+            <div class="metric-icon">📊</div>
+            <div class="metric-val">{fmt_inr(tot_emd_interest, decimals=0)}</div>
+            <div class="metric-lbl">Total EMD Interest</div>
           </div>
           <div class="metric-card purple">
             <div class="metric-icon">💸</div>
@@ -3208,8 +3216,10 @@ with tab_results:
         detail_total = {c: "" for c in disp.columns}
         detail_total["Contract_No"] = "GRAND TOTAL"
         for c in ["Bales","Material_Amount","GST_On_Material","Total_Bill_Amount",
-                  "Payment_Amount","EMD_Allocated","EMD_Interest","Cash_Discount",
-                  "Late_Lifting_Chg","Late_Lifting_GST","Carry_Charges","Carry_GST"]:
+                  "Payment_Amount","EMD_Allocated","Additional_EMD_Allocated",
+                  "Total_EMD_Allocated","EMD_Interest","Additional_EMD_Interest",
+                  "Total_EMD_Interest","Cash_Discount","Late_Lifting_Chg",
+                  "Late_Lifting_GST","Carry_Charges","Carry_GST"]:
             if c in disp.columns:
                 vals = pd.to_numeric(df[c], errors="coerce")
                 detail_total[c] = fmt_inr(vals.sum()) if c != "Bales" else int(vals.sum())
