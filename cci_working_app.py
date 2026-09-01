@@ -917,275 +917,144 @@ def _do_login():
     else:
         st.session_state._login_error = "❌ Invalid username or password."
 
-
+if not st.session_state.authenticated:
+    # ─── SOFTVIEW PREMIUM LOGIN — STABLE STREAMLIT LAYOUT ───────────────────
+    # IMPORTANT: Streamlit widgets are deliberately NOT nested inside raw HTML.
+    # The two visual panels are Streamlit columns; HTML is used only for decoration.
     st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital@1&display=swap');
-    * {{ box-sizing:border-box; font-family:'Inter',sans-serif; }}
-    html, body {{ margin:0 !important; padding:0 !important; }}
-    [data-testid="stAppViewContainer"] {{ background:#dfe7ef !important; }}
-    [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], footer {{ display:none !important; }}
-    [data-testid="stMain"] {{ padding-top:0 !important; }}
-    [data-testid="stMainBlockContainer"] {{ max-width:1360px !important; padding:20px 24px !important; }}
- 
-    .sv2-shell {{
-        position:relative; width:100%; max-width:1320px; margin:0 auto;
-        border-radius:22px; overflow:hidden; background:#eef3f8;
-        box-shadow:0 26px 70px rgba(10,25,55,.28);
-        border:1px solid #c9d5e2;
-    }}
- 
-    /* ── TOP RIGHT TRUST BADGE ── */
-    .sv2-trust {{
-        position:absolute; top:22px; right:28px; z-index:5;
-        background:linear-gradient(135deg,#0c2a58,#123a73);
-        color:#fff; padding:9px 20px; border-radius:30px;
-        font-size:12px; font-weight:800; letter-spacing:.03em;
-        box-shadow:0 6px 16px rgba(10,30,60,.35);
-        border:1px solid rgba(232,184,77,.5);
-    }}
-    .sv2-trust b {{ color:#f2c65d; margin:0 6px; }}
- 
-    /* ── BODY GRID ── */
-    .sv2-body {{ display:grid; grid-template-columns:42% 58%; min-height:640px; position:relative; }}
- 
-    /* ── LEFT NAVY PANEL ── */
-    .sv2-left {{
-        position:relative; overflow:hidden; padding:38px 40px 0;
-        color:#fff; background:linear-gradient(160deg,#081b3c 0%,#0d2c5e 55%,#0a2350 100%);
-        display:flex; flex-direction:column;
-        clip-path: ellipse(150% 100% at 0% 50%);
-    }}
-    .sv2-left::before {{
-        content:""; position:absolute; inset:0;
-        background: radial-gradient(circle at 85% 15%, rgba(232,184,77,.10), transparent 55%);
-        pointer-events:none;
-    }}
-    .sv2-gold-arc {{
-        position:absolute; top:0; right:-2px; width:10px; height:100%;
-        background:linear-gradient(180deg,#f2c65d,#c98f2b,#f2c65d);
-        box-shadow:0 0 14px rgba(242,198,93,.6);
-    }}
- 
-    .sv2-brand {{ display:flex; align-items:center; gap:14px; margin-bottom:14px; }}
-    .sv2-logo {{ width:58px; height:58px; object-fit:contain; background:#fff; border-radius:12px; padding:5px; box-shadow:0 4px 14px rgba(0,0,0,.25); }}
-    .sv2-brand-name {{ font-size:24px; font-weight:900; letter-spacing:.01em; color:#fff; line-height:1.05; }}
-    .sv2-brand-sub {{ font-size:9.5px; letter-spacing:.25em; font-weight:800; color:#a9c0dc; margin-top:3px; }}
- 
-    .sv2-tagline {{ display:flex; align-items:center; gap:10px; color:#f0c766; font-size:11.5px; font-weight:700; letter-spacing:.06em; font-style:italic; margin:6px 0 22px; }}
-    .sv2-tagline::before, .sv2-tagline::after {{ content:""; flex:1; height:1px; background:linear-gradient(90deg,transparent,#c9922f,transparent); }}
- 
-    .sv2-title1 {{ font-size:28px; font-weight:900; color:#fff; letter-spacing:.01em; line-height:1.15; }}
-    .sv2-title2 {{ font-size:20px; font-weight:900; color:#f2c65d; letter-spacing:.04em; margin-top:2px; }}
-    .sv2-rule {{ width:70px; height:3px; border-radius:2px; background:linear-gradient(90deg,#f2c65d,#c9922f); margin:16px 0 16px; }}
-    .sv2-desc {{ font-size:12.5px; line-height:1.7; color:#cfe0f2; max-width:400px; }}
- 
-    .sv2-feat-grid {{ margin-top:26px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px 10px; max-width:420px; }}
-    .sv2-feat {{ text-align:center; }}
-    .sv2-feat-icon {{
-        width:52px; height:52px; margin:0 auto 8px; border-radius:50%;
-        border:1.5px solid #e8b84d; background:rgba(255,255,255,.06);
-        display:flex; align-items:center; justify-content:center; font-size:22px;
-        box-shadow: inset 0 0 12px rgba(232,184,77,.12);
-    }}
-    .sv2-feat-title {{ font-size:10.5px; font-weight:800; color:#fff; line-height:1.3; }}
- 
-    /* ── BOTTOM DECORATIVE COTTON-FIELD BAND ── */
-    .sv2-field {{
-        margin-top:auto; position:relative; height:150px;
-        background:
-            radial-gradient(circle at 12% 40%, rgba(255,255,255,.9) 0 10px, transparent 11px),
-            radial-gradient(circle at 20% 55%, rgba(255,255,255,.85) 0 8px, transparent 9px),
-            radial-gradient(circle at 8% 65%, rgba(255,255,255,.8) 0 7px, transparent 8px),
-            linear-gradient(180deg, rgba(8,20,45,0) 0%, rgba(20,35,20,.55) 35%, #6b5535 100%);
-        border-top:1px solid rgba(242,198,93,.35);
-        overflow:hidden;
-    }}
-    .sv2-field-emoji {{ position:absolute; bottom:10px; left:18px; font-size:34px; filter:drop-shadow(0 3px 6px rgba(0,0,0,.4)); }}
-    .sv2-field-bales {{ position:absolute; bottom:6px; left:70px; display:flex; gap:8px; opacity:.85; }}
-    .sv2-field-bales span {{ width:34px; height:26px; border-radius:6px; background:#8a734a; border:2px solid #6b5535; }}
-    .sv2-field-diag {{
-        position:absolute; left:0; bottom:36px; width:140%; height:3px;
-        background:linear-gradient(90deg,#f2c65d,#c9922f); transform:rotate(-6deg); transform-origin:left;
-        box-shadow:0 0 10px rgba(242,198,93,.5);
-    }}
- 
-    /* ── RIGHT LIGHT PANEL ── */
-    .sv2-right {{
-        background:
-            radial-gradient(circle at 90% 10%, rgba(20,60,120,.05) 0, transparent 40%),
-            #f3f7fb;
-        padding:78px 54px 26px; display:flex; flex-direction:column; align-items:center;
-    }}
- 
-    /* Tabs container replicated via markdown + real st.tabs styled below */
-    .sv2-cardwrap {{ width:100%; max-width:460px; }}
-    .sv2-card {{
-        background:#fff; border:1px solid #e2e8f0; border-radius:18px;
-        padding:26px 30px 22px; box-shadow:0 14px 34px rgba(15,35,65,.10);
-        margin-top:6px;
-    }}
-    .sv2-card-head {{ text-align:center; margin-bottom:6px; }}
-    .sv2-card-title {{ display:flex; align-items:center; justify-content:center; gap:10px; color:#0c2a58; font-size:18px; font-weight:900; letter-spacing:.1em; }}
-    .sv2-card-title::before, .sv2-card-title::after {{ content:""; width:34px; height:2px; background:linear-gradient(90deg,#e8b84d,#c9922f); }}
-    .sv2-shield {{ width:38px; height:38px; margin:10px auto 4px; border-radius:50%; background:linear-gradient(135deg,#f2c65d,#c9922f);
-        display:flex; align-items:center; justify-content:center; font-size:18px; color:#0c2a58; box-shadow:0 4px 12px rgba(201,146,43,.4); }}
- 
-    .sv2-security {{ text-align:center; margin-top:14px; color:#8492a5; font-size:10px; font-weight:700; }}
- 
-    /* Streamlit widgets inside the card */
-    .sv2-cardwrap div[data-testid="stTextInput"] {{ margin-bottom:10px !important; }}
-    .sv2-cardwrap div[data-testid="stTextInput"] input {{
-        height:44px !important; border:1.5px solid #d8e0e9 !important; border-radius:10px !important;
-        font-size:13px !important; background:#fbfcfe !important; color:#16273f !important; padding-left:14px !important;
-    }}
-    .sv2-cardwrap div[data-testid="stTextInput"] input:focus {{
-        border-color:#c9922f !important; box-shadow:0 0 0 3px rgba(201,146,43,.15) !important;
-    }}
-    .sv2-cardwrap div[data-testid="stTextInput"] label p {{ font-size:11px !important; font-weight:800 !important; color:#2c3e58 !important; }}
-    .sv2-cardwrap div[data-testid="stCheckbox"] label p {{ font-size:11px !important; color:#68758a !important; }}
-    .sv2-cardwrap div[data-testid="stButton"] button {{
-        border-radius:10px !important; height:46px !important; font-size:13.5px !important; font-weight:900 !important;
-        letter-spacing:.03em !important;
-    }}
-    .sv2-cardwrap div[data-testid="stButton"] button[kind="primary"] {{
-        background:linear-gradient(90deg,#0c2a58,#123a73) !important; color:#fff !important; border:1px solid #e8b84d !important;
-        box-shadow:0 10px 22px rgba(12,42,88,.30) !important;
-    }}
-    .sv2-forgot {{ text-align:right; font-size:10.5px; font-weight:700; color:#b17a1d; padding-top:9px; }}
- 
-    .sv2-error {{ background:#fff2f0; color:#c0392b; border:1px solid #f2b4aa; border-radius:9px; padding:9px 12px; font-size:11px; font-weight:700; margin-top:10px; text-align:center; }}
- 
-    .sv2-bottom {{ border-top:1px solid #dde4ec; margin-top:16px; padding-top:12px; text-align:center; width:100%; max-width:460px; }}
-    .sv2-bottom strong {{ color:#183763; font-size:11px; }}
-    .sv2-bottom span {{ color:#9aa4af; font-size:9px; margin-left:5px; }}
- 
-    /* Tabs (Login / Register / Payment) — style Streamlit tabs navy+gold */
-    .sv2-right div[data-testid="stTabs"] {{
-        max-width:460px; width:100%; margin:0 auto 4px;
-        background:#fff; border:1px solid #dfe6ee; border-radius:14px; padding:5px;
-        box-shadow:0 4px 14px rgba(15,35,65,.06);
-    }}
-    .sv2-right div[data-testid="stTabs"] button {{
-        font-size:12.5px !important; font-weight:800 !important; color:#5b6b80 !important;
-        border-radius:10px !important; padding:9px 14px !important;
-    }}
-    .sv2-right div[data-testid="stTabs"] button[aria-selected="true"] {{
-        background:linear-gradient(135deg,#0c2a58,#123a73) !important; color:#fff !important;
-        box-shadow:0 4px 12px rgba(12,42,88,.30) !important;
-    }}
-    .sv2-right div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
-    .sv2-right div[data-testid="stTabs"] [data-baseweb="tab-border"] {{ display:none !important; }}
- 
-    /* Footer bar */
-    .sv2-footer {{
-        background:linear-gradient(90deg,#081b3c,#0d2c5e); border-top:1px solid rgba(232,184,77,.4);
-        padding:14px 30px; display:flex; align-items:center; justify-content:space-between;
-        color:#c9d8ea; font-size:10.5px;
-    }}
-    .sv2-footer .center {{ font-style:italic; color:#e9d9ad; font-family:'Playfair Display',serif; text-align:center; }}
-    .sv2-footer .center strong {{ display:block; font-style:normal; font-family:'Inter',sans-serif; color:#fff; letter-spacing:.08em; font-size:11px; margin-top:2px; }}
-    .sv2-footer .links span {{ margin-left:14px; color:#a9c0dc; }}
- 
-    @media(max-width:960px) {{
-      .sv2-body {{ grid-template-columns:1fr; }}
-      .sv2-left {{ clip-path:none; padding:30px 24px; }}
-      .sv2-right {{ padding:30px 20px; }}
-      .sv2-feat-grid {{ grid-template-columns:repeat(3,1fr); max-width:100%; }}
-      .sv2-trust {{ display:none; }}
-      .sv2-footer {{ flex-direction:column; gap:8px; text-align:center; }}
+    [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], footer {{display:none !important;}}
+    [data-testid="stAppViewContainer"] {{background:#eef2f6 !important;}}
+    [data-testid="stMainBlockContainer"] {{max-width:1320px !important; padding:24px 34px 30px !important;}}
+    .sv-login-page {{font-family:'Inter',sans-serif;}}
+    .sv-topbar {{height:78px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:linear-gradient(112deg,#071f43 0%,#103d78 62%,#d9e2ea 62.1%,#f7f9fb 100%); border-radius:18px 18px 0 0; border-bottom:2px solid #d6aa45; box-shadow:0 8px 22px rgba(9,31,59,.14);}}
+    .sv-brand {{display:flex;align-items:center;gap:14px;}}
+    .sv-logo {{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px;padding:4px;box-shadow:0 3px 12px rgba(0,0,0,.2);}}
+    .sv-brand-name {{font-size:24px;line-height:1;font-weight:900;color:#fff;letter-spacing:.025em;}}
+    .sv-brand-name span {{color:#f1c55b;font-size:14px;margin-left:5px;letter-spacing:.08em;}}
+    .sv-brand-sub {{margin-top:6px;color:#b9cce2;font-size:8px;letter-spacing:.25em;font-weight:800;}}
+    .sv-trust {{background:#87929d;color:#fff;border-radius:20px;padding:9px 16px;font-size:10px;font-weight:800;box-shadow:0 2px 7px rgba(0,0,0,.12);}}
+    .sv-trust b {{color:#f3ca61;padding:0 4px;}}
+
+    /* Make the actual Streamlit columns behave as the two image-like panels. */
+    div[data-testid="column"]:has(.sv-left-anchor) > div {{height:100%;}}
+    div[data-testid="column"]:has(.sv-right-anchor) > div {{height:100%;}}
+    .sv-left-anchor, .sv-right-anchor {{display:none;}}
+    div[data-testid="column"]:has(.sv-left-anchor) {{background:linear-gradient(145deg,#082956 0%,#123d78 64%,#092a58 100%); border-radius:0 0 0 18px; overflow:hidden; box-shadow:0 18px 42px rgba(9,32,62,.16);}}
+    div[data-testid="column"]:has(.sv-right-anchor) {{background:#f9fafc; border-radius:0 0 18px 0; overflow:hidden; box-shadow:0 18px 42px rgba(9,32,62,.16);}}
+    .sv-left-content {{color:#fff; padding:42px 44px 30px; min-height:575px; position:relative; overflow:hidden;}}
+    .sv-left-content:after {{content:"";position:absolute;width:440px;height:440px;border-radius:50%;right:-270px;bottom:-290px;border:1px solid rgba(244,201,91,.55);box-shadow:0 0 0 40px rgba(255,255,255,.035),0 0 0 82px rgba(255,255,255,.025);}}
+    .sv-kicker {{color:#f4c85d;font-size:9px;font-weight:900;letter-spacing:.18em;margin-bottom:32px;}}
+    .sv-title {{font-size:29px;line-height:1.14;font-weight:900;letter-spacing:-.02em;}}
+    .sv-title span {{color:#f2c55b;}}
+    .sv-rule {{width:78px;height:4px;border-radius:4px;background:#e7b94f;margin:20px 0 18px;}}
+    .sv-desc {{max-width:560px;color:#d8e4f2;font-size:12px;line-height:1.65;}}
+    .sv-features {{margin-top:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;position:relative;z-index:2;}}
+    .sv-feature {{min-height:76px;padding:10px 6px 8px;border:1px solid rgba(244,202,101,.35);border-radius:11px;background:rgba(255,255,255,.07);text-align:center;backdrop-filter:blur(4px);}}
+    .sv-feature-icon {{width:32px;height:32px;margin:0 auto 6px;border:1px solid #e8bd58;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(2,22,49,.45);}}
+    .sv-feature-title {{font-size:8px;line-height:1.2;font-weight:900;color:#fff;}}
+    .sv-about {{margin-top:21px;padding:11px 13px;border-left:3px solid #e7bb51;background:rgba(255,255,255,.055);border-radius:0 9px 9px 0;position:relative;z-index:2;}}
+    .sv-about-title {{color:#f4c85d;font-size:9px;font-weight:900;letter-spacing:.06em;margin-bottom:4px;}}
+    .sv-about-text {{color:#cbd9e8;font-size:8px;line-height:1.5;}}
+
+    .sv-right-content {{padding:35px 46px 24px;min-height:575px;}}
+    .sv-eyebrow {{color:#b18120;font-size:8px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;}}
+    .sv-right-title {{color:#12233d;font-size:25px;font-weight:900;margin-top:3px;}}
+    .sv-right-sub {{color:#718096;font-size:10px;margin-top:3px;margin-bottom:13px;}}
+    .sv-card-title {{color:#12233d;font-size:14px;font-weight:900;}}
+    .sv-card-sub {{color:#8490a0;font-size:8px;margin:2px 0 10px;}}
+    div[data-testid="column"]:has(.sv-right-anchor) div[data-testid="stTextInput"] {{margin-bottom:6px !important;}}
+    div[data-testid="column"]:has(.sv-right-anchor) div[data-testid="stTextInput"] input {{height:39px !important;border:1px solid #d5dde6 !important;border-radius:8px !important;font-size:11px !important;background:#fbfcfd !important;color:#18283d !important;}}
+    div[data-testid="column"]:has(.sv-right-anchor) div[data-testid="stTextInput"] input:focus {{border-color:#c89a36 !important;box-shadow:0 0 0 2px rgba(200,154,54,.12) !important;}}
+    div[data-testid="column"]:has(.sv-right-anchor) div[data-testid="stCheckbox"] label p {{font-size:8px !important;color:#687587 !important;}}
+    div[data-testid="column"]:has(.sv-right-anchor) div[data-testid="stButton"] button {{height:40px !important;border-radius:8px !important;font-size:10px !important;font-weight:900 !important;}}
+    div[data-testid="column"]:has(.sv-right-anchor) div[data-testid="stButton"] button[kind="primary"] {{background:linear-gradient(90deg,#b77b17,#e0ae45) !important;color:#fff !important;border:0 !important;box-shadow:0 7px 16px rgba(183,123,23,.23) !important;}}
+    .sv-login-error {{background:#fff5f3;color:#c53c2d;border:1px solid #f2b4aa;border-radius:7px;padding:7px 9px;font-size:8px;font-weight:700;margin:6px 0;text-align:center;}}
+    .sv-security {{text-align:center;color:#8792a0;font-size:7px;font-weight:700;margin:7px 0 10px;}}
+    .sv-action-caption {{font-size:8px;color:#8994a1;text-align:center;margin:8px 0 5px;}}
+    div[data-testid="column"]:has(.sv-right-anchor) [data-baseweb="tab-list"] {{gap:3px;background:#eef2f6;border-radius:9px;padding:3px;}}
+    div[data-testid="column"]:has(.sv-right-anchor) [data-baseweb="tab"] {{font-size:9px !important;font-weight:800 !important;color:#526174 !important;border-radius:7px !important;padding:7px 5px !important;}}
+    div[data-testid="column"]:has(.sv-right-anchor) [aria-selected="true"] {{background:#fff !important;color:#173761 !important;box-shadow:0 2px 7px rgba(20,40,70,.08);}}
+    .sv-brand-foot {{text-align:center;margin-top:15px;padding-top:10px;border-top:1px solid #e5e9ee;}}
+    .sv-brand-foot strong {{color:#183763;font-size:9px;}}
+    .sv-brand-foot span {{color:#9aa4af;font-size:7px;margin-left:4px;}}
+    @media(max-width:900px) {{
+      [data-testid="stMainBlockContainer"] {{padding:10px 10px 18px !important;}}
+      .sv-topbar {{height:auto;min-height:72px;padding:10px 15px;}}
+      .sv-trust {{display:none;}}
+      .sv-left-content {{min-height:auto;padding:28px 24px;}}
+      .sv-right-content {{min-height:auto;padding:26px 22px 22px;}}
+      .sv-features {{grid-template-columns:repeat(2,1fr);}}
     }}
     </style>
- 
-    <div class="sv2-shell">
-      <div class="sv2-trust">🛡 Secure <b>•</b> Reliable <b>•</b> Trusted</div>
-      <div class="sv2-body">
-        <section class="sv2-left">
-          <div class="sv2-gold-arc"></div>
-          <div class="sv2-brand">
-            <img class="sv2-logo" src="data:image/jpeg;base64,{LOGO_B64}" alt="Softview">
-            <div>
-              <div class="sv2-brand-name">Softview</div>
-              <div class="sv2-brand-sub">TECHNOLOGIES</div>
-            </div>
+
+    <div class="sv-login-page">
+      <div class="sv-topbar">
+        <div class="sv-brand">
+          <img class="sv-logo" src="data:image/jpeg;base64,{LOGO_B64}" alt="Softview Technologies">
+          <div>
+            <div class="sv-brand-name">SOFTVIEW<span>TECHNOLOGIES</span></div>
+            <div class="sv-brand-sub">ENTERPRISE BUSINESS SOLUTIONS</div>
           </div>
-          <div class="sv2-tagline">Smart Solutions... Better Tomorrow...</div>
-          <div class="sv2-title1">CCI WORKING</div>
-          <div class="sv2-title2">CALCULATION UTILITY</div>
-          <div class="sv2-rule"></div>
-          <div class="sv2-desc">Powerful, reliable and easy-to-use utility for managing contracts, EMD, CD/CC and lifting data with precision.</div>
-          <div class="sv2-feat-grid">
-            <div class="sv2-feat"><div class="sv2-feat-icon">📄</div><div class="sv2-feat-title">Contracts<br>Management</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">🚚</div><div class="sv2-feat-title">GRN &amp; Lifting<br>Tracking</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">💰</div><div class="sv2-feat-title">EMD &amp;<br>Payments</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">📊</div><div class="sv2-feat-title">CD/CC<br>Charges</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">📁</div><div class="sv2-feat-title">FIFO<br>Allocation</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">📋</div><div class="sv2-feat-title">Reports &amp;<br>Export</div></div>
-          </div>
-          <div class="sv2-field">
-            <div class="sv2-field-diag"></div>
-            <div class="sv2-field-emoji">🌸🤍</div>
-            <div class="sv2-field-bales"><span></span><span></span><span></span><span></span></div>
-          </div>
-        </section>
-        <section class="sv2-right">
-    """, unsafe_allow_html=True)
- 
-    # ── Real Streamlit tabs: Login / Register Firm / Payment-Renewal ──────────
-    tab_login, tab_register, tab_payment = st.tabs(["🔒  Login", "👤➕  Register Firm", "💳  Payment / Renewal"])
- 
-    with tab_login:
-        st.markdown('<div class="sv2-cardwrap">', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="sv2-card">
-          <div class="sv2-shield">🛡️</div>
-          <div class="sv2-card-head"><div class="sv2-card-title">SECURE LOGIN</div></div>
-        """, unsafe_allow_html=True)
- 
-        st.text_input("👤  Login ID", key="_lu", placeholder="Enter your username")
-        st.text_input("🔒  Password", key="_lp", type="password", placeholder="Enter your password")
-        c1, c2 = st.columns([0.55, 0.45])
-        with c1:
-            st.checkbox("Remember me", key="_remember_me")
-        with c2:
-            st.markdown('<div class="sv2-forgot">Forgot password?</div>', unsafe_allow_html=True)
-        st.button("🔒  Sign In  ›", on_click=_do_login, type="primary", use_container_width=True)
-        if st.session_state._login_error:
-            st.markdown(f'<div class="sv2-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sv2-security">🛡️ Secure access for authorised users only</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)   # close .sv2-card
-        st.markdown('</div>', unsafe_allow_html=True)   # close .sv2-cardwrap
- 
-    with tab_register:
-        st.markdown('<div class="sv2-cardwrap"><div class="sv2-card">', unsafe_allow_html=True)
-        st.markdown('<div class="sv2-card-head"><div class="sv2-card-title">REGISTER FIRM</div></div>', unsafe_allow_html=True)
-        st.info("Firm registration request yahan se bhej sakte hain — Super User approve karke firm activate karega.")
-        st.write("Registration workflow existing controls se available hai.")
-        st.markdown('</div></div>', unsafe_allow_html=True)
- 
-    with tab_payment:
-        st.markdown('<div class="sv2-cardwrap"><div class="sv2-card">', unsafe_allow_html=True)
-        st.markdown('<div class="sv2-card-head"><div class="sv2-card-title">PAYMENT / RENEWAL</div></div>', unsafe_allow_html=True)
-        st.info("Subscription renewal ya payment request yahan se submit karein.")
-        st.write("Payment/renewal workflow existing controls se available hai.")
-        st.markdown('</div></div>', unsafe_allow_html=True)
- 
-    # ── Bottom credit strip inside right panel ────────────────────────────────
-    st.markdown("""
-        <div class="sv2-bottom"><strong>SOFTVIEW TECHNOLOGIES</strong><span>• CCI Working Calculation Utility • Premium Enterprise Edition</span></div>
-        </section>
-      </div>
-      <div class="sv2-footer">
-        <div>© 2026 Softview Technologies. All rights reserved.</div>
-        <div class="center">Developed with ❤️ by<strong>SOFTVIEW TECHNOLOGIES</strong></div>
-        <div class="links">Innovation<span>Technology</span><span>Excellence</span></div>
+        </div>
+        <div class="sv-trust">🛡 Secure <b>•</b> Reliable <b>•</b> Trusted</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
- 
+
+    left_col, right_col = st.columns([1, 1], gap=None)
+
+    with left_col:
+        st.markdown('<span class="sv-left-anchor"></span>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="sv-left-content">
+          <div class="sv-kicker">SMART BUSINESS • ACCURATE DECISIONS</div>
+          <div class="sv-title">CCI WORKING<br><span>Calculation Utility</span></div>
+          <div class="sv-rule"></div>
+          <div class="sv-desc">A professional workspace for CCI contracts, lifting, EMD, CD/CC, FIFO allocation and structured business reporting — designed for accuracy, control and efficient operations.</div>
+          <div class="sv-features">
+            <div class="sv-feature"><div class="sv-feature-icon">📄</div><div class="sv-feature-title">Contracts<br>Management</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">🚚</div><div class="sv-feature-title">GRN &amp; Lifting<br>Tracking</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">💰</div><div class="sv-feature-title">EMD &amp;<br>Payments</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">📊</div><div class="sv-feature-title">CD/CC<br>Charges</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">📁</div><div class="sv-feature-title">FIFO<br>Allocation</div></div>
+            <div class="sv-feature"><div class="sv-feature-icon">📋</div><div class="sv-feature-title">Reports &amp;<br>Control</div></div>
+          </div>
+          <div class="sv-about"><div class="sv-about-title">ABOUT THE UTILITY</div><div class="sv-about-text">Integrated CCI working calculations, contract conditions, GRN processing, EMD/payment allocation, CD/CC and reporting in one structured business workspace.</div></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with right_col:
+        st.markdown('<span class="sv-right-anchor"></span>', unsafe_allow_html=True)
+        st.markdown('<div class="sv-right-content"><div class="sv-eyebrow">Secure Business Workspace</div><div class="sv-right-title">Welcome Back</div><div class="sv-right-sub">Sign in to continue to your workspace.</div><div class="sv-card-title">🔐 Secure Access</div><div class="sv-card-sub">Enter your authorised login credentials</div></div>', unsafe_allow_html=True)
+
+        # REAL Streamlit widgets: never placed inside the decorative HTML above.
+        st.text_input("Username", key="_lu", placeholder="Enter your username", label_visibility="collapsed")
+        st.text_input("Password", key="_lp", type="password", placeholder="Enter your password", label_visibility="collapsed")
+        c1, c2 = st.columns([0.55,0.45])
+        with c1:
+            st.checkbox("Remember me", key="_remember_me")
+        with c2:
+            st.markdown('<div style="text-align:right;font-size:8px;font-weight:700;color:#b17a1d;padding-top:6px">Forgot password?</div>', unsafe_allow_html=True)
+        st.button("🔒  Sign In", on_click=_do_login, type="primary", use_container_width=True)
+        if st.session_state._login_error:
+            st.markdown(f'<div class="sv-login-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sv-security">🛡️ Secure access for authorised users only</div><div class="sv-action-caption">Quick Access</div>', unsafe_allow_html=True)
+
+        tab_login, tab_register, tab_payment = st.tabs(["🔐 Login", "▣ Register Firm", "▤ Renew / Payment"])
+        with tab_login:
+            st.markdown('<div style="font-size:8px;color:#7b8794;text-align:center;padding:3px 0">Use your authorised firm or administrator credentials.</div>', unsafe_allow_html=True)
+        with tab_register:
+            st.markdown('<div style="font-weight:800;color:#173761;font-size:10px;margin:4px 0">Firm Registration</div>', unsafe_allow_html=True)
+            st.info("Use the firm registration workflow to create a registration request. The Super User approves and activates the firm.")
+        with tab_payment:
+            st.markdown('<div style="font-weight:800;color:#173761;font-size:10px;margin:4px 0">Subscription / Payment Request</div>', unsafe_allow_html=True)
+            st.info("Use this section for renewal or subscription payment requests.")
+
+        st.markdown('<div class="sv-brand-foot"><strong>SOFTVIEW TECHNOLOGIES</strong><span>• CCI Working Calculation Utility • Premium Enterprise Edition</span></div>', unsafe_allow_html=True)
+
     st.stop()
- 
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 if "masters" not in st.session_state:
