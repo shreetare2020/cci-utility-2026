@@ -1606,7 +1606,7 @@ if st.session_state.get("_auth_role") == "SUPERUSER":
     reg=_load_registry(); firms=reg.get("firms",{}) or {}; registrations=reg.get("registrations",{}) or {}
     a.metric("Firms", len(firms)); b.metric("Pending Registrations", sum(1 for x in registrations.values() if x.get("status")=="PENDING")); c.metric("Payment Requests", len(reg.get("payment_requests",{}) or {}))
     st.markdown("---")
-    at1,at2,at3,at4,at5,at6 = st.tabs(["📝 Registrations","🏢 Firms","💰 Payments","📒 Party Ledger","💵 Pricing","🧾 Logs"])
+    at1,at2,at3,at4,at5,at6 = st.tabs(["👤 User Master / Registration Authorisation","🏢 Firms","💰 Payments","📒 Party Ledger","💵 Pricing","🧾 Logs"])
     with at1:
         for rid, req in list(registrations.items())[::-1]:
             if req.get("status") not in ("PENDING",):
@@ -1802,18 +1802,24 @@ def parse_excel(file_bytes):
     _add_cn_idx = next((i for h, i in _hdr_map.items() if h in {"contractno", "contractnumber", "contract"} and i >= 8), None)
     _add_amt_idx = next((i for h, i in _hdr_map.items() if "additionalemd" in h or h in {"addemd", "additionalemdamt", "additionalemdamount"}), None)
     _add_dt_idx = next((i for h, i in _hdr_map.items() if "addemddate" in h or h in {"additionalemddate"}), None)
+    _add_qty_idx = next((i for h, i in _hdr_map.items()
+                         if h in {"qty", "quantity", "bales", "baleqty", "qtybales", "balesqty",
+                                  "additionalemdqty", "additionalemdquantity", "qtypaid", "balespaid",
+                                  "additionalemdbales"}), None)
 
-    if _add_cn_idx is not None and _add_amt_idx is not None and _add_dt_idx is not None:
-        add_emd = raw2.iloc[1:, [_add_cn_idx, _add_amt_idx, _add_dt_idx]].copy()
-        add_emd.columns = ["Contract_No", "Additional_EMD", "Add_EMD_Date"]
+    if _add_cn_idx is not None and _add_amt_idx is not None and _add_dt_idx is not None and _add_qty_idx is not None:
+        add_emd = raw2.iloc[1:, [_add_cn_idx, _add_amt_idx, _add_qty_idx, _add_dt_idx]].copy()
+        add_emd.columns = ["Contract_No", "Additional_EMD", "Qty_Bales", "Add_EMD_Date"]
         add_emd["Contract_No"] = add_emd["Contract_No"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
         add_emd["Additional_EMD"] = pd.to_numeric(add_emd["Additional_EMD"], errors="coerce")
+        add_emd["Qty_Bales"] = pd.to_numeric(add_emd["Qty_Bales"], errors="coerce")
         add_emd["Add_EMD_Date"] = pd.to_datetime(add_emd["Add_EMD_Date"], errors="coerce")
-        add_emd = add_emd[(add_emd["Contract_No"] != "") & add_emd["Additional_EMD"].notna()]
+        add_emd = add_emd[(add_emd["Contract_No"] != "") & add_emd["Additional_EMD"].notna()
+                          & add_emd["Qty_Bales"].notna() & (add_emd["Qty_Bales"] > 0)]
         add_emd = add_emd[~add_emd["Contract_No"].str.lower().str.contains("total|nan")]
         add_emd = add_emd.dropna(subset=["Add_EMD_Date"]).reset_index(drop=True)
     else:
-        add_emd = pd.DataFrame(columns=["Contract_No", "Additional_EMD", "Add_EMD_Date"])
+        add_emd = pd.DataFrame(columns=["Contract_No", "Additional_EMD", "Qty_Bales", "Add_EMD_Date"])
 
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
@@ -1945,8 +1951,11 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
     if add_emd is not None and not add_emd.empty:
         for cn_raw, g in add_emd.groupby("Contract_No"):
             key = str(cn_raw).strip().upper()
-            g2 = g[["Add_EMD_Date","Additional_EMD"]].copy().sort_values("Add_EMD_Date").reset_index(drop=True)
+            # Each Additional EMD voucher is limited to the exact number of bales
+            # entered in the upload sheet; it cannot spill over to extra GRN quantity.
+            g2 = g[["Add_EMD_Date","Additional_EMD","Qty_Bales"]].copy().sort_values("Add_EMD_Date").reset_index(drop=True)
             g2["Remaining"] = g2["Additional_EMD"].astype(float)
+            g2["Remaining_Qty"] = g2["Qty_Bales"].astype(float)
             add_emd_pool[key] = g2
 
     pay_pool = {}
@@ -2059,63 +2068,40 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
         # ── ADDITIONAL EMD FIFO ALLOCATION ───────────────────────────────────
-        # Per-bale Additional EMD = each Additional EMD voucher amount /
-        # contracted bales. For each GRN, a voucher can be used ONLY when:
-        #     GRN Effective Date > Additional EMD Date
-        # This prevents an Additional EMD paid later from being allocated to
-        # an earlier-effective-date contract/GRN.
+        # Allocate only the quantity/bales specified on each Additional EMD
+        # voucher, for this contract only. Eligible only when GRN Effective Date
+        # is strictly after the Additional EMD payment date.
         add_emd_alloc, add_emd_date = 0.0, pd.NaT
         add_pool = add_emd_pool.get(cn_key)
         if add_pool is not None and bales > 0 and not pd.isna(eff_date):
-            # Contract bales are the denominator for every Additional EMD
-            # voucher. This gives a true per-bale Additional EMD amount.
-            contract_bales = 0.0
-            _cb = cont.loc[
-                cont["Contract_No"].astype(str).str.strip().str.upper() == cn_key,
-                "Bales"
-            ]
-            if not _cb.empty:
-                contract_bales = sf(_cb.iloc[0], 0.0)
+            remaining_grn_bales = float(bales)
+            for idx in add_pool.index:
+                if remaining_grn_bales <= 0:
+                    break
 
-            if contract_bales > 0:
-                remaining_bales = float(bales)
+                voucher_date = add_pool.at[idx, "Add_EMD_Date"]
+                if pd.isna(voucher_date) or eff_date <= voucher_date:
+                    continue
 
-                # FIFO: oldest Additional EMD voucher first, but ONLY if
-                # this GRN's Effective Date is after that voucher's date.
-                for idx in add_pool.index:
-                    if remaining_bales <= 0:
-                        break
+                voucher_amount_left = float(add_pool.at[idx, "Remaining"])
+                voucher_qty_left = float(add_pool.at[idx, "Remaining_Qty"])
+                if voucher_amount_left <= 0 or voucher_qty_left <= 0:
+                    continue
 
-                    voucher_date = add_pool.at[idx, "Add_EMD_Date"]
-                    if pd.isna(voucher_date) or eff_date <= voucher_date:
-                        continue
+                # Voucher amount belongs to the voucher's declared paid quantity.
+                per_bale_add = voucher_amount_left / voucher_qty_left
+                take_bales = min(remaining_grn_bales, voucher_qty_left)
+                take_amt = min(voucher_amount_left, per_bale_add * take_bales)
+                if take_amt <= 0 or take_bales <= 0:
+                    continue
 
-                    voucher_total = float(add_pool.at[idx, "Remaining"])
-                    if voucher_total <= 0:
-                        continue
+                add_pool.at[idx, "Remaining"] = max(0.0, voucher_amount_left - take_amt)
+                add_pool.at[idx, "Remaining_Qty"] = max(0.0, voucher_qty_left - take_bales)
+                add_emd_alloc += take_amt
+                remaining_grn_bales -= take_bales
 
-                    per_bale_add = voucher_total / contract_bales
-                    if per_bale_add <= 0:
-                        continue
-
-                    # Amount this voucher can contribute for the remaining
-                    # GRN bales, limited by the voucher's unused balance.
-                    take_amt = min(
-                        voucher_total,
-                        per_bale_add * remaining_bales
-                    )
-                    if take_amt <= 0:
-                        continue
-
-                    add_pool.at[idx, "Remaining"] = voucher_total - take_amt
-                    add_emd_alloc += take_amt
-
-                    # Convert the amount consumed back to bale-equivalent
-                    # so a second voucher can cover only the uncovered bales.
-                    remaining_bales -= take_amt / per_bale_add
-
-                    if pd.isna(add_emd_date) or voucher_date > add_emd_date:
-                        add_emd_date = voucher_date
+                if pd.isna(add_emd_date) or voucher_date > add_emd_date:
+                    add_emd_date = voucher_date
 
         total_emd_alloc = round(emd_alloc + add_emd_alloc, 2)
 
@@ -2648,12 +2634,13 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn, add_emd=None):
             emd.to_excel(w, sheet_name="EMD Payments", index=False)
             _ws_emd = w.book["EMD Payments"]
             _start_col = max(_ws_emd.max_column + 3, 6)
-            for j, _h in enumerate(["Contract_No","Additional_EMD","Add_EMD_Date"], start=_start_col):
+            for j, _h in enumerate(["Contract_No","Additional_EMD","Qty_Bales","Add_EMD_Date"], start=_start_col):
                 _ws_emd.cell(1, j, _h)
             for i, _row in enumerate(add_emd.itertuples(index=False), start=2):
                 _ws_emd.cell(i, _start_col, _row.Contract_No)
                 _ws_emd.cell(i, _start_col+1, float(_row.Additional_EMD))
-                _ws_emd.cell(i, _start_col+2, _row.Add_EMD_Date)
+                _ws_emd.cell(i, _start_col+2, float(_row.Qty_Bales))
+                _ws_emd.cell(i, _start_col+3, _row.Add_EMD_Date)
         else:
             emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
@@ -3184,7 +3171,7 @@ with tab_upload:
                 st.info("Blank filter: every uploaded contract is matched individually as Contract → Group → DEFAULT.")
 
             st.markdown('<div class="sec-label">📂 Upload Excel File</div>', unsafe_allow_html=True)
-            st.caption("📋 Excel: 3 sheets — PUR CONT DETAILS | EMD PAYMENT DETAILS | GRN BOOKING. Sheet 2 optional Additional EMD block: Contract No. | ADDITIONAL EMD | ADD EMD DATE.")
+            st.caption("📋 Excel: 3 sheets — PUR CONT DETAILS | EMD PAYMENT DETAILS | GRN BOOKING. Sheet 2 optional Additional EMD block: Contract No. | ADDITIONAL EMD | QTY/BALES PAID | ADD EMD DATE.")
             uploaded_file = st.file_uploader("Choose Excel file (.xlsx)", type=["xlsx","xls"], label_visibility="collapsed")
 
             if uploaded_file:
@@ -3211,7 +3198,7 @@ with tab_upload:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
             ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI | GROUP"),
-            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT | Contract No. | ADDITIONAL EMD | ADD EMD DATE"),
+            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT | Contract No. | ADDITIONAL EMD | QTY/BALES PAID | ADD EMD DATE"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
             st.markdown(f"""
