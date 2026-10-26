@@ -1355,7 +1355,7 @@ if not st.session_state.authenticated:
     }}
     .sv2-trust b {{ color:#f2c65d; margin:0 6px; }}
 
-    .sv2-body {{ display:grid; grid-template-columns:42% 58%; min-height:640px; position:relative; }}
+    .sv2-body {{ display:grid; grid-template-columns:42% 58%; min-height:700px; position:relative; align-items:stretch; }}
 
     .sv2-left {{
         position:relative; overflow:hidden; padding:36px 38px 0;
@@ -1413,10 +1413,10 @@ if not st.session_state.authenticated:
 
     .sv2-right {{
         background: radial-gradient(circle at 90% 10%, rgba(20,60,120,.05) 0, transparent 40%), #f3f7fb;
-        padding:64px 46px 22px; display:flex; flex-direction:column; align-items:center;
+        padding:42px 46px 28px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-width:0;
     }}
     .sv2-right div[data-testid="stTabs"] {{
-        max-width:520px; width:100%; margin:0 auto 4px;
+        max-width:620px; width:100%; margin:0 auto 4px;
         background:#fff; border:1px solid #dfe6ee; border-radius:14px; padding:5px;
         box-shadow:0 4px 14px rgba(15,35,65,.06);
     }}
@@ -1431,7 +1431,7 @@ if not st.session_state.authenticated:
     .sv2-right div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
     .sv2-right div[data-testid="stTabs"] [data-baseweb="tab-border"] {{ display:none !important; }}
 
-    .sv2-cardwrap {{ width:100%; max-width:520px; }}
+    .sv2-cardwrap {{ width:100%; max-width:560px; }}
     .sv2-card {{
         background:#fff; border:1px solid #e2e8f0; border-radius:18px;
         padding:24px 28px 20px; box-shadow:0 14px 34px rgba(15,35,65,.10);
@@ -1457,7 +1457,7 @@ if not st.session_state.authenticated:
         border-radius:10px !important;
     }}
     .sv2-error {{ background:#fff2f0; color:#c0392b; border:1px solid #f2b4aa; border-radius:9px; padding:9px 12px; font-size:11px; font-weight:700; margin-top:10px; text-align:center; }}
-    .sv2-bottom {{ border-top:1px solid #dde4ec; margin-top:14px; padding-top:12px; text-align:center; width:100%; max-width:520px; }}
+    .sv2-bottom {{ border-top:1px solid #dde4ec; margin-top:14px; padding-top:12px; text-align:center; width:100%; max-width:560px; }}
     .sv2-bottom strong {{ color:#183763; font-size:11px; }}
     .sv2-bottom span {{ color:#9aa4af; font-size:9px; margin-left:5px; }}
     .sv2-footer {{
@@ -1512,7 +1512,7 @@ if not st.session_state.authenticated:
         <section class="sv2-right">
     """, unsafe_allow_html=True)
 
-    tab_login, tab_register, tab_payment = st.tabs(["🔒 Login", "🏢 Register Firm", "💳 Payment / Renew"])
+    tab_register, tab_login, tab_payment = st.tabs(["🏢 Register Firm", "🔒 Login", "💳 Payment / Renew"])
 
     with tab_login:
         st.markdown('<div class="sv2-cardwrap">', unsafe_allow_html=True)
@@ -1606,7 +1606,7 @@ if st.session_state.get("_auth_role") == "SUPERUSER":
     reg=_load_registry(); firms=reg.get("firms",{}) or {}; registrations=reg.get("registrations",{}) or {}
     a.metric("Firms", len(firms)); b.metric("Pending Registrations", sum(1 for x in registrations.values() if x.get("status")=="PENDING")); c.metric("Payment Requests", len(reg.get("payment_requests",{}) or {}))
     st.markdown("---")
-    at1,at2,at3,at4,at5,at6 = st.tabs(["👤 User Master / Registration Authorisation","🏢 Firms","💰 Payments","📒 Party Ledger","💵 Pricing","🧾 Logs"])
+    at1,at2,at3,at4,at5,at6 = st.tabs(["📝 Registrations","🏢 Firms","💰 Payments","📒 Party Ledger","💵 Pricing","🧾 Logs"])
     with at1:
         for rid, req in list(registrations.items())[::-1]:
             if req.get("status") not in ("PENDING",):
@@ -1791,35 +1791,34 @@ def parse_excel(file_bytes):
     pay["Mode_Of_Transaction"] = pay["Mode_Of_Transaction"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
     pay = pay.dropna(subset=["Payment_Amount"]).reset_index(drop=True)
 
-    # Optional Additional EMD block in Sheet 2.
-    # Find the three columns by their header names instead of fixed positions;
-    # this prevents a blank separator / payment column from being mistaken for
-    # the Additional EMD Contract No.
+    # Optional Additional EMD block in Sheet 2. Quantity is the number of bales
+    # for which the additional EMD amount was paid. Support common header variants.
     def _norm_hdr(v):
         return re.sub(r"[^a-z0-9]+", "", str(v or "").strip().lower())
 
     _hdr_map = {_norm_hdr(v): i for i, v in enumerate(raw2.iloc[0].tolist())}
     _add_cn_idx = next((i for h, i in _hdr_map.items() if h in {"contractno", "contractnumber", "contract"} and i >= 8), None)
-    _add_amt_idx = next((i for h, i in _hdr_map.items() if "additionalemd" in h or h in {"addemd", "additionalemdamt", "additionalemdamount"}), None)
-    _add_dt_idx = next((i for h, i in _hdr_map.items() if "addemddate" in h or h in {"additionalemddate"}), None)
-    _add_qty_idx = next((i for h, i in _hdr_map.items()
-                         if h in {"qty", "quantity", "bales", "baleqty", "qtybales", "balesqty",
-                                  "additionalemdqty", "additionalemdquantity", "qtypaid", "balespaid",
-                                  "additionalemdbales"}), None)
+    _add_amt_idx = next((i for h, i in _hdr_map.items() if h in {"additionalemd", "addemd", "additionalemdamt", "additionalemdamount"} or ("additionalemd" in h and "date" not in h and "qty" not in h and "bale" not in h)), None)
+    _add_dt_idx = next((i for h, i in _hdr_map.items() if h in {"addemddate", "additionalemddate"} or ("addemd" in h and "date" in h)), None)
+    _add_qty_idx = next((i for h, i in _hdr_map.items() if h in {"additionalemdqty", "addemdqty", "additionalbales", "addbales", "additionalemdquantity", "addemdquantity", "balesforadditionalemd", "qtyforadditionalemd"} or (("add" in h or "additional" in h) and ("qty" in h or "quantity" in h or "bale" in h))), None)
 
-    if _add_cn_idx is not None and _add_amt_idx is not None and _add_dt_idx is not None and _add_qty_idx is not None:
-        add_emd = raw2.iloc[1:, [_add_cn_idx, _add_amt_idx, _add_qty_idx, _add_dt_idx]].copy()
-        add_emd.columns = ["Contract_No", "Additional_EMD", "Qty_Bales", "Add_EMD_Date"]
+    if _add_cn_idx is not None and _add_amt_idx is not None and _add_dt_idx is not None:
+        _cols = [_add_cn_idx, _add_amt_idx, _add_dt_idx]
+        if _add_qty_idx is not None:
+            _cols.append(_add_qty_idx)
+        add_emd = raw2.iloc[1:, _cols].copy()
+        add_emd.columns = ["Contract_No", "Additional_EMD", "Add_EMD_Date"] + (["Additional_EMD_Qty"] if _add_qty_idx is not None else [])
+        if "Additional_EMD_Qty" not in add_emd.columns:
+            add_emd["Additional_EMD_Qty"] = 0.0
         add_emd["Contract_No"] = add_emd["Contract_No"].apply(lambda x: str(x).strip() if pd.notna(x) else "")
         add_emd["Additional_EMD"] = pd.to_numeric(add_emd["Additional_EMD"], errors="coerce")
-        add_emd["Qty_Bales"] = pd.to_numeric(add_emd["Qty_Bales"], errors="coerce")
         add_emd["Add_EMD_Date"] = pd.to_datetime(add_emd["Add_EMD_Date"], errors="coerce")
-        add_emd = add_emd[(add_emd["Contract_No"] != "") & add_emd["Additional_EMD"].notna()
-                          & add_emd["Qty_Bales"].notna() & (add_emd["Qty_Bales"] > 0)]
+        add_emd["Additional_EMD_Qty"] = pd.to_numeric(add_emd["Additional_EMD_Qty"], errors="coerce").fillna(0)
+        add_emd = add_emd[(add_emd["Contract_No"] != "") & add_emd["Additional_EMD"].notna()]
         add_emd = add_emd[~add_emd["Contract_No"].str.lower().str.contains("total|nan")]
         add_emd = add_emd.dropna(subset=["Add_EMD_Date"]).reset_index(drop=True)
     else:
-        add_emd = pd.DataFrame(columns=["Contract_No", "Additional_EMD", "Qty_Bales", "Add_EMD_Date"])
+        add_emd = pd.DataFrame(columns=["Contract_No", "Additional_EMD", "Add_EMD_Date", "Additional_EMD_Qty"])
 
     grn = pd.read_excel(xl, sheet_name=sheets[2], header=0)
     grn.columns = ["Contract_No","Party_Bill_Date","GRN_No",
@@ -1944,19 +1943,54 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
         emd_pool[key] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
         emd_pool[key]["Remaining"] = emd_pool[key]["EMD_Amount"].astype(float)
 
-    # Additional EMD pool.
-    # FIFO is by Additional EMD payment date. A voucher is eligible only for
-    # a GRN whose Contract Effective Date is STRICTLY AFTER that voucher date.
+    # Additional EMD vouchers. Each voucher has its own paid-bale quantity.
+    # Actual GRN allocation is precomputed below in reverse GRN order (latest GRN first).
     add_emd_pool = {}
     if add_emd is not None and not add_emd.empty:
         for cn_raw, g in add_emd.groupby("Contract_No"):
             key = str(cn_raw).strip().upper()
-            # Each Additional EMD voucher is limited to the exact number of bales
-            # entered in the upload sheet; it cannot spill over to extra GRN quantity.
-            g2 = g[["Add_EMD_Date","Additional_EMD","Qty_Bales"]].copy().sort_values("Add_EMD_Date").reset_index(drop=True)
+            g2 = g[["Add_EMD_Date", "Additional_EMD", "Additional_EMD_Qty"]].copy().sort_values("Add_EMD_Date").reset_index(drop=True)
             g2["Remaining"] = g2["Additional_EMD"].astype(float)
-            g2["Remaining_Qty"] = g2["Qty_Bales"].astype(float)
+            g2["Remaining_Qty"] = g2["Additional_EMD_Qty"].astype(float)
             add_emd_pool[key] = g2
+
+    # Reverse/LIFO allocation for Additional EMD only:
+    # for each voucher, start from the last uploaded GRN for that contract and
+    # move backwards until the voucher's specified bale quantity is consumed.
+    # Normal EMD allocation below remains unchanged and FIFO.
+    add_alloc_by_grn = {}
+    if add_emd_pool:
+        _grn_work = grn.copy()
+        _grn_work["_row_pos"] = list(range(len(_grn_work)))
+        for _cn_key, _vouchers in add_emd_pool.items():
+            _eligible_grns = []
+            for _pos, _gr in _grn_work[_grn_work["Contract_No"].astype(str).str.strip().str.upper() == _cn_key].iterrows():
+                _eff = eff_date_map.get(_cn_key, pd.NaT)
+                _qty = sf(_gr.get("Accepted_Qty_AUM", 0), 0.0)
+                if _qty > 0:
+                    _eligible_grns.append({"pos": int(_gr["_row_pos"]), "qty": float(_qty), "eff": _eff})
+            _eligible_grns.sort(key=lambda z: z["pos"], reverse=True)
+            for _vidx in _vouchers.index:
+                _vdate = _vouchers.at[_vidx, "Add_EMD_Date"]
+                _vamt = sf(_vouchers.at[_vidx, "Additional_EMD"], 0.0)
+                _vqty = sf(_vouchers.at[_vidx, "Additional_EMD_Qty"], 0.0)
+                if _vamt <= 0 or _vqty <= 0:
+                    continue
+                _remaining_qty = _vqty
+                _per_bale_amt = _vamt / _vqty
+                for _ginfo in _eligible_grns:
+                    if _remaining_qty <= 1e-9:
+                        break
+                    # Reverse allocation is driven by GRN sequence and the
+                    # user-entered bale quantity. Do not block allocation merely
+                    # because the contract Effective Date predates this payment.
+                    _take_qty = min(_ginfo["qty"], _remaining_qty)
+                    if _take_qty <= 0:
+                        continue
+                    _take_amt = min(_vamt, _per_bale_amt * _take_qty)
+                    add_alloc_by_grn.setdefault(_ginfo["pos"], []).append({"amount": _take_amt, "date": _vdate, "qty": _take_qty})
+                    _ginfo["qty"] -= _take_qty
+                    _remaining_qty -= _take_qty
 
     pay_pool = {}
     for cn_raw, g in pay.groupby("Contract_No"):
@@ -1974,7 +2008,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
         # upload group's master conditions.
         group_map[key] = str(r.get("Group", "") or "").strip()
     results = []
-    for _, row in grn.iterrows():
+    for _grn_pos, (_, row) in enumerate(grn.iterrows()):
         cn = str(row["Contract_No"]).strip()
 
         # ── PER-ROW MASTER LOOKUP (CONTRACT > GROUP only; no DEFAULT) ──────
@@ -2067,41 +2101,12 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                 d = pool.at[idx,"EMD_Date"]
                 if pd.isna(emd_date) or d > emd_date: emd_date = d
 
-        # ── ADDITIONAL EMD FIFO ALLOCATION ───────────────────────────────────
-        # Allocate only the quantity/bales specified on each Additional EMD
-        # voucher, for this contract only. Eligible only when GRN Effective Date
-        # is strictly after the Additional EMD payment date.
-        add_emd_alloc, add_emd_date = 0.0, pd.NaT
-        add_pool = add_emd_pool.get(cn_key)
-        if add_pool is not None and bales > 0 and not pd.isna(eff_date):
-            remaining_grn_bales = float(bales)
-            for idx in add_pool.index:
-                if remaining_grn_bales <= 0:
-                    break
-
-                voucher_date = add_pool.at[idx, "Add_EMD_Date"]
-                if pd.isna(voucher_date) or eff_date <= voucher_date:
-                    continue
-
-                voucher_amount_left = float(add_pool.at[idx, "Remaining"])
-                voucher_qty_left = float(add_pool.at[idx, "Remaining_Qty"])
-                if voucher_amount_left <= 0 or voucher_qty_left <= 0:
-                    continue
-
-                # Voucher amount belongs to the voucher's declared paid quantity.
-                per_bale_add = voucher_amount_left / voucher_qty_left
-                take_bales = min(remaining_grn_bales, voucher_qty_left)
-                take_amt = min(voucher_amount_left, per_bale_add * take_bales)
-                if take_amt <= 0 or take_bales <= 0:
-                    continue
-
-                add_pool.at[idx, "Remaining"] = max(0.0, voucher_amount_left - take_amt)
-                add_pool.at[idx, "Remaining_Qty"] = max(0.0, voucher_qty_left - take_bales)
-                add_emd_alloc += take_amt
-                remaining_grn_bales -= take_bales
-
-                if pd.isna(add_emd_date) or voucher_date > add_emd_date:
-                    add_emd_date = voucher_date
+        # ── ADDITIONAL EMD REVERSE GRN ALLOCATION ────────────────────────────
+        # Precomputed by reverse GRN order using the quantity entered beside
+        # each Additional EMD voucher. Normal EMD FIFO logic above is untouched.
+        _add_parts = add_alloc_by_grn.get(_grn_pos, [])
+        add_emd_alloc = round(sum(float(x["amount"]) for x in _add_parts), 2)
+        add_emd_date = max((x["date"] for x in _add_parts if not pd.isna(x["date"])), default=pd.NaT)
 
         total_emd_alloc = round(emd_alloc + add_emd_alloc, 2)
 
@@ -2129,11 +2134,15 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
             emd_interest = round(((emd_alloc * emd_rate / 100) / 365) * emd_days, 2)
 
         additional_emd_interest = 0.0
-        if not pd.isna(add_emd_date) and not pd.isna(pay_date) and add_emd_alloc > 0:
-            add_days = max((pay_date - add_emd_date).days, 0)
-            additional_emd_interest = round(
-                ((add_emd_alloc * additional_emd_rate / 100) / 365) * add_days, 2
-            )
+        if not pd.isna(pay_date) and add_emd_alloc > 0:
+            # Calculate interest separately from each voucher's actual payment date.
+            for _part in _add_parts:
+                _vdate = _part.get("date", pd.NaT)
+                _amt = float(_part.get("amount", 0.0))
+                if not pd.isna(_vdate) and _amt > 0:
+                    _days = max((pay_date - _vdate).days, 0)
+                    additional_emd_interest += ((_amt * additional_emd_rate / 100) / 365) * _days
+            additional_emd_interest = round(additional_emd_interest, 2)
         total_emd_interest = round(emd_interest + additional_emd_interest, 2)
 
         # ── CASH DISCOUNT ─────────────────────────────────────────────────────
@@ -2634,13 +2643,13 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn, add_emd=None):
             emd.to_excel(w, sheet_name="EMD Payments", index=False)
             _ws_emd = w.book["EMD Payments"]
             _start_col = max(_ws_emd.max_column + 3, 6)
-            for j, _h in enumerate(["Contract_No","Additional_EMD","Qty_Bales","Add_EMD_Date"], start=_start_col):
+            for j, _h in enumerate(["Contract_No","Additional_EMD","Add_EMD_Date","Additional_EMD_Qty"], start=_start_col):
                 _ws_emd.cell(1, j, _h)
             for i, _row in enumerate(add_emd.itertuples(index=False), start=2):
                 _ws_emd.cell(i, _start_col, _row.Contract_No)
                 _ws_emd.cell(i, _start_col+1, float(_row.Additional_EMD))
-                _ws_emd.cell(i, _start_col+2, float(_row.Qty_Bales))
-                _ws_emd.cell(i, _start_col+3, _row.Add_EMD_Date)
+                _ws_emd.cell(i, _start_col+2, _row.Add_EMD_Date)
+                _ws_emd.cell(i, _start_col+3, float(getattr(_row, "Additional_EMD_Qty", 0) or 0))
         else:
             emd.to_excel(w, sheet_name="EMD Payments", index=False)
         pay.to_excel(w, sheet_name="Final Payments", index=False)
@@ -3171,7 +3180,7 @@ with tab_upload:
                 st.info("Blank filter: every uploaded contract is matched individually as Contract → Group → DEFAULT.")
 
             st.markdown('<div class="sec-label">📂 Upload Excel File</div>', unsafe_allow_html=True)
-            st.caption("📋 Excel: 3 sheets — PUR CONT DETAILS | EMD PAYMENT DETAILS | GRN BOOKING. Sheet 2 optional Additional EMD block: Contract No. | ADDITIONAL EMD | QTY/BALES PAID | ADD EMD DATE.")
+            st.caption("📋 Excel: 3 sheets — PUR CONT DETAILS | EMD PAYMENT DETAILS | GRN BOOKING. Sheet 2 optional Additional EMD block: Contract No. | ADDITIONAL EMD | ADD EMD DATE | ADD EMD QTY (bales).")
             uploaded_file = st.file_uploader("Choose Excel file (.xlsx)", type=["xlsx","xls"], label_visibility="collapsed")
 
             if uploaded_file:
@@ -3198,7 +3207,7 @@ with tab_upload:
         st.markdown('<div class="sec-label">📝 Expected Excel Format</div>', unsafe_allow_html=True)
         for title, cols in [
             ("Sheet 1 — PUR CONT DETAILS", "Contract No. | EFFECTIVE DATE | BALES | BRANCH-CCI | GROUP"),
-            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT | Contract No. | ADDITIONAL EMD | QTY/BALES PAID | ADD EMD DATE"),
+            ("Sheet 2 — EMD PAYMENT DETAILS", "Contract No. | EMD DATE | EMD AMOUNT | [blank] | Contract No. | MODE OF TRANSACTION | PAYMENT DATE | PAYMENT AMOUNT | Contract No. | ADDITIONAL EMD | ADD EMD DATE | ADD EMD QTY (bales)"),
             ("Sheet 3 — GRN BOOKING", "contract no | Party Bill Date | GRN | Accepted Qty(AUM) | Accepted Qty | Material Amount | IGST | Party Bill Amount | Other Amount | FINAL INDENT DATE"),
         ]:
             st.markdown(f"""
