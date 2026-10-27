@@ -1993,10 +1993,21 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                     _remaining_qty -= _take_qty
 
     pay_pool = {}
+    contract_last_payment_date = {}
+    contract_last_payment_mode = {}
     for cn_raw, g in pay.groupby("Contract_No"):
         key = str(cn_raw).strip().upper()
-        pay_pool[key] = g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy().reset_index(drop=True)
+        _pg = g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy().reset_index(drop=True)
+        pay_pool[key] = _pg
         pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
+
+        # Keep the latest valid payment date for each contract as a fallback.
+        # This is used only when a GRN receives zero payment allocation and its
+        # Payment_Date would otherwise remain blank.
+        _dated_payments = _pg.dropna(subset=["Payment_Date"]).sort_values("Payment_Date")
+        if not _dated_payments.empty:
+            contract_last_payment_date[key] = _dated_payments.iloc[-1]["Payment_Date"]
+            contract_last_payment_mode[key] = str(_dated_payments.iloc[-1].get("Mode_Of_Transaction", "") or "")
 
     branch_map = {}
     group_map = {}
@@ -2127,6 +2138,16 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                 if pd.isna(pay_date) or d > pay_date:
                     pay_date = d
                     pay_mode = ppool.at[idx,"Mode_Of_Transaction"]
+
+        # Fallback for a fully unpaid / zero-allocation GRN:
+        # if no payment was allocated to this GRN, use the contract's latest
+        # uploaded payment date so all date-based calculations for this row
+        # (EMD interest, cash discount, late-lifting and carrying charges)
+        # are evaluated from that date instead of a blank Payment_Date.
+        if pay_alloc <= 0 and pd.isna(pay_date):
+            pay_date = contract_last_payment_date.get(cn_key, pd.NaT)
+            if not pay_mode:
+                pay_mode = contract_last_payment_mode.get(cn_key, "")
 
         emd_days, emd_interest = 0, 0.0
         if not pd.isna(emd_date) and not pd.isna(pay_date) and emd_alloc > 0:
