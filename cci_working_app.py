@@ -2125,19 +2125,44 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
         net_amt = round(total_bill - total_emd_alloc, 2)
         pay_alloc, pay_date, pay_mode = 0.0, pd.NaT, ""
         ppool = pay_pool.get(cn_key)
+        # If one receipt is completely consumed against this GRN but the GRN
+        # still has a balance, remember that receipt date. If a later receipt
+        # then allocates the balance and Party Bill Date < that later receipt
+        # date, use the earlier fully-consumed receipt date as Payment Date.
+        last_fully_used_receipt_date = pd.NaT
+        last_fully_used_receipt_mode = ""
         if ppool is not None and net_amt > 0:
             rem = net_amt
             for idx in ppool.index:
                 if rem <= 0: break
-                avail = ppool.at[idx,"Remaining"]
+                avail = sf(ppool.at[idx,"Remaining"], 0.0)
                 if avail <= 0: continue
                 take = min(avail, rem)
                 ppool.at[idx,"Remaining"] -= take
-                pay_alloc += take; rem -= take
+                pay_alloc += take
+                rem -= take
                 d = ppool.at[idx,"Payment_Date"]
-                if pd.isna(pay_date) or d > pay_date:
-                    pay_date = d
-                    pay_mode = ppool.at[idx,"Mode_Of_Transaction"]
+                mode = ppool.at[idx,"Mode_Of_Transaction"]
+
+                # Was this receipt fully consumed, while this GRN still has
+                # an outstanding balance to be covered by a later receipt?
+                receipt_fully_consumed = (avail > 0 and take >= avail - 0.005)
+                if receipt_fully_consumed and rem > 0 and not pd.isna(d):
+                    last_fully_used_receipt_date = d
+                    last_fully_used_receipt_mode = mode
+
+                if not pd.isna(d):
+                    if (not pd.isna(last_fully_used_receipt_date)
+                            and not pd.isna(lift_date)
+                            and last_fully_used_receipt_date < lift_date < d):
+                        # Keep the earlier fully consumed receipt date for
+                        # this GRN rather than the later receipt that covers
+                        # its remaining balance.
+                        pay_date = last_fully_used_receipt_date
+                        pay_mode = last_fully_used_receipt_mode
+                    elif pd.isna(pay_date) or d > pay_date:
+                        pay_date = d
+                        pay_mode = mode
 
         # Fallback for a fully unpaid / zero-allocation GRN:
         # if no payment was allocated to this GRN, use the contract's latest
