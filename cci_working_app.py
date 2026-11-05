@@ -2089,7 +2089,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                 "Additional_EMD_Interest": 0.0, "Total_EMD_Interest": 0.0,
                 "CD_Due_Date": pd.NaT, "CD_Days": 0, "CD_Pct": 0.0, "Cash_Discount": 0.0,
                 "Late_Lift_Days": 0, "Late_Lifting_Chg": 0.0, "Late_Lifting_GST": 0.0,
-                "CC_Free_End": pd.NaT, "CC_Days": 0,
+                "LL_Free_End": pd.NaT, "CC_Free_End": pd.NaT, "CC_Days": 0,
                 "Carry_Charges": 0.0, "Carry_GST": 0.0,
                 "_cc_slab_breakdown": [],
                 "Branch": branch_val,
@@ -2111,6 +2111,10 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
         cc_gst       = sf(row_mc.get("cc_gst"), 5.0)
         cc_free_days = int(sf(row_mc.get("cc_free_days"), 0))
         ll_compound  = bool(row_mc.get("ll_compound", False))
+        # LL Free End Days comes ONLY from the matched Contract/Group Master (no hardcoded value)
+        _llf_raw        = row_mc.get("ll_free_days", None)
+        ll_free_missing = _llf_raw in (None, "")
+        ll_free_days    = 0 if ll_free_missing else int(sf(_llf_raw, 0))
         cc_compound  = bool(row_mc.get("cc_compound", False))
         # ─────────────────────────────────────────────────────────────────────
 
@@ -2264,10 +2268,12 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                     cd_amount    = 0.0
 
         ll_charges, ll_gst_amt, late_lift_days = 0.0, 0.0, 0
+        ll_free_end = pd.NaT
         if not pd.isna(pay_date) and not pd.isna(lift_date):
-            free_end = pay_date + pd.Timedelta(days=15)
-            if lift_date > free_end:
-                late_lift_days = (lift_date - free_end).days
+            # LL Free End = Payment Date + LL Free End Days (Contract Master)
+            ll_free_end = pay_date + pd.Timedelta(days=ll_free_days)
+            if lift_date > ll_free_end:
+                late_lift_days = (lift_date - ll_free_end).days
                 s1 = ll_slabs[0] if len(ll_slabs)>0 else {"days":30,"pct":0.50}
                 s2 = ll_slabs[1] if len(ll_slabs)>1 else {"days":30,"pct":0.75}
                 s3 = ll_slabs[2] if len(ll_slabs)>2 else {"days":9999,"pct":1.00}
@@ -2372,7 +2378,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
                 ("INDIVIDUAL CONTRACT" if match_rule == "CONTRACT" else "")
             ),
             "Match_Rule": match_rule,
-            "Remark": "",
+            "Remark": ("⚠️ LL Free End Days not defined in master — taken as 0" if ll_free_missing else ""),
             "Effective_Date":eff_date, "Party_Bill_Date":lift_date,
             "Bales":int(bales), "Material_Amount":round(mat,2),
             "GST_On_Material":gst_on_mat, "Total_Bill_Amount":total_bill,
@@ -2389,7 +2395,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
             "CD_Days":cd_days_used, "CD_Pct":cd_pct_used, "CD_Due_Date":cd_due_date,
             "Cash_Discount":cd_amount,
             "Late_Lift_Days":late_lift_days, "Late_Lifting_Chg":ll_charges,
-            "Late_Lifting_GST":ll_gst_amt, "CC_Free_End":cc_free_end,
+            "Late_Lifting_GST":ll_gst_amt, "LL_Free_End":ll_free_end, "CC_Free_End":cc_free_end,
             "CC_Days":cc_days, "Carry_Charges":cc_charges, "Carry_GST":cc_gst_amt,
             "_cc_slab_breakdown": cc_slab_breakdown,  # dynamic slab columns built in df_to_excel_bytes & display
         })
@@ -2437,6 +2443,7 @@ _PRETTY_COL_MAP = {
     "CD_Pct": "CD %",
     "CD_Due_Date": "CD Due Date",
     "Cash_Discount": "Cash Discount",
+    "LL_Free_End": "LL Free End",
     "Late_Lift_Days": "Late Lift Days",
     "Late_Lifting_Chg": "Late Lifting Charges",
     "Late_Lifting_GST": "Late Lifting GST",
@@ -2587,7 +2594,7 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn, add_emd=None):
             "Total_EMD_Allocated","EMD_Date","Net_Amount","Payment_Date","Payment_Mode",
             "EMD_Days","EMD_Interest","Additional_EMD_Interest","Total_EMD_Interest",
             "CD_Days","CD_Pct","CD_Due_Date","Cash_Discount",
-            "Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
+            "LL_Free_End","Late_Lift_Days","Late_Lifting_Chg","Late_Lifting_GST",
             "CC_Free_End","CC_Days","Carry_Charges","Carry_GST",
         ]
         cols = base_cols + slab_col_names
@@ -2615,14 +2622,14 @@ def df_to_excel_bytes(result_df, cont, emd, pay, grn, add_emd=None):
         # Force date-only Excel values BEFORE writing.  This prevents Excel from
         # inheriting pandas datetime display (HH:MM:SS).  Python date objects
         # are written as true Excel dates and formatted as DD-MM-YYYY.
-        _excel_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Add_EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End"]
+        _excel_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Add_EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End", "LL_Free_End"]
         for _dc in _excel_date_cols:
             if _dc in detail_export.columns:
                 detail_export[_dc] = pd.to_datetime(detail_export[_dc], errors="coerce").dt.date
         # Convert calculation-report date cells to explicit DD-MM-YYYY TEXT before Excel write.
         # This guarantees Excel cannot display a trailing 00:00:00, while preserving
         # the exact existing row order (no sorting/reordering is performed).
-        _report_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End"]
+        _report_date_cols = ["Effective_Date", "Party_Bill_Date", "EMD_Date", "Payment_Date", "CD_Due_Date", "CC_Free_End", "LL_Free_End"]
         for _dc in _report_date_cols:
             if _dc in detail_export.columns:
                 def _date_text(_v):
@@ -2898,7 +2905,7 @@ with tab_masters:
                     _edit_keys = [
                         "cproj","cparty","cno","cgroup","cdt","ceff","cbales","emd_d","emd_p",
                         "cd1d","cd1p","cd2d","cd2p","cd3d","cd3p","cd_gst",
-                        "ll1d","ll1p","ll2d","ll2p","ll3d","ll3p","ll_gst","ll_compound",
+                        "ll1d","ll1p","ll2d","ll2p","ll3d","ll3p","ll_gst","ll_compound","ll_free",
                         "cc_free","cc1d","cc1p","cc2d","cc2p","cc_gst","cc_compound"
                     ]
                     for _k in _edit_keys:
@@ -2923,6 +2930,7 @@ with tab_masters:
                         st.session_state[f"cd{_n}p"] = float(_s.get("pct", 0.0) or 0.0)
                     st.session_state.cd_gst = float(pending_edit.get("cd_gst", 18.0) or 18.0)
 
+                    st.session_state.ll_free = int(pending_edit.get("ll_free_days", 0) or 0)
                     ll_s = pending_edit.get("ll_slabs", []) or []
                     _ll_defaults = [(30, 0.50), (30, 0.75), (9999, 1.00)]
                     for _n, (_dd, _pp) in enumerate(_ll_defaults, 1):
@@ -2976,6 +2984,10 @@ with tab_masters:
 
                 st.markdown('<div class="sv-divider"></div>', unsafe_allow_html=True)
                 with st.expander("⏰ Late Lifting (LL) Slabs — Click to expand/collapse", expanded=False):
+                    ll_free = st.number_input(
+                        "LL Free End Days (Payment Date + ? days)", key="ll_free",
+                        min_value=0, value=0, step=1,
+                        help="e.g. 15 / 30 / 45 / 60. LL Free End = Payment Date + these days. Late Lifting charges start only after this date.")
                     ll1a,ll1b = st.columns(2)
                     ll1d = ll1a.number_input("Slab 1 Days", key="ll1d", min_value=0, value=30)
                     ll1p = ll1b.number_input("Slab 1 %/month", key="ll1p", min_value=0.0, value=0.50, step=0.01)
@@ -3058,6 +3070,7 @@ with tab_masters:
                                     {"days":int(st.session_state.cd3d),"pct":float(st.session_state.cd3p)},
                                 ] if s["days"]>0],
                                 "cd_gst": float(st.session_state.cd_gst),
+                                "ll_free_days": int(st.session_state.ll_free),
                                 "ll_slabs": [
                                     {"days":int(st.session_state.ll1d),"pct":float(st.session_state.ll1p)},
                                     {"days":int(st.session_state.ll2d),"pct":float(st.session_state.ll2p)},
@@ -3123,7 +3136,7 @@ with tab_masters:
                         # Delete all widget keys so they reset to defaults on rerun
                         clear_keys = ["cparty","cno","cgroup","cbales","emd_d","emd_p",
                                       "cd1d","cd1p","cd2d","cd2p","cd3d","cd3p","cd_gst",
-                                      "ll1d","ll1p","ll2d","ll2p","ll3d","ll3p","ll_gst",
+                                      "ll1d","ll1p","ll2d","ll2p","ll3d","ll3p","ll_gst","ll_free",
                                       "ll_compound","cc_free","cc1d","cc1p","cc2d","cc2p",
                                       "cc_gst","cc_compound","cdt","ceff","cproj"]
                         for k in clear_keys:
@@ -3203,7 +3216,7 @@ with tab_masters:
                   </div>
                   <div style="font-size:10.5px;color:#64748b;border-top:1px solid #f1f5f9;padding-top:3px;display:grid;grid-template-columns:1fr;gap:1px">
                     <span>💸 CD: {_slab_txt(_cd_slabs)} | GST: {c.get('cd_gst',0)}%</span>
-                    <span>⏰ LL: {_slab_txt(_ll_slabs,'/mo')} | GST: {c.get('ll_gst',0)}% | Cpd: {_ll_cpd}</span>
+                    <span>⏰ LL: Free {c.get('ll_free_days','—')}d | {_slab_txt(_ll_slabs,'/mo')} | GST: {c.get('ll_gst',0)}% | Cpd: {_ll_cpd}</span>
                     <span>🚛 CC: {_slab_txt(_cc_slabs,'/mo')} | Cpd: {_cc_cpd}</span>
                   </div>
                 </div>
@@ -3388,7 +3401,7 @@ with tab_results:
                 )
         # Drop internal list column — PyArrow cannot serialize Python lists
         disp = disp.drop(columns=[c for c in disp.columns if c.startswith("_")], errors="ignore")
-        for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Add_EMD_Date","Payment_Date","CD_Due_Date","CC_Free_End"]:
+        for col in ["Effective_Date","Party_Bill_Date","EMD_Date","Add_EMD_Date","Payment_Date","CD_Due_Date","CC_Free_End","LL_Free_End"]:
             if col in disp.columns:
                 disp[col] = disp[col].apply(fmt_date)
         for col in ["Material_Amount","GST_On_Material","Total_Bill_Amount","Payment_Amount",
@@ -3559,8 +3572,8 @@ with tab_help:
             "Payment after CD Due Date → Cash Discount = 0.",
         ], "Effective Date is from PUR CONT DETAILS; CD slab days and % are from Contract Master."),
         ("⏰ Late Lifting Charges (LL)", [
-            "Free Period End = Payment Date + 15 days.",
-            "Late Lift Days = Lifting Date − Free Period End (only when positive).",
+            "LL Free End = Payment Date + LL Free End Days (entered in Contract Master).",
+            "Late Lift Days = Lifting Date − LL Free End (only when positive).",
             "Each slab charge = applicable base × slab % × (days in slab ÷ 30).",
             "Compound = ON → next slab uses Principal + all prior slab charges as running base.",
             "Compound = OFF → every slab uses the original Material Amount as base.",
