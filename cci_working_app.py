@@ -1411,27 +1411,26 @@ if not st.session_state.authenticated:
         box-shadow:0 0 10px rgba(242,198,93,.5);
     }}
 
-    .sv2-right {{
+    .st-key-sv2_right {{
         background: radial-gradient(circle at 90% 10%, rgba(20,60,120,.05) 0, transparent 40%), #f3f7fb;
         padding:42px 46px 28px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-width:0;
     }}
-    .sv2-right div[data-testid="stTabs"] {{
+    .st-key-sv2_right div[data-testid="stTabs"] {{
         max-width:620px; width:100%; margin:0 auto 4px;
         background:#fff; border:1px solid #dfe6ee; border-radius:14px; padding:5px;
         box-shadow:0 4px 14px rgba(15,35,65,.06);
     }}
-    .sv2-right div[data-testid="stTabs"] button {{
+    .st-key-sv2_right div[data-testid="stTabs"] button {{
         font-size:12.5px !important; font-weight:800 !important; color:#5b6b80 !important;
         border-radius:10px !important; padding:9px 14px !important;
     }}
-    .sv2-right div[data-testid="stTabs"] button[aria-selected="true"] {{
+    .st-key-sv2_right div[data-testid="stTabs"] button[aria-selected="true"] {{
         background:linear-gradient(135deg,#0c2a58,#123a73) !important; color:#fff !important;
         box-shadow:0 4px 12px rgba(12,42,88,.30) !important;
     }}
-    .sv2-right div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
-    .sv2-right div[data-testid="stTabs"] [data-baseweb="tab-border"] {{ display:none !important; }}
+    .st-key-sv2_right div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+    .st-key-sv2_right div[data-testid="stTabs"] [data-baseweb="tab-border"] {{ display:none !important; }}
 
-    .sv2-cardwrap {{ width:100%; max-width:560px; }}
     .sv2-card {{
         background:#fff; border:1px solid #e2e8f0; border-radius:18px;
         padding:24px 28px 20px; box-shadow:0 14px 34px rgba(15,35,65,.10);
@@ -1443,15 +1442,15 @@ if not st.session_state.authenticated:
         display:flex; align-items:center; justify-content:center; font-size:17px; color:#0c2a58; box-shadow:0 4px 12px rgba(201,146,43,.4); }}
     .sv2-security {{ text-align:center; margin-top:12px; color:#8492a5; font-size:9.5px; font-weight:700; }}
 
-    .sv2-cardwrap div[data-testid="stTextInput"] {{ margin-bottom:8px !important; }}
-    .sv2-cardwrap div[data-testid="stTextInput"] input {{
+    .st-key-sv2_right div[data-testid="stTextInput"] {{ margin-bottom:8px !important; }}
+    .st-key-sv2_right div[data-testid="stTextInput"] input {{
         height:42px !important; border:1.5px solid #d8e0e9 !important; border-radius:10px !important;
         font-size:12.5px !important; background:#fbfcfe !important; color:#16273f !important; padding-left:14px !important;
     }}
-    .sv2-cardwrap div[data-testid="stTextInput"] input:focus {{ border-color:#c9922f !important; box-shadow:0 0 0 3px rgba(201,146,43,.15) !important; }}
-    .sv2-cardwrap div[data-testid="stTextInput"] label p {{ font-size:11px !important; font-weight:800 !important; color:#2c3e58 !important; }}
-    .sv2-cardwrap div[data-testid="stCheckbox"] label p {{ font-size:11px !important; color:#68758a !important; }}
-    .sv2-cardwrap div[data-testid="stButton"] button[kind="primary"] {{
+    .st-key-sv2_right div[data-testid="stTextInput"] input:focus {{ border-color:#c9922f !important; box-shadow:0 0 0 3px rgba(201,146,43,.15) !important; }}
+    .st-key-sv2_right div[data-testid="stTextInput"] label p {{ font-size:11px !important; font-weight:800 !important; color:#2c3e58 !important; }}
+    .st-key-sv2_right div[data-testid="stCheckbox"] label p {{ font-size:11px !important; color:#68758a !important; }}
+    .st-key-sv2_right div[data-testid="stButton"] button[kind="primary"] {{
         background:linear-gradient(90deg,#0c2a58,#123a73) !important; color:#fff !important; border:1px solid #e8b84d !important;
         box-shadow:0 10px 22px rgba(12,42,88,.30) !important; height:44px !important; font-size:13px !important; font-weight:900 !important;
         border-radius:10px !important;
@@ -1472,129 +1471,102 @@ if not st.session_state.authenticated:
     @media(max-width:960px) {{
       .sv2-body {{ grid-template-columns:1fr; }}
       .sv2-left {{ clip-path:none; padding:28px 22px; }}
-      .sv2-right {{ padding:26px 18px; }}
+      .st-key-sv2_right {{ padding:26px 18px; }}
       .sv2-trust {{ display:none; }}
       .sv2-footer {{ flex-direction:column; gap:8px; text-align:center; }}
     }}
+
+    /* ── v3 layout: native columns (right side no longer drops below) ── */
+    header[data-testid="stHeader"] {{ background:transparent !important; }}
+    .sv2-trust-top {{ display:flex; justify-content:flex-end; margin:0 0 10px; }}
+    .sv2-trust2 {{ background:linear-gradient(135deg,#0c2a58,#123a73); color:#fff; padding:8px 18px; border-radius:30px; font-size:11.5px; font-weight:800; letter-spacing:.03em; border:1px solid rgba(232,184,77,.5); box-shadow:0 6px 16px rgba(10,30,60,.35); }}
+    .sv2-trust2 b {{ color:#f2c65d; margin:0 6px; }}
+    div[data-testid="stHorizontalBlock"]:has(.st-key-sv2_left) {{ gap:0 !important; align-items:stretch !important; border-radius:22px; overflow:hidden; border:1px solid #c9d5e2; box-shadow:0 26px 70px rgba(10,25,55,.28); background:#eef3f8; }}
+    div[data-testid="stHorizontalBlock"]:has(.st-key-sv2_left) > div {{ padding:0 !important; min-width:0 !important; }}
+    .st-key-sv2_left {{ position:relative; min-height:720px; height:100%; padding:36px 38px 160px !important; color:#fff; overflow:hidden; background:linear-gradient(160deg,#081b3c 0%,#0d2c5e 55%,#0a2350 100%); }}
+    .st-key-sv2_left .sv2-gold-arc {{ position:absolute; top:0; right:0; width:10px; height:100%; }}
+    .st-key-sv2_left .sv2-field {{ position:absolute; left:0; right:0; bottom:0; margin:0; }}
+    .st-key-sv2_right {{ min-height:720px; height:100%; padding:42px 46px 28px !important; background:radial-gradient(circle at 90% 10%, rgba(20,60,120,.05) 0, transparent 40%), #f3f7fb; }}
+    .st-key-sv2_right div[data-testid="stTabs"] {{ background:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important; max-width:620px !important; margin:0 auto !important; }}
+    .st-key-sv2_right div[data-baseweb="tab-list"] {{ background:#fff; border:1px solid #dfe6ee; border-radius:14px; padding:5px; gap:4px; box-shadow:0 4px 14px rgba(15,35,65,.06); }}
+    .st-key-sv2_right div[data-baseweb="tab-panel"] {{ background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:24px 28px 20px !important; margin-top:12px; box-shadow:0 14px 34px rgba(15,35,65,.10); }}
+    .sv2-bottom {{ margin-left:auto; margin-right:auto; }}
+    .sv2-footer {{ margin-top:14px; border-radius:14px; }}
     </style>
-
-    <div class="sv2-shell">
-      <div class="sv2-trust">🛡 Secure <b>•</b> Reliable <b>•</b> Trusted</div>
-      <div class="sv2-body">
-        <section class="sv2-left">
-          <div class="sv2-gold-arc"></div>
-          <div class="sv2-brand">
-            <img class="sv2-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview">
-            <div>
-              <div class="sv2-brand-name">Softview</div>
-              <div class="sv2-brand-sub">TECHNOLOGIES</div>
-            </div>
-          </div>
-          <div class="sv2-tagline">Smart Solutions... Better Tomorrow...</div>
-          <div class="sv2-title1">CCI WORKING</div>
-          <div class="sv2-title2">CALCULATION UTILITY</div>
-          <div class="sv2-rule"></div>
-          <div class="sv2-desc">A professional workspace for CCI contracts, lifting, EMD, CD/CC and FIFO allocation — with firm-wise secure access.</div>
-          <div class="sv2-feat-grid">
-            <div class="sv2-feat"><div class="sv2-feat-icon">📄</div><div class="sv2-feat-title">Contracts<br>Management</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">🚚</div><div class="sv2-feat-title">GRN &amp; Lifting<br>Tracking</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">💰</div><div class="sv2-feat-title">EMD &amp;<br>Payments</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">📊</div><div class="sv2-feat-title">CD/CC<br>Charges</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">📁</div><div class="sv2-feat-title">FIFO<br>Allocation</div></div>
-            <div class="sv2-feat"><div class="sv2-feat-icon">📋</div><div class="sv2-feat-title">Reports &amp;<br>Export</div></div>
-          </div>
-          <div class="sv2-field">
-            <div class="sv2-field-diag"></div>
-            <div class="sv2-field-emoji">🌸🤍</div>
-            <div class="sv2-field-bales"><span></span><span></span><span></span><span></span></div>
-          </div>
-        </section>
-        <section class="sv2-right">
     """, unsafe_allow_html=True)
 
-    tab_register, tab_login, tab_payment = st.tabs(["🏢 Register Firm", "🔒 Login", "💳 Payment / Renew"])
+    st.markdown('<div class="sv2-trust-top"><span class="sv2-trust2">🛡 Secure <b>•</b> Reliable <b>•</b> Trusted</span></div>', unsafe_allow_html=True)
+    _lcol, _rcol = st.columns([42, 58], gap="small")
 
-    with tab_login:
-        st.markdown('<div class="sv2-cardwrap">', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="sv2-card">
-          <div class="sv2-shield">🛡️</div>
-          <div class="sv2-card-title">SECURE LOGIN</div>
-        """, unsafe_allow_html=True)
-        st.text_input("👤  Login ID", key="_lu", placeholder="Enter Login ID")
-        st.text_input("🔒  Password", key="_lp", type="password", placeholder="Enter Password")
-        st.checkbox("Remember me", value=True, key="_remember_me")
-        st.button("🔒  SIGN IN  →", on_click=_do_login, type="primary", use_container_width=True, key="_sign_in_final")
-        if st.session_state._login_error:
-            st.markdown(f'<div class="sv2-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sv2-security">Firm-wise secure access • Super User access is separately controlled</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    with _lcol:
+        with st.container(key="sv2_left"):
+            st.markdown(f'''<div class="sv2-gold-arc"></div><div class="sv2-brand"><img class="sv2-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview"><div><div class="sv2-brand-name">Softview</div><div class="sv2-brand-sub">TECHNOLOGIES</div></div></div><div class="sv2-tagline">Smart Solutions... Better Tomorrow...</div><div class="sv2-title1">CCI WORKING</div><div class="sv2-title2">CALCULATION UTILITY</div><div class="sv2-rule"></div><div class="sv2-desc">A professional workspace for CCI contracts, lifting, EMD, CD/CC and FIFO allocation — with firm-wise secure access.</div><div class="sv2-feat-grid"><div class="sv2-feat"><div class="sv2-feat-icon">📄</div><div class="sv2-feat-title">Contracts<br>Management</div></div><div class="sv2-feat"><div class="sv2-feat-icon">🚚</div><div class="sv2-feat-title">GRN &amp; Lifting<br>Tracking</div></div><div class="sv2-feat"><div class="sv2-feat-icon">💰</div><div class="sv2-feat-title">EMD &amp;<br>Payments</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📊</div><div class="sv2-feat-title">CD/CC<br>Charges</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📁</div><div class="sv2-feat-title">FIFO<br>Allocation</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📋</div><div class="sv2-feat-title">Reports &amp;<br>Export</div></div></div><div class="sv2-field"><div class="sv2-field-diag"></div><div class="sv2-field-emoji">🌸🤍</div><div class="sv2-field-bales"><span></span><span></span><span></span><span></span></div></div>''', unsafe_allow_html=True)
 
-    with tab_register:
-        st.markdown('<div class="sv2-cardwrap"><div class="sv2-card">', unsafe_allow_html=True)
-        st.markdown('<div class="sv2-card-title">REGISTER FIRM</div>', unsafe_allow_html=True)
-        st.caption("Registration key: exactly 12 characters • valid for 2 hours • Super User approval required before the 3-day trial starts.")
-        a,b=st.columns(2)
-        a.text_input("Firm Name ✱", key="_rfname")
-        b.text_input("Owner Username ✱", key="_rowner")
-        a.text_input("Password ✱", key="_rpass", type="password")
-        b.text_input("Mobile No. ✱", key="_rmobile", max_chars=15)
-        a.text_input("Email", key="_remail")
-        b.text_input("Firm Address", key="_raddress")
-        st.button("📝 Generate Registration Request", on_click=_do_register, type="primary", use_container_width=True, key="_register_final")
-        if st.session_state.get("_reg_error"):
-            st.error(st.session_state._reg_error)
-        if st.session_state.get("_reg_result"):
-            rr=st.session_state._reg_result
-            st.success(st.session_state.get("_reg_success", "Registration submitted."))
-            st.code(rr["key"], language=None)
-            st.warning("Copy this 12-character key. It expires after 2 hours. The 3-day trial starts only after Super User authentication.")
-        st.markdown('</div></div>', unsafe_allow_html=True)
+    with _rcol:
+        with st.container(key="sv2_right"):
+            tab_register, tab_login, tab_payment = st.tabs(["🏢 Register Firm", "🔒 Login", "💳 Payment / Renew"])
 
-    with tab_payment:
-        st.markdown('<div class="sv2-cardwrap"><div class="sv2-card">', unsafe_allow_html=True)
-        st.markdown('<div class="sv2-card-title">PAYMENT / RENEW</div>', unsafe_allow_html=True)
-        st.caption("Minimum package: 4 months. Payment must be credited/verified in the Super User party ledger. A short payment will not activate access.")
-        username = st.text_input("Firm Owner / Username", key="_renew_user")
-        package_catalog = _package_catalog()
-        labels = list(package_catalog.keys())
-        pkg = st.selectbox("Package", labels, format_func=lambda x: f"{package_catalog[x]['label']} — ₹{package_catalog[x]['price']:,.2f}", key="_renew_pkg")
-        extra = st.number_input("Extra Users beyond included 3", min_value=0, max_value=100, value=0, step=1, key="_renew_extra")
-        amount = package_catalog[pkg]["price"] + extra * _extra_user_price()
-        st.metric("Required Exact Amount", f"₹{amount:,.2f}")
-        paydate = st.date_input("Payment Date", value=date.today(), key="_renew_date")
-        paymode = st.selectbox("Mode of Payment", ["UPI","NEFT","RTGS","IMPS","Bank Transfer","Cheque","Cash","Card","Other"], key="_renew_mode")
-        payref = st.text_input("Payment Reference / UTR", key="_renew_ref")
-        if st.button("💳 Submit Payment Request", type="primary", use_container_width=True, key="_payment_final"):
-            if float(package_catalog[pkg]["price"]) <= 0:
-                st.error("Package pricing is not configured yet. Please contact the Super User.")
-            else:
-                fid, firm = _find_firm_for_user(username)
-                if not fid:
-                    st.error("Firm/user not found.")
-                else:
-                    reg=_load_registry(); reqs=reg.get("payment_requests",{}) or {}
-                    rid=f"PAY-{secrets.token_hex(6).upper()}"
-                    reqs[rid]={"request_id":rid,"firm_id":fid,"username":username,"package":pkg,"months":package_catalog[pkg]["months"],"extra_users":int(extra),"required_amount":amount,"payment_reference":payref.strip(),"status":"PENDING","created_at":_now_iso()}
-                    reqs[rid]["payment_mode"] = paymode
-                    reqs[rid]["payment_date"] = str(paydate)
-                    reg["payment_requests"]=reqs; _save_registry(reg)
-                    _notify_admin("Payment Request", f"Firm: {firm.get('firm_name')}\nFirm ID: {fid}\nPackage: {package_catalog[pkg]['label']}\nRequired: ₹{amount:,.2f}\nMode: {paymode}\nReference: {payref}", firm.get("mobile", ""))
-                    st.success("Payment request recorded. Access will start only after the credited amount is verified against the selected package.")
-        st.markdown('</div></div>', unsafe_allow_html=True)
+            with tab_login:
+                st.markdown('<div class="sv2-shield">🛡️</div><div class="sv2-card-title">SECURE LOGIN</div>', unsafe_allow_html=True)
+                st.text_input("👤  Login ID", key="_lu", placeholder="Enter Login ID")
+                st.text_input("🔒  Password", key="_lp", type="password", placeholder="Enter Password")
+                st.checkbox("Remember me", value=True, key="_remember_me")
+                st.button("🔒  SIGN IN  →", on_click=_do_login, type="primary", use_container_width=True, key="_sign_in_final")
+                if st.session_state._login_error:
+                    st.markdown(f'<div class="sv2-error">{st.session_state._login_error}</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sv2-security">Firm-wise secure access • Super User access is separately controlled</div>', unsafe_allow_html=True)
 
-    st.markdown("""
-        <div class="sv2-bottom"><strong>SOFTVIEW TECHNOLOGIES</strong><span>• CCI Working Calculation Utility • Premium Enterprise Edition</span></div>
-        </section>
-      </div>
-      <div class="sv2-footer">
-        <div>© 2026 Softview Technologies. All rights reserved.</div>
-        <div class="center">Developed with ❤️ by<strong>SOFTVIEW TECHNOLOGIES</strong></div>
-        <div class="links">Innovation<span>Technology</span><span>Excellence</span></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+            with tab_register:
+                st.markdown('<div class="sv2-card-title">REGISTER FIRM</div>', unsafe_allow_html=True)
+                st.caption("Registration key: exactly 12 characters • valid for 2 hours • Super User approval required before the 3-day trial starts.")
+                a,b=st.columns(2)
+                a.text_input("Firm Name ✱", key="_rfname")
+                b.text_input("Owner Username ✱", key="_rowner")
+                a.text_input("Password ✱", key="_rpass", type="password")
+                b.text_input("Mobile No. ✱", key="_rmobile", max_chars=15)
+                a.text_input("Email", key="_remail")
+                b.text_input("Firm Address", key="_raddress")
+                st.button("📝 Generate Registration Request", on_click=_do_register, type="primary", use_container_width=True, key="_register_final")
+                if st.session_state.get("_reg_error"):
+                    st.error(st.session_state._reg_error)
+                if st.session_state.get("_reg_result"):
+                    rr=st.session_state._reg_result
+                    st.success(st.session_state.get("_reg_success", "Registration submitted."))
+                    st.code(rr["key"], language=None)
+                    st.warning("Copy this 12-character key. It expires after 2 hours. The 3-day trial starts only after Super User authentication.")
+
+            with tab_payment:
+                st.markdown('<div class="sv2-card-title">PAYMENT / RENEW</div>', unsafe_allow_html=True)
+                st.caption("Minimum package: 4 months. Payment must be credited/verified in the Super User party ledger. A short payment will not activate access.")
+                username = st.text_input("Firm Owner / Username", key="_renew_user")
+                package_catalog = _package_catalog()
+                labels = list(package_catalog.keys())
+                pkg = st.selectbox("Package", labels, format_func=lambda x: f"{package_catalog[x]['label']} — ₹{package_catalog[x]['price']:,.2f}", key="_renew_pkg")
+                extra = st.number_input("Extra Users beyond included 3", min_value=0, max_value=100, value=0, step=1, key="_renew_extra")
+                amount = package_catalog[pkg]["price"] + extra * _extra_user_price()
+                st.metric("Required Exact Amount", f"₹{amount:,.2f}")
+                paydate = st.date_input("Payment Date", value=date.today(), key="_renew_date")
+                paymode = st.selectbox("Mode of Payment", ["UPI","NEFT","RTGS","IMPS","Bank Transfer","Cheque","Cash","Card","Other"], key="_renew_mode")
+                payref = st.text_input("Payment Reference / UTR", key="_renew_ref")
+                if st.button("💳 Submit Payment Request", type="primary", use_container_width=True, key="_payment_final"):
+                    if float(package_catalog[pkg]["price"]) <= 0:
+                        st.error("Package pricing is not configured yet. Please contact the Super User.")
+                    else:
+                        fid, firm = _find_firm_for_user(username)
+                        if not fid:
+                            st.error("Firm/user not found.")
+                        else:
+                            reg=_load_registry(); reqs=reg.get("payment_requests",{}) or {}
+                            rid=f"PAY-{secrets.token_hex(6).upper()}"
+                            reqs[rid]={"request_id":rid,"firm_id":fid,"username":username,"package":pkg,"months":package_catalog[pkg]["months"],"extra_users":int(extra),"required_amount":amount,"payment_reference":payref.strip(),"status":"PENDING","created_at":_now_iso()}
+                            reqs[rid]["payment_mode"] = paymode
+                            reqs[rid]["payment_date"] = str(paydate)
+                            reg["payment_requests"]=reqs; _save_registry(reg)
+                            _notify_admin("Payment Request", f"Firm: {firm.get('firm_name')}\nFirm ID: {fid}\nPackage: {package_catalog[pkg]['label']}\nRequired: ₹{amount:,.2f}\nMode: {paymode}\nReference: {payref}", firm.get("mobile", ""))
+                            st.success("Payment request recorded. Access will start only after the credited amount is verified against the selected package.")
+            st.markdown('<div class="sv2-bottom"><strong>SOFTVIEW TECHNOLOGIES</strong><span>• CCI Working Calculation Utility • Premium Enterprise Edition</span></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sv2-footer"><div>© 2026 Softview Technologies. All rights reserved.</div><div class="center">Developed with ❤️ by<strong>SOFTVIEW TECHNOLOGIES</strong></div><div class="links">Innovation<span>Technology</span><span>Excellence</span></div></div>', unsafe_allow_html=True)
 
     st.stop()
 
