@@ -1748,6 +1748,17 @@ def fmt_inr(value, symbol="₹", decimals=2, dash_on_zero=True):
     return f"{symbol}{'-' if neg else ''}{s}"
 
 # ─── PARSE EXCEL ──────────────────────────────────────────────────────────────
+def _sort_asc(df, cols):
+    """Stable ascending sort by date column(s); blank/NaT dates go last.
+    Upload order is irrelevant: all allocation/calculation uses oldest-first."""
+    if df is None or len(df) == 0:
+        return df
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        return df
+    return df.sort_values(cols, kind="mergesort", na_position="last").reset_index(drop=True)
+
+
 def parse_excel(file_bytes):
     xl = pd.ExcelFile(io.BytesIO(file_bytes))
     sheets = xl.sheet_names
@@ -1831,7 +1842,14 @@ def parse_excel(file_bytes):
     grn["IGST"]              = pd.to_numeric(grn["IGST"], errors="coerce").fillna(0)
     grn["Party_Bill_Amount"] = pd.to_numeric(grn["Party_Bill_Amount"], errors="coerce").fillna(0)
     grn["Accepted_Qty_AUM"]  = pd.to_numeric(grn["Accepted_Qty_AUM"], errors="coerce")
-    # Preserve the exact uploaded GRN row sequence.
+    # Upload sequence is NOT used. Everything is sorted ascending by date so
+    # FIFO allocation and CC / CD / LL / EMD calculations are always correct,
+    # however randomly the user entered the rows in Excel.
+    cont    = _sort_asc(cont,    ["Effective_Date"])
+    emd     = _sort_asc(emd,     ["EMD_Date"])
+    add_emd = _sort_asc(add_emd, ["Add_EMD_Date"])
+    pay     = _sort_asc(pay,     ["Payment_Date"])
+    grn     = _sort_asc(grn,     ["Party_Bill_Date"])
     return cont, emd, add_emd, pay, grn
 
 # ─── CALCULATIONS ─────────────────────────────────────────────────────────────
@@ -1900,6 +1918,13 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
     mc_or_contracts: either a single mc dict (legacy) OR a list of all contracts.
     When a list is passed, per-row EITHER/OR lookup is done automatically.
     """
+    # ── ALWAYS work in ascending date order (FIFO) ───────────────────────────
+    cont    = _sort_asc(cont,    ["Effective_Date"])
+    emd     = _sort_asc(emd,     ["EMD_Date"])
+    add_emd = _sort_asc(add_emd, ["Add_EMD_Date"])
+    pay     = _sort_asc(pay,     ["Payment_Date"])
+    grn     = _sort_asc(grn,     ["Party_Bill_Date"])
+
     # Support both old single-mc call and new multi-mc list call
     _contracts_list = mc_or_contracts if isinstance(mc_or_contracts, list) else None
     _single_mc      = mc_or_contracts if not isinstance(mc_or_contracts, list) else None
@@ -1940,7 +1965,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
     emd_pool = {}
     for cn_raw, g in emd.groupby("Contract_No"):
         key = str(cn_raw).strip().upper()
-        emd_pool[key] = g[["EMD_Date","EMD_Amount"]].copy().reset_index(drop=True)
+        emd_pool[key] = _sort_asc(g[["EMD_Date","EMD_Amount"]].copy(), ["EMD_Date"])
         emd_pool[key]["Remaining"] = emd_pool[key]["EMD_Amount"].astype(float)
 
     # Additional EMD vouchers. Each voucher has its own paid-bale quantity.
@@ -1997,7 +2022,7 @@ def run_calculations(cont, emd, add_emd, pay, grn, mc_or_contracts):
     contract_last_payment_mode = {}
     for cn_raw, g in pay.groupby("Contract_No"):
         key = str(cn_raw).strip().upper()
-        _pg = g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy().reset_index(drop=True)
+        _pg = _sort_asc(g[["Payment_Date","Payment_Amount","Mode_Of_Transaction"]].copy(), ["Payment_Date"])
         pay_pool[key] = _pg
         pay_pool[key]["Remaining"] = pay_pool[key]["Payment_Amount"].astype(float)
 
