@@ -346,7 +346,7 @@ st.markdown("""
     box-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 .logo-img {
-    height: 68px; width: auto;
+    height: 86px; width: auto;
     border-radius: 12px; background: rgba(255,255,255,0.97);
     padding: 6px 10px; object-fit: contain;
     box-shadow: 0 4px 16px rgba(0,0,0,0.18); flex-shrink: 0;
@@ -1500,8 +1500,8 @@ if not st.session_state.authenticated:
     }}
     div.st-key-sv2_left > div, div.st-key-sv2_left [data-testid="stElementContainer"], div.st-key-sv2_left [data-testid="stMarkdownContainer"] {{ background:transparent !important; }}
     .st-key-sv2_left .sv2-gold-arc {{ position:absolute !important; top:0; right:0; width:8px; height:100%; background:linear-gradient(180deg,#f2c65d,#c98f2b,#f2c65d) !important; box-shadow:0 0 14px rgba(242,198,93,.6); }}
-    .st-key-sv2_left .sv2-brand {{ display:flex !important; align-items:center; gap:16px; margin-bottom:14px; }}
-    .st-key-sv2_left .sv2-logo {{ width:68px !important; height:68px !important; object-fit:contain; background:#fff; border-radius:14px; padding:6px; box-shadow:0 6px 18px rgba(0,0,0,.35); }}
+    .st-key-sv2_left .sv2-brand {{ display:flex !important; align-items:center; gap:20px; margin-bottom:16px; }}
+    .st-key-sv2_left .sv2-logo {{ width:108px !important; height:108px !important; object-fit:contain; background:#fff; border-radius:18px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,.40); flex-shrink:0; }}
     .st-key-sv2_left .sv2-brand-name {{ color:#ffffff !important; font-size:32px !important; font-weight:900 !important; line-height:1.05; letter-spacing:.01em; }}
     .st-key-sv2_left .sv2-brand-sub {{ color:#b9cde6 !important; font-size:11px !important; letter-spacing:.3em; font-weight:800; margin-top:4px; }}
     .st-key-sv2_left .sv2-tagline {{ color:#f2c65d !important; font-size:13px !important; font-weight:700; font-style:italic; margin:6px 0 26px; }}
