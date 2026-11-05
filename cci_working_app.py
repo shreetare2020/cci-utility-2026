@@ -1518,6 +1518,16 @@ if not st.session_state.authenticated:
     .st-key-sv2_left .sv2-field-diag {{ position:absolute; left:0; bottom:62px; width:140%; height:3px; background:linear-gradient(90deg,#f2c65d,#c9922f); transform:rotate(-4deg); transform-origin:left; box-shadow:0 0 10px rgba(242,198,93,.55); }}
     .st-key-sv2_left .sv2-field-bales {{ position:absolute; left:26px; right:26px; bottom:16px; display:flex; justify-content:space-between; gap:12px; opacity:1; }}
     .st-key-sv2_left .sv2-field-bales span {{ flex:1; height:42px; border-radius:9px; background:linear-gradient(180deg,#f3e9cf,#d9c492); border:2px solid #b89a5a; box-shadow:0 3px 8px rgba(0,0,0,.25); }}
+
+    /* ── v5 FIX: no absolute positioning inside Streamlit markdown (it overlapped the icons) ── */
+    div.st-key-sv2_left, div[data-testid="stVerticalBlock"].st-key-sv2_left {{ padding:42px 42px 46px !important; min-height:780px !important; box-shadow:inset -8px 0 0 #e0a93a !important; }}
+    .st-key-sv2_left .sv2-gold-arc {{ display:none !important; }}
+    .st-key-sv2_left .sv2-field {{ position:relative !important; left:auto !important; right:auto !important; bottom:auto !important; width:100% !important; max-width:460px; height:128px !important; margin:40px 0 0 !important;
+        border:1px solid rgba(242,198,93,.45) !important; border-radius:16px; overflow:hidden;
+        background:linear-gradient(180deg,rgba(255,255,255,.04) 0%,rgba(122,96,56,.55) 100%) !important; }}
+    .st-key-sv2_left .sv2-field-diag {{ position:absolute !important; left:-5%; bottom:56px; width:110%; height:3px; background:linear-gradient(90deg,#f2c65d,#c9922f); transform:rotate(-4deg); transform-origin:left; }}
+    .st-key-sv2_left .sv2-field-bales {{ position:absolute !important; left:14px; right:14px; bottom:14px; display:flex; justify-content:space-between; gap:10px; }}
+    .st-key-sv2_left .sv2-field-bales span {{ flex:1; height:38px; }}
     </style>
     """, unsafe_allow_html=True)
 
