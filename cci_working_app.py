@@ -1492,6 +1492,32 @@ if not st.session_state.authenticated:
     .st-key-sv2_right div[data-baseweb="tab-panel"] {{ background:#fff; border:1px solid #e2e8f0; border-radius:18px; padding:24px 28px 20px !important; margin-top:12px; box-shadow:0 14px 34px rgba(15,35,65,.10); }}
     .sv2-bottom {{ margin-left:auto; margin-right:auto; }}
     .sv2-footer {{ margin-top:14px; border-radius:14px; }}
+
+    /* ── v4 FIX: left panel colours. Global "stVerticalBlock transparent !important" was hiding the navy background ── */
+    div.st-key-sv2_left, div[data-testid="stVerticalBlock"].st-key-sv2_left {{
+        background:linear-gradient(160deg,#081b3c 0%,#0d2c5e 55%,#0a2350 100%) !important;
+        min-height:780px !important; padding:42px 42px 200px !important; display:block !important; position:relative !important; overflow:hidden !important;
+    }}
+    div.st-key-sv2_left > div, div.st-key-sv2_left [data-testid="stElementContainer"], div.st-key-sv2_left [data-testid="stMarkdownContainer"] {{ background:transparent !important; }}
+    .st-key-sv2_left .sv2-gold-arc {{ position:absolute !important; top:0; right:0; width:8px; height:100%; background:linear-gradient(180deg,#f2c65d,#c98f2b,#f2c65d) !important; box-shadow:0 0 14px rgba(242,198,93,.6); }}
+    .st-key-sv2_left .sv2-brand {{ display:flex !important; align-items:center; gap:16px; margin-bottom:14px; }}
+    .st-key-sv2_left .sv2-logo {{ width:68px !important; height:68px !important; object-fit:contain; background:#fff; border-radius:14px; padding:6px; box-shadow:0 6px 18px rgba(0,0,0,.35); }}
+    .st-key-sv2_left .sv2-brand-name {{ color:#ffffff !important; font-size:32px !important; font-weight:900 !important; line-height:1.05; letter-spacing:.01em; }}
+    .st-key-sv2_left .sv2-brand-sub {{ color:#b9cde6 !important; font-size:11px !important; letter-spacing:.3em; font-weight:800; margin-top:4px; }}
+    .st-key-sv2_left .sv2-tagline {{ color:#f2c65d !important; font-size:13px !important; font-weight:700; font-style:italic; margin:6px 0 26px; }}
+    .st-key-sv2_left .sv2-title1 {{ color:#ffffff !important; font-size:38px !important; font-weight:900 !important; line-height:1.1; letter-spacing:.01em; }}
+    .st-key-sv2_left .sv2-title2 {{ color:#f2c65d !important; font-size:22px !important; font-weight:900 !important; letter-spacing:.06em; margin-top:4px; }}
+    .st-key-sv2_left .sv2-rule {{ width:74px; height:3px; border-radius:2px; background:linear-gradient(90deg,#f2c65d,#c9922f) !important; margin:18px 0; }}
+    .st-key-sv2_left .sv2-desc {{ color:#dbe7f5 !important; font-size:14px !important; line-height:1.7; max-width:440px; }}
+    .st-key-sv2_left .sv2-feat-grid {{ margin-top:28px; display:grid !important; grid-template-columns:repeat(3,1fr); gap:22px 12px; max-width:460px; }}
+    .st-key-sv2_left .sv2-feat-icon {{ width:58px !important; height:58px !important; font-size:24px !important; border:1.5px solid #e8b84d; background:rgba(255,255,255,.08) !important; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 14px rgba(232,184,77,.15); }}
+    .st-key-sv2_left .sv2-feat-title {{ color:#ffffff !important; font-size:12px !important; font-weight:700 !important; line-height:1.35; text-align:center; }}
+    .st-key-sv2_left .sv2-field {{ position:absolute !important; left:0; right:0; bottom:0; height:150px !important; margin:0 !important; border-top:1px solid rgba(242,198,93,.45); overflow:hidden;
+        background:linear-gradient(180deg,rgba(8,27,60,0) 0%,rgba(110,88,52,.45) 55%,#7a6038 100%) !important; }}
+    .st-key-sv2_left .sv2-field-emoji {{ display:none !important; }}
+    .st-key-sv2_left .sv2-field-diag {{ position:absolute; left:0; bottom:62px; width:140%; height:3px; background:linear-gradient(90deg,#f2c65d,#c9922f); transform:rotate(-4deg); transform-origin:left; box-shadow:0 0 10px rgba(242,198,93,.55); }}
+    .st-key-sv2_left .sv2-field-bales {{ position:absolute; left:26px; right:26px; bottom:16px; display:flex; justify-content:space-between; gap:12px; opacity:1; }}
+    .st-key-sv2_left .sv2-field-bales span {{ flex:1; height:42px; border-radius:9px; background:linear-gradient(180deg,#f3e9cf,#d9c492); border:2px solid #b89a5a; box-shadow:0 3px 8px rgba(0,0,0,.25); }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1500,7 +1526,7 @@ if not st.session_state.authenticated:
 
     with _lcol:
         with st.container(key="sv2_left"):
-            st.markdown(f'''<div class="sv2-gold-arc"></div><div class="sv2-brand"><img class="sv2-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview"><div><div class="sv2-brand-name">Softview</div><div class="sv2-brand-sub">TECHNOLOGIES</div></div></div><div class="sv2-tagline">Smart Solutions... Better Tomorrow...</div><div class="sv2-title1">CCI WORKING</div><div class="sv2-title2">CALCULATION UTILITY</div><div class="sv2-rule"></div><div class="sv2-desc">A professional workspace for CCI contracts, lifting, EMD, CD/CC and FIFO allocation — with firm-wise secure access.</div><div class="sv2-feat-grid"><div class="sv2-feat"><div class="sv2-feat-icon">📄</div><div class="sv2-feat-title">Contracts<br>Management</div></div><div class="sv2-feat"><div class="sv2-feat-icon">🚚</div><div class="sv2-feat-title">GRN &amp; Lifting<br>Tracking</div></div><div class="sv2-feat"><div class="sv2-feat-icon">💰</div><div class="sv2-feat-title">EMD &amp;<br>Payments</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📊</div><div class="sv2-feat-title">CD/CC<br>Charges</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📁</div><div class="sv2-feat-title">FIFO<br>Allocation</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📋</div><div class="sv2-feat-title">Reports &amp;<br>Export</div></div></div><div class="sv2-field"><div class="sv2-field-diag"></div><div class="sv2-field-emoji">🌸🤍</div><div class="sv2-field-bales"><span></span><span></span><span></span><span></span></div></div>''', unsafe_allow_html=True)
+            st.markdown(f'''<div class="sv2-gold-arc"></div><div class="sv2-brand"><img class="sv2-logo" src="data:image/png;base64,{LOGO_B64}" alt="Softview"><div><div class="sv2-brand-name">Softview</div><div class="sv2-brand-sub">TECHNOLOGIES</div></div></div><div class="sv2-tagline">Smart Solutions... Better Tomorrow...</div><div class="sv2-title1">CCI WORKING</div><div class="sv2-title2">CALCULATION UTILITY</div><div class="sv2-rule"></div><div class="sv2-desc">A professional workspace for CCI contracts, lifting, EMD, CD/CC and FIFO allocation — with firm-wise secure access.</div><div class="sv2-feat-grid"><div class="sv2-feat"><div class="sv2-feat-icon">📄</div><div class="sv2-feat-title">Contracts<br>Management</div></div><div class="sv2-feat"><div class="sv2-feat-icon">🚚</div><div class="sv2-feat-title">GRN &amp; Lifting<br>Tracking</div></div><div class="sv2-feat"><div class="sv2-feat-icon">💰</div><div class="sv2-feat-title">EMD &amp;<br>Payments</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📊</div><div class="sv2-feat-title">CD/CC<br>Charges</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📁</div><div class="sv2-feat-title">FIFO<br>Allocation</div></div><div class="sv2-feat"><div class="sv2-feat-icon">📋</div><div class="sv2-feat-title">Reports &amp;<br>Export</div></div></div><div class="sv2-field"><div class="sv2-field-diag"></div><div class="sv2-field-bales"><span></span><span></span><span></span><span></span></div></div>''', unsafe_allow_html=True)
 
     with _rcol:
         with st.container(key="sv2_right"):
